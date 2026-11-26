@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ElMessage } from 'element-plus'
 import { computed, onMounted, ref, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -39,6 +40,7 @@ async function load(): Promise<void> {
   try {
     roster.value = await api.roster(sessionId.value)
   } catch (failure) {
+    roster.value = null
     error.value = errorMessage(failure)
   } finally {
     loading.value = false
@@ -53,6 +55,12 @@ function recordedOne(next: ResultRosterEntry): void {
     ...current,
     entries: current.entries.map((entry) => (entry.ticketId === next.ticketId ? next : entry)),
   }
+}
+
+function refreshAfterConflict(): void {
+  editing.value = null
+  ElMessage.warning('其他操作员已修改这份结果。请核对最新成绩后重新编辑。')
+  void load()
 }
 
 function rowClass({ row }: { row: ResultRosterEntry }): string {
@@ -146,7 +154,7 @@ onMounted(() => {
     </div>
   </PageSection>
 
-  <ResultDialog :api="api" :entry="editing" @recorded="recordedOne" @close="editing = null" @stale="load" />
+  <ResultDialog :api="api" :entry="editing" @recorded="recordedOne" @close="editing = null" @stale="refreshAfterConflict" />
 </template>
 
 <style scoped>

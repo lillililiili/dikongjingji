@@ -3,6 +3,7 @@ import type { FormInstance } from 'element-plus'
 import { onMounted, reactive, ref, shallowRef } from 'vue'
 
 import { http } from '@/core/http'
+import { errorMessageWithTrace } from '@/core/http/api-error'
 import { confirmAction, notifyRecorded, showError } from '@/core/ui/feedback'
 import { formatDateTime } from '@/core/ui/format'
 import PagedTable from '@/core/ui/PagedTable.vue'
@@ -28,12 +29,14 @@ const editing = shallowRef<OpsMerchantAccount | null>(null)
 const form = reactive({ subMchid: '', active: true })
 const saving = ref(false)
 
-const history = reactive<{ open: boolean, account: OpsMerchantAccount | null, loading: boolean }>({
+const history = reactive<{ open: boolean, account: OpsMerchantAccount | null, loading: boolean, error: string }>({
   open: false,
   account: null,
   loading: false,
+  error: '',
 })
 const operations = shallowRef<OpsMerchantAccountOperation[]>([])
+let historyRequest = 0
 
 function openEdit(account: OpsMerchantAccount): void {
   editing.value = account
@@ -71,16 +74,19 @@ async function save(): Promise<void> {
 }
 
 async function openHistory(account: OpsMerchantAccount): Promise<void> {
+  const request = ++historyRequest
   history.account = account
   history.open = true
   history.loading = true
+  history.error = ''
   operations.value = []
   try {
-    operations.value = await api.operations(account.organizationId)
+    const loaded = await api.operations(account.organizationId)
+    if (request === historyRequest) operations.value = loaded
   } catch (failure) {
-    showError(failure)
+    if (request === historyRequest) history.error = errorMessageWithTrace(failure)
   } finally {
-    history.loading = false
+    if (request === historyRequest) history.loading = false
   }
 }
 
@@ -183,7 +189,12 @@ onMounted(() => {
   <el-drawer v-model="history.open" :title="history.account ? `登记记录：${history.account.organizationName}` : ''"
              size="420px">
     <div v-loading="history.loading">
-      <el-empty v-if="!history.loading && operations.length === 0" description="还没有登记记录" />
+      <el-result v-if="history.error" icon="error" title="登记记录加载失败" :sub-title="history.error">
+        <template #extra>
+          <el-button v-if="history.account" @click="openHistory(history.account)">重新加载</el-button>
+        </template>
+      </el-result>
+      <el-empty v-else-if="!history.loading && operations.length === 0" description="还没有登记记录" />
       <el-timeline v-else>
         <el-timeline-item
           v-for="operation in operations"

@@ -9,7 +9,7 @@
 // Which features this build opens is printed first. The page-level proof that closed features stay
 // out of reach is the public E2E (e2e/public-build.spec.ts) run against this bundle.
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
-import { extname, join } from 'node:path'
+import { extname, join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 
 import { mobileRoot, productionBuildEnv, readReleaseFeatures, resolveReleaseFlags } from './release-flags.mjs'
@@ -17,7 +17,7 @@ const publicAssetExclusions = JSON.parse(readFileSync(new URL('./public-asset-ex
 
 const productionEnvPath = join(mobileRoot, '.env.production')
 const productionLocalEnvPath = join(mobileRoot, '.env.production.local')
-const h5OutputPath = join(mobileRoot, 'dist', 'build', 'h5')
+const h5OutputPath = resolve(mobileRoot, process.env.UNI_OUTPUT_DIR || 'dist/build/h5')
 const forbiddenMarkers = [
   '专业航拍',
   '无人机足球赛',
@@ -28,6 +28,8 @@ const forbiddenMarkers = [
   'platform-mall.fixture',
   'platform-service.fixture',
   '/static/images/home/',
+  '/api/v1/dev/trade/orders/',
+  '演示环境：模拟微信支付',
 ]
 // Home channels that open with a release switch, by the label the bundle carries.
 const homeChannels = { ACTIVITY: '赛事研学', EXPERIENCE: '体验', MALL: '商城' }
@@ -131,4 +133,4 @@ if (channelProblems.length > 0) {
 }
 
 console.log('Public production H5 preview fixture guard passed.')
-console.log('Next: serve dist/build/h5 and run E2E_PUBLIC_BUILD=1 npx playwright test e2e/public-build.spec.ts.')
+console.log(`Next: serve ${h5OutputPath} and run E2E_PUBLIC_BUILD=1 npx playwright test e2e/public-build.spec.ts.`)

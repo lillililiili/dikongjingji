@@ -1,11 +1,17 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import ElementPlus from 'element-plus'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { recordingClient } from '@/core/http/recording-client'
 
 import { canRun, createImportApi, filesProblem, type OpsImportBatch } from './import-api'
+import ImportBatchPage from './ImportBatchPage.vue'
 import ImportBatchResult from './ImportBatchResult.vue'
+
+const { get, run } = vi.hoisted(() => ({ get: vi.fn(), run: vi.fn() }))
+vi.mock('@/core/http', () => ({ http: { get } }))
+vi.mock('./run-import', () => ({ runImport: run }))
 
 async function settle(): Promise<void> {
   for (let i = 0; i < 3; i++) {
@@ -15,6 +21,50 @@ async function settle(): Promise<void> {
 }
 
 const BATCH = '5a000000-0000-4000-8000-000000000001'
+
+it('切换导入批次时清空旧结果，较早的读取和导入响应不会覆盖当前批次的错误或重试结果', async () => {
+  const router = createRouter({ history: createMemoryHistory(), routes: [
+    { path: '/imports/:batchId', name: 'import-batch', component: ImportBatchPage },
+    { path: '/imports', name: 'imports', component: { template: '<div />' } },
+  ] })
+  const first = batch({ status: 'CHECKED', issues: [], issueCount: 0 })
+  const second = batch({ batchId: '5a000000-0000-4000-8000-000000000002' })
+  const third = batch({ batchId: '5a000000-0000-4000-8000-000000000003' })
+  let finishSecond!: (value: OpsImportBatch) => void
+  let finishImport!: (value: OpsImportBatch) => void
+  let retry = false
+  get.mockImplementation(async (url: string) => {
+    if (url.endsWith('/kinds')) return [{ kind: 'MALL', writable: true }]
+    if (url.endsWith('/' + first.batchId)) return first
+    if (url.endsWith('/' + second.batchId)) return new Promise(resolve => { finishSecond = resolve })
+    if (url.endsWith('/' + third.batchId) && retry) return third
+    throw new Error('批次请求失败')
+  })
+  run.mockImplementation(() => new Promise(resolve => { finishImport = resolve }))
+  const open = (record: OpsImportBatch) => router.push({ name: 'import-batch', params: { batchId: record.batchId } })
+  await open(first)
+  const wrapper = mount(ImportBatchPage, { global: { plugins: [router, ElementPlus] } })
+  try {
+    await settle()
+    await wrapper.get('[data-testid="import-run"]').trigger('click')
+    expect(run.mock.calls[0]?.[1].batchId).toBe(first.batchId)
+    await open(second)
+    expect(wrapper.findComponent(ImportBatchResult).exists()).toBe(false)
+    await open(third)
+    await settle()
+    finishSecond(second)
+    finishImport({ ...first, status: 'IMPORTED' })
+    await settle()
+    expect(wrapper.findComponent(ImportBatchResult).exists()).toBe(false)
+    expect(wrapper.text()).toContain('批次请求失败')
+    retry = true
+    await wrapper.get('.el-result button').trigger('click')
+    await settle()
+    expect(wrapper.getComponent(ImportBatchResult).props('batch').batchId).toBe(third.batchId)
+  } finally {
+    wrapper.unmount()
+  }
+})
 
 function batch(overrides: Partial<OpsImportBatch> = {}): OpsImportBatch {
   return {

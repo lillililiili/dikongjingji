@@ -35,12 +35,14 @@ const truncated = computed(() => props.batch.issueCount > props.batch.issues.len
     <div class="result__head">
       <el-tag :type="status.tag" size="large" data-testid="import-status">{{ status.label }}</el-tag>
       <span>{{ KIND_LABELS[batch.kind] }} · {{ batch.rowCount }} 行 · 问题 {{ batch.issueCount }} 条</span>
+      <span class="sub">批次号 {{ batch.batchId }}</span>
       <span class="sub">预检：{{ batch.checkedByName }} {{ formatDateTime(batch.checkedAt) }}</span>
       <span v-if="batch.importedAt" class="sub">导入：{{ batch.importedByName }} {{ formatDateTime(batch.importedAt) }}</span>
       <span class="sub">文件保留到 {{ formatDateTime(batch.retainedUntil) }}</span>
       <el-button v-if="runnable" type="primary" :loading="running" data-testid="import-run" @click="emit('run')">
         导入
       </el-button>
+      <slot name="actions" />
     </div>
 
     <el-alert v-if="batch.duplicateOfBatchId" type="info" :closable="false" class="block"

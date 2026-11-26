@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
 import { PLANNING, boardUrl } from './support/board-compare'
+import { expectCurrentAgreement } from './support/agreement'
 import { purgeFreeEnrollments } from './support/activity-fixtures'
 import { API, BUYER, apiLogin, databaseAvailable, psql, type Session } from './support/trade-fixtures'
 
@@ -172,7 +173,7 @@ test.describe('系统通知与通知设置', () => {
       AND target_id = '${NOTICE_ID}' AND read_at IS NOT NULL;`)).toBe('1')
   })
 
-  test('SN-002 通知详情的链接：参与人页、还没开通的权限管理、完整隐私政策；协议页“有更新”回到摘要', async ({ page }) => {
+  test('SN-002 从通知查看隐私政策的当前发布状态，并回到更新摘要', async ({ page }) => {
     await signIn(page, buyer)
     await page.goto(`/#/pages/message/notice?id=${NOTICE_ID}`)
     await expect(page.getByTestId('notice-title')).toHaveText('隐私政策更新摘要')
@@ -187,8 +188,7 @@ test.describe('系统通知与通知设置', () => {
 
     await page.getByTestId('notice-action').click()
     await expect(page).toHaveURL(/pages\/mine\/agreement\?doc=PRIVACY_POLICY/)
-    await expect(page.getByTestId('agreement-title')).toHaveText('隐私政策')
-    await expect(page.getByTestId('agreement-page')).toContainText('v1.1')
+    await expectCurrentAgreement(page, 'PRIVACY_POLICY', '隐私政策')
     await page.getByTestId('agreement-update').click()
     await expect(page).toHaveURL(new RegExp(`pages/message/notice\\?id=${NOTICE_ID}`))
   })
@@ -200,7 +200,7 @@ test.describe('系统通知与通知设置', () => {
 
     await page.getByTestId('agreement-all').click()
     await page.getByTestId('agreement-pick-user_agreement').click()
-    await expect(page.getByTestId('agreement-title')).toHaveText('用户协议')
+    await expectCurrentAgreement(page, 'USER_AGREEMENT', '用户协议')
     await expect(page.getByTestId('agreement-update')).toHaveCount(0)
 
     await page.goto(`/#/pages/message/notice?id=${NOTICE_ID}`)

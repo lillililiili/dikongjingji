@@ -6,6 +6,7 @@ import { http } from '@/core/http'
 import { errorMessage } from '@/core/http/api-error'
 import { formatDateTime } from '@/core/ui/format'
 import PageSection from '@/core/ui/PageSection.vue'
+import { useLookupReturn } from './lookup-return'
 
 import {
   createLookupApi,
@@ -28,6 +29,7 @@ const REGISTERED_VIA_LABELS: Record<string, string> = { PHONE: '手机号注册'
 const api = props.api ?? createLookupApi(http)
 const route = useRoute()
 const router = useRouter()
+const returnToList = useLookupReturn('ops-users')
 const user = shallowRef<UserDetail | null>(null)
 const loading = ref(false)
 const error = ref('')
@@ -65,7 +67,7 @@ onMounted(() => {
         查看订单（{{ user.orderCount }}）
       </el-button>
       <el-button @click="load()">刷新</el-button>
-      <el-button @click="router.push({ name: 'ops-users' })">返回查询</el-button>
+      <el-button @click="returnToList">返回查询</el-button>
     </template>
 
     <el-alert v-if="error" type="error" :title="error" :closable="false" show-icon>

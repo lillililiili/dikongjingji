@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
-import { API, BUYER, CITY, apiLogin } from './support/trade-fixtures'
+import { API, BUYER, CITY, apiLogin, psql } from './support/trade-fixtures'
 
 import { testAdmin as admin } from './support/test-stack'
 const operatorPassword = process.env.DEV_OPERATOR_PASSWORD
@@ -36,6 +36,7 @@ async function upload(request: APIRequestContext, headers: Record<string,string>
 }
 
 test('轮播草稿在运营后台编辑并发布，App 按城市和顺序展示，旧版本被拒，下架后图片也撤回', async({page, request, context}) => {
+  test.setTimeout(90_000)
   const headers=await operator(request)
   const media=await upload(request,headers)
   const slides='/ops/home/carousel'
@@ -60,25 +61,45 @@ test('轮播草稿在运营后台编辑并发布，App 按城市和顺序展示�
   const write=page.waitForResponse(r=>r.url().endsWith(item)&&r.request().method()==='PUT')
   await dialog.getByRole('button',{name:'保存',exact:true}).click()
   expect((await write).status()).toBe(200)
-  expect((await publicSlides(CITY))[0]).toMatchObject({id,titleLines:[title,'已正式发布']})
-  expect((await publicSlides(secondCity)).some(s=>s.id===id)).toBe(false)
-  const guest=await request.get(image)
-  expect(guest.status()).toBe(200)
-  expect(await guest.body()).toEqual(png)
-  const app=await context.newPage()
-  await app.goto('/#/pages/home/index')
-  await expect(app.getByTestId('home-carousel')).toContainText(title)
-  expect((await request.put(API+'/api/v1'+item,{headers,data})).status()).toBe(409)
-  expect((await request.put(API+'/api/v1'+item,{headers,data:{...data,version:1,status:'OFFLINE'}})).status()).toBe(200)
-  expect((await publicSlides(CITY)).some(s=>s.id===id)).toBe(false)
-  expect((await request.get(image)).status()).toBe(404)
-  const history=await json(request,item+'/changes',headers)
-  expect(history.map((h: {status:string})=>h.status)).toEqual(['OFFLINE','PUBLISHED','DRAFT'])
-  expect(history[0].operatorName).toBeTruthy()
-  expect((await request.get(API+'/api/v1'+slides)).status()).toBe(401)
-  const buyer=await apiLogin(request,BUYER)
-  expect(buyer).toBeTruthy()
-  expect((await request.put(API+'/api/v1'+item,{headers:buyer!.headers,data:{...data,version:2}})).status()).toBe(403)
+  let offlined=false
+  try {
+    const visible=await publicSlides(CITY)
+    expect(visible.find(slide=>slide.id===id)).toMatchObject({id,titleLines:[title,'已正式发布']})
+    const expectedOrder = psql(`SELECT id FROM content_home_slide WHERE city_code='${CITY}'
+      AND status='PUBLISHED' ORDER BY sort_order, id LIMIT 12`).split(/\r?\n/)
+    expect(visible.map(s=>s.id)).toEqual(expectedOrder)
+    expect((await publicSlides(secondCity)).some(s=>s.id===id)).toBe(false)
+    const guest=await request.get(image)
+    expect(guest.status()).toBe(200)
+    expect(await guest.body()).toEqual(png)
+    const app=await context.newPage()
+    const route='**/api/v1/home/carousel?*'
+    await app.route(route, intercepted=>intercepted.fulfill({status:503, json:{}}), {times:1})
+    const failed=app.waitForResponse(r=>r.url().includes('/home/carousel?cityCode='+CITY))
+    await app.goto('/#/pages/home/index')
+    expect((await failed).status()).toBe(503)
+    await app.getByTestId('carousel-retry').click()
+    await expect(app.getByTestId('home-carousel-slide-'+id)).toContainText(title)
+    await app.getByTestId('root-tab-mine').click()
+    expect((await request.put(API+'/api/v1'+item,{headers,data})).status()).toBe(409)
+    expect((await request.put(API+'/api/v1'+item,{headers,data:{...data,version:1,status:'OFFLINE'}})).status()).toBe(200)
+    offlined=true
+    expect((await publicSlides(CITY)).some(s=>s.id===id)).toBe(false)
+    const refreshed=app.waitForResponse(r=>r.url().includes('/home/carousel?cityCode='+CITY))
+    await app.getByTestId('root-tab-home').click()
+    expect((await refreshed).status()).toBe(200)
+    await expect(app.getByTestId('home-carousel-slide-'+id)).toHaveCount(0)
+    expect((await request.get(image)).status()).toBe(404)
+    const history=await json(request,item+'/changes',headers)
+    expect(history.map((h: {status:string})=>h.status)).toEqual(['OFFLINE','PUBLISHED','DRAFT'])
+    expect(history[0].operatorName).toBeTruthy()
+    expect((await request.get(API+'/api/v1'+slides)).status()).toBe(401)
+    const buyer=await apiLogin(request,BUYER)
+    expect(buyer).toBeTruthy()
+    expect((await request.put(API+'/api/v1'+item,{headers:buyer!.headers,data:{...data,version:2}})).status()).toBe(403)
+  } finally {
+    if (!offlined) expect((await request.put(API+'/api/v1'+item,{headers,data:{...data,version:1,status:'OFFLINE'}})).status()).toBe(200)
+  }
 })
 
 test('巡检入口在后台编辑全国默认，城市覆盖场景与横幅，停用后继承默认',async({page,request,context})=>{

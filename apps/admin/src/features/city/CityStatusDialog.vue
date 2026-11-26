@@ -33,13 +33,10 @@ const rules: FormRules = {
   note: [required('改动说明'), maxChars('改动说明', CITY_NOTE_MAX)],
 }
 
-watch(() => props.city, (city) => {
+watch(() => props.city, () => {
   form.serviceStatus = ''
   form.note = ''
   formRef.value?.clearValidate()
-  if (city) {
-    form.serviceStatus = CITY_STATUS_OPTIONS.find((option) => option.value !== city.serviceStatus)?.value ?? ''
-  }
 }, { immediate: true })
 
 const unchanged = computed(() => props.city?.serviceStatus === form.serviceStatus)
@@ -108,7 +105,7 @@ async function submit(): Promise<void> {
     </el-form>
     <template #footer>
       <el-button @click="emit('close')">取消</el-button>
-      <el-button type="primary" :loading="submitting" :disabled="unchanged" @click="submit">保存</el-button>
+      <el-button type="primary" :loading="submitting" :disabled="!form.serviceStatus || unchanged" @click="submit">保存</el-button>
     </template>
   </el-dialog>
 </template>

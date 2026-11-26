@@ -30,7 +30,7 @@ export interface OpsFeedback {
   type: FeedbackType
   source: FeedbackSource
   text: string
-  target: { id: string, parentId: string } | null
+  target: { id: string, parentId: string, visibility: 'VISIBLE' | 'HIDDEN' | 'MISSING', text: string | null } | null
   reporter: { displayName: string | null }
   handleStatus: HandleStatus
   handling: { note: string, handlerName: string, handledAt: string } | null
@@ -50,7 +50,7 @@ export interface FeedbackFilters {
 export const HANDLE_NOTE_MAX = 200
 
 /** 隐藏举报对象调哪个已有接口：视频评论按评论 ID；直播弹幕按直播间 + 弹幕 ID。用户反馈没有对象。 */
-export function hidePath(feedback: Pick<OpsFeedback, 'source' | 'target'>): string | null {
+export function hidePath(feedback: { source: FeedbackSource, target: { id: string, parentId: string } | null }): string | null {
   if (!feedback.target) return null
   const id = encodeURIComponent(feedback.target.id)
   if (feedback.source === 'VIDEO_COMMENT_REPORT') return `/api/v1/content/comments/${id}/hide`

@@ -166,9 +166,9 @@ function purgeIdentitySmoke(since) {
     ...list(`SELECT id FROM identity_sms_code WHERE phone NOT LIKE '199%' AND expires_at >= ${t}`),
     ...list(`SELECT id FROM identity_dev_sms_outbox WHERE phone NOT LIKE '199%' AND sent_at >= ${t}`),
   ];
-  const files = removeLocalFiles(new Set(seeds));
   const result = purge(seeds);
-  note(`清掉 identity-account-smoke 的数据：起点 ${seeds.length} 个（其中账号 ${users.length} 个），删 ${result.deleted} 行，导出文件删 ${files.removed} 个，残留 ${result.residue}`);
+  const removedFiles = !result.dryRun && result.residue === 'none' ? removeLocalFiles(new Set(seeds)).removed : 0;
+  note(`清掉 identity-account-smoke 的数据：起点 ${seeds.length} 个（其中账号 ${users.length} 个），删 ${result.deleted} 行，导出文件删 ${removedFiles} 个，残留 ${result.residue}`);
   return result;
 }
 

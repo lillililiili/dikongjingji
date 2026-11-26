@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
+import { adminSignIn } from './support/admin-session'
 import { compareFolder, compareWithBoard, shootApp } from './support/board-compare'
 import {
   API,
@@ -25,7 +26,7 @@ import {
 
 // 商品售后（S4-2，docs/redesign/09-商品售后与商家主页.md §1；画板 OrderGoods、AftersaleApply、AftersaleDetail、
 // AftersaleFlow、AftersaleList、OrderList）。真实后端 + 本机模拟微信（FAKE_WECHAT=1）+ 开发库。
-// 商家没有 App 页面：同意、拒绝、确认收货都由 dev-merchant 登录后调受权接口（和 Web 工作台调的是同一组接口）。
+// 主流程在商家 Web 工作台同意并确认收货，其他状态分支由同一组受权接口准备。
 // 退款到账由模拟微信发回调。每条用例前删掉 dev-customer 的订单和售后单。
 const KIT_FACTORY = offerId('101', '1')
 const KIT_PRICE = 129900
@@ -190,7 +191,14 @@ test.describe('商品售后', () => {
     await shootApp(page, folder, 'AftersaleDetail')
 
     // 商家同意（不填地址，用默认寄回地址）；买家“刷新进度”看到待寄回和寄回地址。
-    await merchantCommand(request, merchant, aftersaleId, 'approval')
+    const desk = await page.context().newPage()
+    const detailPath = '/workbench/aftersales/' + aftersaleId
+    await adminSignIn(desk, MERCHANT, detailPath)
+    await desk.getByRole('button', {name:'同意退货', exact:true}).click()
+    const approval = desk.getByRole('dialog', {name:/^同意退货：/})
+    await approval.getByRole('button', {name:'同意退货', exact:true}).click()
+    await desk.locator('.el-message-box').getByRole('button', {name:'同意', exact:true}).click()
+    await expect(approval).toBeHidden()
     await page.getByTestId('aftersale-refresh').click()
     await expect(page.getByTestId('aftersale-status-title')).toHaveText('商家已同意，请寄回商品')
     await expect(page.getByTestId('aftersale-address-line')).toHaveText('山东省东营市东营区 示例路 120 号（示例）')
@@ -222,7 +230,12 @@ test.describe('商品售后', () => {
     await expect(page.getByTestId('aftersale-waybill-line')).toHaveText('圆通速递 · 运单号 2026112300012')
 
     // 商家确认收货并退款；退款到账只由模拟微信的回调推进。
-    await merchantCommand(request, merchant, aftersaleId, 'receipt')
+    await desk.getByRole('button', {name:'刷新', exact:true}).click()
+    await desk.getByRole('button', {name:'确认收货并退款', exact:true}).click()
+    const receipt = desk.getByRole('dialog', {name:/^确认收货并退款：/})
+    await receipt.getByRole('button', {name:'确认收货并退款', exact:true}).click()
+    await desk.locator('.el-message-box').getByRole('button', {name:'确认退款', exact:true}).click()
+    await expect(receipt).toBeHidden()
     await page.getByTestId('aftersale-refresh').click()
     await expectTwoStatuses(page, '退款中', '退款中')
     await expect(page.getByTestId('aftersale-step-refund')).toHaveAttribute('data-kind', 'cur')
@@ -249,7 +262,7 @@ test.describe('商品售后', () => {
     await expect(page.getByTestId('goods-order-view-aftersale')).toBeVisible()
   })
 
-  test('ASL-002 未发货订单仅退款：退货退款灰掉 → 申请即退款中 → 微信回调 → 已退款', async ({ page, request }) => {
+  test('ASL-002 未发货订单仅退款，微信先报异常后到账，App 和商家工作台同步更新', async ({ page, request }) => {
     test.setTimeout(90_000)
     const addressId = await addAddressByApi(request, buyer)
     const order = await submitOrderByApi(request, buyer, { offer: KIT_FACTORY, mode: 'EXPRESS', payableMinor: KIT_PRICE, addressId })
@@ -271,10 +284,21 @@ test.describe('商品售后', () => {
     await expect(page.getByTestId('aftersale-kind')).toHaveText('仅退款')
     await expect(page.locator('[data-testid^="aftersale-step-"]')).toHaveCount(2)
     const aftersaleId = aftersaleIdFromUrl(page)
-    await fakeWechatRefunds(request, latestRefundNo(order.orderId))
+    const refundNo = latestRefundNo(order.orderId)
+    await fakeWechatRefunds(request, refundNo, 'ABNORMAL')
+    await expect.poll(async () => (await buyerAftersale(request, buyer, aftersaleId)).status).toBe('REFUND_FAILED')
+    await page.getByTestId('aftersale-refresh').click()
+    await expectTwoStatuses(page, '退款异常', '退款异常')
+    const desk = await page.context().newPage()
+    await adminSignIn(desk, MERCHANT, '/workbench/aftersales/' + aftersaleId)
+    await expect(desk.locator('.el-tag').filter({ hasText: /^退款异常$/ })).toBeVisible()
+
+    await fakeWechatRefunds(request, refundNo)
     await expect.poll(async () => (await buyerAftersale(request, buyer, aftersaleId)).status).toBe('REFUNDED')
     await page.reload()
-    await expect(page.getByTestId('aftersale-status-title')).toHaveText('已退款')
+    await expectTwoStatuses(page, '已退款', '已退款')
+    await desk.getByRole('button', { name: '刷新', exact: true }).click()
+    await expect(desk.locator('.el-tag').filter({ hasText: /^已退款$/ })).toBeVisible()
   })
 
   test('ASL-003 商家拒绝：商家说明、你提交的凭证、联系平台客服与重新申请', async ({ page, request }) => {
@@ -286,10 +310,16 @@ test.describe('商品售后', () => {
     })
     expect(applied.status()).toBe(201)
     const { aftersaleId } = await applied.json()
-    await merchantCommand(request, merchant, aftersaleId, 'rejection', {
-      reason: '凭证不足，无法确认商品未拆封',
-      note: '请补充商品和外包装照片后重新申请',
-    })
+    const desk = await page.context().newPage()
+    await adminSignIn(desk, MERCHANT, '/workbench/aftersales/' + aftersaleId)
+    await desk.getByRole('button', {name:'不同意', exact:true}).click()
+    const review = desk.locator('.el-overlay-dialog').filter({has:desk.getByLabel('拒绝原因')})
+    await review.getByLabel('拒绝原因').fill('凭证不足，无法确认商品未拆封')
+    await review.getByLabel('商家说明').fill('请补充商品和外包装照片后重新申请')
+    await review.getByRole('button', {name:'不同意', exact:true}).click()
+    await desk.locator('.el-message-box').getByRole('button', {name:'不同意', exact:true}).click()
+    await expect(review).toBeHidden()
+    await desk.close()
     await signIn(page, buyer)
     await page.setViewportSize({ width: 390, height: 844 })
 

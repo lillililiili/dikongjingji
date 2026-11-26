@@ -29,22 +29,27 @@ const sessions = shallowRef<OpsVenueSession[]>([])
 const loading = ref(false)
 const error = ref('')
 const busyId = ref('')
+let revision = 0
 
 async function load(): Promise<void> {
   if (!props.project) return
+  const request = ++revision
+  sessions.value = []
   loading.value = true
   error.value = ''
   try {
-    sessions.value = await props.api.sessions(props.venueId, props.project.projectId, range.value[0], range.value[1])
+    const rows = await props.api.sessions(props.venueId, props.project.projectId, range.value[0], range.value[1])
+    if (request === revision) sessions.value = rows
   } catch (failure) {
-    error.value = errorMessage(failure)
+    if (request === revision) error.value = errorMessage(failure)
   } finally {
-    loading.value = false
+    if (request === revision) loading.value = false
   }
 }
 
-watch(() => props.open, (open) => {
+watch(() => [props.open, props.project?.projectId] as const, ([open]) => {
   if (open) void load()
+  else revision++
 })
 
 function started(session: OpsVenueSession): boolean {
@@ -58,6 +63,7 @@ const ACTIONS = {
 } as const
 
 async function change(session: OpsVenueSession, action: keyof typeof ACTIONS): Promise<void> {
+  if (busyId.value || loading.value || error.value) return
   const meta = ACTIONS[action]
   const confirmed = await confirmAction({
     title: `确认${meta.label}`,
@@ -89,7 +95,7 @@ async function change(session: OpsVenueSession, action: keyof typeof ACTIONS): P
       <span class="hint">北京时间，最多 62 天、500 场</span>
     </div>
     <el-alert v-if="error" type="error" :title="error" :closable="false" show-icon />
-    <el-table v-loading="loading" :data="sessions" row-key="sessionId" size="small" border empty-text="这段时间没有场次">
+    <el-table v-else v-loading="loading" :data="sessions" row-key="sessionId" size="small" border empty-text="这段时间没有场次">
       <el-table-column label="开始" width="150">
         <template #default="{ row }">{{ formatDateTime((row as OpsVenueSession).startsAt) }}</template>
       </el-table-column>

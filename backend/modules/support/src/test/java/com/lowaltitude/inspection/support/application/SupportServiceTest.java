@@ -434,7 +434,7 @@ class SupportServiceTest {
         assertThat(again.feedback().feedbackId()).isEqualTo(first.feedback().feedbackId());
         OpsFeedbackView view = service.opsFeedback(null, null, 1, 20).items().getFirst();
         assertThat(view.source()).isEqualTo(SupportFeedbackSource.LIVE_COMMENT_REPORT);
-        assertThat(view.target()).isEqualTo(new SupportReportTargetView(comment, room));
+        assertThat(view.target()).isEqualTo(new SupportReportTargetView(comment, room, "VISIBLE", "测试弹幕"));
         assertThat(view.reporter().displayName()).isEqualTo("王女士");
         // 同一个键换了对象：幂等冲突。用户反馈来源和缺对象的举报一律拒绝。
         assertRejected(Error.IDEMPOTENCY_CONFLICT, () -> service.report(CUSTOMER, key, "CONTENT", "举报直播弹幕：第 3 条",
@@ -782,7 +782,7 @@ class SupportServiceTest {
         private OpsFeedbackRow opsRow(FeedbackRow row) {
             Handling h = handlingOf(row.id());
             return new OpsFeedbackRow(row.id(), row.accountId(), row.feedbackType(), row.body(), h.source, h.targetId,
-                    h.parentId, h.status, h.note, h.handledAt, h.handlerName, h.version, row.createdAt());
+                    h.parentId, "VISIBLE", "测试弹幕", h.status, h.note, h.handledAt, h.handlerName, h.version, row.createdAt());
         }
 
         private List<OpsFeedbackRow> opsRows(String handleStatus, String source) {

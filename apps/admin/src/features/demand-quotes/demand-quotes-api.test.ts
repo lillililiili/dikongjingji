@@ -140,7 +140,7 @@ describe('报价表单', () => {
   it('第一次报价交付物按需求预填；改价用现在的报价；撤回过的不预填', () => {
     expect(initialQuoteForm(DEMAND, NOW)).toMatchObject({ amountYuan: '', deliverables: '巡检报告、隐患清单' })
     expect(initialQuoteForm({ ...DEMAND, myQuote: quote('ACTIVE') }, NOW))
-      .toMatchObject({ amountYuan: '12800.50', method: '无人机双光', durationDays: 5 })
+      .toMatchObject({ amountYuan: '12800.50', method: '无人机双光', durationDays: 5, validUntil: new Date('2026-11-30T00:00:00Z') })
     expect(initialQuoteForm({ ...DEMAND, myQuote: quote('WITHDRAWN') }, NOW).amountYuan).toBe('')
   })
 })

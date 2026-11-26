@@ -16,6 +16,10 @@ const api = 'http://127.0.0.1:18428'
 const admin = 'http://127.0.0.1:17438'
 const h5 = 'http://127.0.0.1:5185'
 const fake = 'http://127.0.0.1:17468'
+const database = process.env.E2E_PG_DATABASE || 'inspection_e2e'
+if (!/^inspection_e2e(?:_[a-z0-9_]+)?$/.test(database)) {
+  throw new Error('隔离测试库名须为 inspection_e2e 或以 inspection_e2e_ 开头')
+}
 const compose = ['compose', '-p', 'inspection-e2e', '-f', join(here, 'compose.yaml')]
 const children = new Set()
 const [mode, ...args] = process.argv.slice(2)
@@ -88,7 +92,7 @@ if (mode==='test') {
   const playwright=join(mobile,'node_modules','@playwright','test','cli.js')
   process.exit(run(process.execPath,[playwright,'test',...args],mobile,{
     E2E_API_URL:api,PLAYWRIGHT_API_BASE_URL:api,PLAYWRIGHT_BASE_URL:h5,ADMIN_BASE_URL:admin,
-    E2E_FAKE_WECHAT_URL:fake,E2E_PG_CONTAINER:'inspection-e2e-postgres-1',E2E_PG_DATABASE:'inspection_e2e',
+    E2E_FAKE_WECHAT_URL:fake,E2E_PG_CONTAINER:'inspection-e2e-postgres-1',E2E_PG_DATABASE:database,
     E2E_FILES_ROOT:files,
   }))
 }
@@ -117,7 +121,7 @@ try {
   }))
   launch(process.env.E2E_JAVA || 'java',['-Xms64m','-Xmx512m','-Djava.io.tmpdir='+files,'-jar',jar],root,{
     ...pay, SERVER_PORT:'18428',SERVER_ADDRESS:'127.0.0.1',SPRING_PROFILES_ACTIVE:'dev',INSPECTION_ENVIRONMENT:'dev',
-    INSPECTION_DB_URL:'jdbc:postgresql://127.0.0.1:15438/inspection_e2e',INSPECTION_DB_USERNAME:'inspection_e2e',
+    INSPECTION_DB_URL:'jdbc:postgresql://127.0.0.1:15438/'+database,INSPECTION_DB_USERNAME:'inspection_e2e',
     INSPECTION_DB_PASSWORD:keys.E2E_DATABASE_PASSWORD,INSPECTION_REDIS_HOST:'127.0.0.1',INSPECTION_REDIS_PORT:'16388',
     INSPECTION_REDIS_PASSWORD:'',INSPECTION_REDIS_APPLICATION_NAMESPACE:'e2e',
     INSPECTION_MINIO_ENABLED:'true',INSPECTION_MINIO_ENDPOINT:'http://127.0.0.1:19018',

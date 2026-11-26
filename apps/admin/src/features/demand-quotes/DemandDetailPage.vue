@@ -41,6 +41,7 @@ async function load(): Promise<void> {
   try {
     demand.value = await api.detail(demandId.value)
   } catch (failure) {
+    demand.value = null
     error.value = errorMessage(failure)
   } finally {
     loading.value = false
@@ -84,6 +85,7 @@ onMounted(() => {
     :description="demand ? `${DEMAND_TYPE_LABELS[demand.type]} · ${demand.cityName} · 提交于 ${formatDateTime(demand.submittedAt)}` : undefined"
   >
     <template #actions>
+      <el-button :loading="loading" @click="load">刷新</el-button>
       <el-button @click="router.push({ name: 'workbench-demands' })">返回列表</el-button>
       <template v-if="demand">
         <el-button v-if="canWithdraw(demand)" type="danger" plain :loading="busy" @click="withdraw">撤回报价</el-button>

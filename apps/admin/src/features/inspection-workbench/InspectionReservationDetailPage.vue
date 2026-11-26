@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { http } from '@/core/http'
 import { errorMessage } from '@/core/http/api-error'
+import { showError } from '@/core/ui/feedback'
 import { formatDateTime, formatMoney } from '@/core/ui/format'
 import PageSection from '@/core/ui/PageSection.vue'
 
@@ -25,6 +26,7 @@ import {
   STAGE_LABELS,
   TIME_SLOT_LABELS,
   VISIT_STATUS_LABELS,
+  type CurrentProviderPlan,
   type ProgressEventCode,
   type Reservation,
   type ReservationSummary,
@@ -46,9 +48,11 @@ const loading = ref(false)
 const error = ref('')
 
 const planDialog = ref(false)
+const previousPlan = shallowRef<CurrentProviderPlan | null>(null)
+const openingPlan = ref(false)
 const arrangeDialog = ref(false)
 const visitDialog = shallowRef<{ visit: ServiceVisit, action: 'SCHEDULE' | ProgressEventCode } | null>(null)
-const deliveryDialog = shallowRef<ServiceVisit | null>(null)
+const deliveryDialog = shallowRef<{ visit: ServiceVisit, plan: CurrentProviderPlan } | null>(null)
 
 async function load(): Promise<void> {
   loading.value = true
@@ -73,9 +77,36 @@ const planAllowed = computed(() => !!reservation.value && !order.value
   && canPublishPlan(stage.value, reservation.value.status))
 const republish = computed(() => !!reservation.value?.currentPlanId)
 
-function act(visit: ServiceVisit, action: VisitAction): void {
+async function openPlan(): Promise<void> {
+  if (!reservation.value || openingPlan.value) return
+  openingPlan.value = true
+  try {
+    previousPlan.value = republish.value ? await api.currentPlan(reservation.value.id) : null
+    if (previousPlan.value && previousPlan.value.id !== reservation.value.currentPlanId) {
+      await load()
+      throw new Error('预约的方案已更新，请重新打开')
+    }
+    planDialog.value = true
+  } catch (failure) {
+    showError(failure)
+  } finally {
+    openingPlan.value = false
+  }
+}
+
+async function act(visit: ServiceVisit, action: VisitAction): Promise<void> {
   if (action === 'DELIVER') {
-    deliveryDialog.value = visit
+    if (!order.value || openingPlan.value) return
+    openingPlan.value = true
+    try {
+      const plan = await api.currentPlan(order.value.reservationId)
+      if (plan.id !== order.value.planId) throw new Error('服务单对应的方案已更新，请刷新')
+      deliveryDialog.value = { visit, plan }
+    } catch (failure) {
+      showError(failure)
+    } finally {
+      openingPlan.value = false
+    }
   } else {
     visitDialog.value = { visit, action }
   }
@@ -149,11 +180,11 @@ onMounted(() => {
             <template v-else>，等客户在 App 里确认</template>
           </span>
           <span v-else>还没有发方案。</span>
-          <el-button v-if="planAllowed" type="primary" @click="planDialog = true">
+          <el-button v-if="planAllowed" type="primary" :loading="openingPlan" @click="openPlan">
             {{ republish ? '再发一版方案' : '出方案' }}
           </el-button>
         </div>
-        <p class="muted">方案详情只给客户和平台看；这里只显示报价合计。</p>
+        <p v-if="republish && planAllowed" class="muted">新版本会带入当前方案的报价、日期与交付约定。填写变更说明并发布后，客户就能看到新版。</p>
 
         <template v-if="order">
           <h2 class="block-title">服务单 {{ order.serviceOrderNo }}</h2>
@@ -230,7 +261,7 @@ onMounted(() => {
                 <template v-for="state in visitActions(order, row as ServiceVisit)" :key="state.action">
                   <el-tooltip :disabled="state.enabled" :content="state.reason ?? ''" placement="top">
                     <span class="action">
-                      <el-button link type="primary" :disabled="!state.enabled"
+                      <el-button link type="primary" :disabled="!state.enabled || openingPlan"
                                  @click="act(row as ServiceVisit, state.action)">
                         {{ state.action === 'SCHEDULE' && (row as ServiceVisit).status === 'SCHEDULED'
                           ? '改排期' : VISIT_ACTION_LABELS[state.action] }}
@@ -249,13 +280,13 @@ onMounted(() => {
     </div>
   </PageSection>
 
-  <PlanPublishDialog v-if="planDialog && reservation" :api="api" :reservation="reservation" :republish="republish"
+  <PlanPublishDialog v-if="planDialog && reservation" :api="api" :reservation="reservation" :previous="previousPlan"
                      @published="done" @close="planDialog = false" />
   <ArrangementDialog v-if="arrangeDialog && order" :api="api" :order="order" @saved="done"
                      @close="arrangeDialog = false" />
   <VisitActionDialog v-if="visitDialog" :api="api" :visit="visitDialog.visit" :action="visitDialog.action"
                      @saved="done" @close="visitDialog = null" />
-  <DeliveryPublishDialog v-if="deliveryDialog" :api="api" :visit="deliveryDialog" @published="done"
+  <DeliveryPublishDialog v-if="deliveryDialog" :api="api" :visit="deliveryDialog.visit" :plan="deliveryDialog.plan" @published="done"
                          @close="deliveryDialog = null" />
 </template>
 

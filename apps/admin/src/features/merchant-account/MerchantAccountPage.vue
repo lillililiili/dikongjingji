@@ -40,6 +40,9 @@ onMounted(() => {
     title="收款账户"
     description="买家付的钱直接进本机构自己的微信支付商户号，平台不经手资金、不分账、不抽佣。这里只能查看，登记和修改请联系平台运营。"
   >
+    <template #actions>
+      <el-button :loading="loading" @click="load">刷新</el-button>
+    </template>
     <el-alert v-if="error" type="error" :title="error" :closable="false" show-icon>
       <el-button size="small" @click="load()">重新加载</el-button>
     </el-alert>

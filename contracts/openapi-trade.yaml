@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Trade API
-  version: 0.10.0
+  version: 0.10.1
   description: |-
     0.1.0（草案，2026-11-18，E01，待用户确认）：统一交易模块。一期只接商城订单；收费报名、到馆预约、巡检付款节点以后按
     source 扩展。方案见 docs/redesign/03-App实现任务计划.md §19。
@@ -696,7 +696,7 @@ paths:
       description: |-
         微信的 T 日账单 T+1 日 10 点后才有。按子商户逐个下载后与平台的支付单、退款单逐笔核对：支付按付款成功时间、
         退款按微信受理时间，都按北京时间分天。这一天要对账的子商户（登记了收款账户的，和那天有付款或退款受理的）
-        全部导入成功才返回，否则 409 TRADE_RECONCILIATION_NOT_READY。
+        已结束且没有应对账商户或历史账单的日期返回空结果，CSV 仅含表头。有应对账商户的日期须全部导入成功，否则 409 TRADE_RECONCILIATION_NOT_READY。
         CSV 是 UTF-8（带 BOM），列为：日期、类型、说明、子商户号、商户订单号、商户退款单号、平台金额（元）、微信金额（元）；
         以 = + - @ 开头的格前面加单引号。差异只记录、不自动改订单。
       security:
@@ -1531,8 +1531,9 @@ components:
           type: string
           format: date
         importedAt:
-          type: string
+          type: [string, "null"]
           format: date-time
+          description: 已导入账单的最近时间。该历史日期没有需要对账的商户或交易时为 null。
         matchedCount:
           type: integer
         differences:

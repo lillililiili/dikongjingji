@@ -58,8 +58,8 @@ async function save(): Promise<void> {
   const confirmed = await confirmAction({
     title: editing.value ? '确认修改项目' : '确认新建项目',
     message: editing.value
-      ? '保存后 App 场馆详情立即显示新的项目信息；价格改动只影响之后的新预约，已有预约不变。'
-      : '新建的项目是启用状态，有了场次后 App 上就能预约。',
+      ? '场馆上线且项目启用时，用户能看到更新的资料。新价格用于之后的预约。'
+      : '新建项目默认启用。场馆上线并开放可预约场次后，用户可在 App 预约。',
     confirmText: '保存',
   })
   if (!confirmed) return

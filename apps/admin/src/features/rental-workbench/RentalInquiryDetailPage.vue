@@ -44,6 +44,7 @@ async function load(): Promise<void> {
   try {
     inquiry.value = await api.inquiry(inquiryId.value)
   } catch (failure) {
+    inquiry.value = null
     error.value = errorMessage(failure)
   } finally {
     loading.value = false
@@ -88,6 +89,7 @@ onMounted(() => {
     :description="inquiry ? `提交于 ${formatDateTime(inquiry.submittedAt)}，报价截止 ${formatDateTime(inquiry.quoteDeadline)}` : undefined"
   >
     <template #actions>
+      <el-button :loading="loading" @click="load">刷新</el-button>
       <el-button @click="router.push({ name: 'workbench-rental-inquiries' })">返回列表</el-button>
       <template v-if="inquiry">
         <el-button v-if="canDecline(inquiry)" type="danger" plain @click="declining = true">拒绝</el-button>

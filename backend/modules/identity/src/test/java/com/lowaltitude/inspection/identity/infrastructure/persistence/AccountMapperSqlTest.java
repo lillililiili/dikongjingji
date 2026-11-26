@@ -21,6 +21,28 @@ import org.junit.jupiter.api.Test;
 class AccountMapperSqlTest {
 
     @Test
+    void customerGrantAndEligibilityUseTheDatabaseStatementClock() {
+        assertThat(normalized(sql("grantCustomerRole")))
+                .contains("SELECT #{userId}, r.id, NULL, statement_timestamp()", "r.scope_type = 'GLOBAL'");
+        assertThat(normalized(sql("hasCustomerRole")))
+                .contains("ur.valid_from <= statement_timestamp()", "ur.valid_until > statement_timestamp()",
+                        "r.scope_type = 'GLOBAL'", "ur.organization_id IS NULL");
+    }
+
+    @Test
+    void operatorLookupAndCustomerMetricsShareEffectiveRoleRules() {
+        for (String query : new String[]{OpsUserLookupMapper.COLUMNS, IdentityOpsStatsMapper.CUSTOMER}) {
+            assertThat(normalized(query)).contains("r.status = 'ACTIVE'", "statement_timestamp() >= ur.valid_from",
+                    "ur.valid_until > statement_timestamp()", "r.scope_type = 'GLOBAL' AND ur.organization_id IS NULL");
+        }
+        assertThat(normalized(OpsUserLookupMapper.COLUMNS)).contains(
+                "r.scope_type = 'ORGANIZATION' AND ur.organization_id = u.default_organization_id",
+                "m.organization_id = ur.organization_id AND m.user_id = u.id",
+                "m.member_status = 'ACTIVE' AND o.status = 'ACTIVE'");
+        assertThat(normalized(IdentityOpsStatsMapper.CUSTOMER)).contains("r.role_code = 'CUSTOMER'");
+    }
+
+    @Test
     void everyStatementBindsItsParametersAndDeletesNothing() {
         Map<String, String> statements = statements();
 

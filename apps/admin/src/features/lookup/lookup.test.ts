@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import ElementPlus from 'element-plus'
 import { describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter } from 'vue-router'
+import { createMemoryHistory, createRouter, RouterView } from 'vue-router'
 
 import { recordingClient } from '@/core/http/recording-client'
 import { buildMenu } from '@/core/navigation/module'
@@ -9,8 +9,6 @@ import { ADMIN_MODULES } from '@/modules'
 
 import { createLookupApi, label, STATUS_LABELS, type LookupApi, type OrderDetail, type UserDetail } from './lookup-api'
 import { lookupModule } from './lookup-module'
-import OrderLookupDetailPage from './OrderLookupDetailPage.vue'
-import UserLookupDetailPage from './UserLookupDetailPage.vue'
 
 const ORDER: OrderDetail = {
   id: 'o-1',
@@ -78,12 +76,12 @@ function fakeApi(): LookupApi {
   }
 }
 
-async function mountAt(component: typeof OrderLookupDetailPage | typeof UserLookupDetailPage, path: string) {
+async function mountAt(path: string, api = fakeApi()) {
   const router = createRouter({ history: createMemoryHistory(), routes: [...lookupModule.routes] })
   await router.push(path)
   await router.isReady()
-  const wrapper = mount(component as typeof OrderLookupDetailPage, {
-    props: { api: fakeApi() },
+  const wrapper = mount(RouterView, {
+    attrs: { api },
     global: { plugins: [ElementPlus, router] },
   })
   await flushPromises()
@@ -91,6 +89,19 @@ async function mountAt(component: typeof OrderLookupDetailPage | typeof UserLook
 }
 
 describe('订单查询、用户查询', () => {
+  it('同页从买家订单切换到全部订单或待处理筛选时，重新按地址查询', async () => {
+    const api = fakeApi()
+    const orders = vi.spyOn(api, 'orders')
+    const { wrapper, router } = await mountAt('/lookup/orders?buyerId=u-1&buyerName=客户甲', api)
+    expect(orders).toHaveBeenLastCalledWith(expect.objectContaining({ buyerId: 'u-1' }), 1, 20)
+    expect(wrapper.text()).toContain('客户甲')
+      await wrapper.get('input[data-testid="order-lookup-q"]').setValue('上一笔咨询')
+    await router.push('/lookup/orders?status=REFUND_FAILED')
+    await flushPromises()
+      expect(orders).toHaveBeenLastCalledWith({ q: '', buyerId: '', source: '', status: 'REFUND_FAILED', dates: null }, 1, 20)
+    expect(wrapper.text()).not.toContain('客户甲')
+    wrapper.unmount()
+  })
   it('平台运营和平台客服都看得到两个菜单，机构操作员看不到', () => {
     const titles = (roles: string[]) => buildMenu(ADMIN_MODULES, roles).flatMap((group) => group.items)
       .map((item) => item.title)
@@ -119,7 +130,7 @@ describe('订单查询、用户查询', () => {
   })
 
   it('订单详情显示打码后的买家和收货人、微信单号和状态变化', async () => {
-    const { wrapper } = await mountAt(OrderLookupDetailPage, '/lookup/orders/o-1')
+    const { wrapper } = await mountAt('/lookup/orders/o-1')
     const text = wrapper.text()
 
     expect(text).toContain('订单 MO2026112300000001')
@@ -133,7 +144,7 @@ describe('订单查询、用户查询', () => {
   })
 
   it('用户详情能跳到这个人的订单', async () => {
-    const { wrapper, router } = await mountAt(UserLookupDetailPage, '/lookup/users/u-1')
+    const { wrapper, router } = await mountAt('/lookup/users/u-1')
 
     expect(wrapper.text()).toContain('注销冷静期')
     expect(wrapper.text()).toContain('东营示例物流公司')

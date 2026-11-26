@@ -34,6 +34,7 @@ async function load(): Promise<void> {
   try {
     detail.value = await api.detail(organizationId.value)
   } catch (failure) {
+    detail.value = null
     error.value = errorMessage(failure)
   } finally {
     loading.value = false

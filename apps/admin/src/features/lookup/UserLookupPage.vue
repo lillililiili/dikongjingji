@@ -7,6 +7,7 @@ import { formatDateTime } from '@/core/ui/format'
 import PagedTable from '@/core/ui/PagedTable.vue'
 import PageSection from '@/core/ui/PageSection.vue'
 import { usePagedList } from '@/core/ui/use-paged-list'
+import { useLookupPosition } from './lookup-return'
 
 import {
   createLookupApi,
@@ -27,6 +28,7 @@ const api = props.api ?? createLookupApi(http)
 const router = useRouter()
 const list = usePagedList<UserSummary, UserFilters>((filters, page, size) => api.users(filters, page, size),
   { q: '' })
+useLookupPosition(list, 'ops-user-detail')
 
 function open(user: UserSummary): void {
   void router.push({ name: 'ops-user-detail', params: { userId: user.id } })

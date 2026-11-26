@@ -54,7 +54,7 @@ class PlatformOperatorBootstrapServiceTest {
         when(mapper.findActivePlatformOrganization("PLATFORM")).thenReturn(PLATFORM_ORG);
         when(accounts.insertAccount(eq("ops-admin"), anyString(), anyString(), eq(PLATFORM_ORG), eq(AT)))
                 .thenReturn(ACCOUNT);
-        when(accounts.grantRole(ACCOUNT, "PLATFORM_OPERATOR", null, AT)).thenReturn(1);
+        when(accounts.grantRole(ACCOUNT, "PLATFORM_OPERATOR", null)).thenReturn(1);
     }
 
     @Test
@@ -67,7 +67,7 @@ class PlatformOperatorBootstrapServiceTest {
         assertThat(hashed).containsExactly(STRONG);
         verify(accounts).insertAccount("ops-admin", "平台运营", "bcrypt-digest", PLATFORM_ORG, AT);
         verify(accounts).insertMember(PLATFORM_ORG, ACCOUNT, AT);
-        verify(accounts).grantRole(ACCOUNT, "PLATFORM_OPERATOR", null, AT);
+        verify(accounts).grantRole(ACCOUNT, "PLATFORM_OPERATOR", null);
         verify(mapper).recordBootstrap(ACCOUNT, PLATFORM_ORG, AT);
         verify(mapper, never()).insertPlatformOrganization(anyString(), anyString(), any());
     }
@@ -78,7 +78,7 @@ class PlatformOperatorBootstrapServiceTest {
         when(mapper.findActivePlatformOrganization("PLATFORM")).thenReturn(null);
         when(mapper.insertPlatformOrganization("PLATFORM", "平台", AT)).thenReturn(PLATFORM_ORG);
         when(accounts.insertAccount("ops-admin", "运营负责人", "bcrypt-digest", PLATFORM_ORG, AT)).thenReturn(ACCOUNT);
-        when(accounts.grantRole(ACCOUNT, "PLATFORM_OPERATOR", null, AT)).thenReturn(1);
+        when(accounts.grantRole(ACCOUNT, "PLATFORM_OPERATOR", null)).thenReturn(1);
 
         assertThat(service.ensurePlatformOperator("ops-admin", "运营负责人", () -> STRONG)).isEqualTo(Outcome.CREATED);
 
@@ -111,7 +111,7 @@ class PlatformOperatorBootstrapServiceTest {
         assertThat(service.ensurePlatformOperator("ops-admin", null, () -> STRONG)).isEqualTo(Outcome.ALREADY_EXISTS);
 
         verify(accounts, never()).insertMember(any(), any(), any());
-        verify(accounts, never()).grantRole(any(), anyString(), any(), any());
+        verify(accounts, never()).grantRole(any(), anyString(), any());
     }
 
     @Test
@@ -157,7 +157,7 @@ class PlatformOperatorBootstrapServiceTest {
     @Test
     void failsLoudlyWhenTheRoleIsMissingOrThePlatformCodeIsTaken() {
         freshDatabaseWithPlatformOrganization();
-        when(accounts.grantRole(ACCOUNT, "PLATFORM_OPERATOR", null, AT)).thenReturn(0);
+        when(accounts.grantRole(ACCOUNT, "PLATFORM_OPERATOR", null)).thenReturn(0);
         assertThatThrownBy(() -> service.ensurePlatformOperator("ops-admin", null, () -> STRONG))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("PLATFORM_OPERATOR");

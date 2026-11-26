@@ -37,6 +37,7 @@ const detail = shallowRef<OpsProductDetail | null>(null)
 const loading = ref(false)
 const error = ref('')
 const tab = ref('info')
+const infoDirty = ref(false)
 
 const productId = computed(() => String(route.params.productId ?? ''))
 
@@ -55,7 +56,7 @@ async function load(): Promise<void> {
 const removing = ref(false)
 
 async function remove(): Promise<void> {
-  if (!detail.value || removing.value) return
+  if (!detail.value || removing.value || infoDirty.value) return
   removing.value = true
   try {
     if (await confirmAndRemoveDraft(api, detail.value.product)) await router.replace({ name: 'workbench-products' })
@@ -80,9 +81,9 @@ onMounted(() => {
     traced
   >
     <template #actions>
-      <ProductPublishBar v-if="detail" :api="api" :detail="detail" @changed="changed" />
+      <ProductPublishBar v-if="detail" :api="api" :detail="detail" :disabled="infoDirty || removing" @changed="changed" />
       <el-button v-if="merchant && detail?.product.status === 'DRAFT'" type="danger" plain :loading="removing"
-                 data-testid="product-remove" @click="remove">删除草稿</el-button>
+                 :disabled="infoDirty" data-testid="product-remove" @click="remove">删除草稿</el-button>
       <el-button @click="router.push({ name: merchant ? 'workbench-products' : 'catalog-products' })">返回列表</el-button>
     </template>
 
@@ -93,17 +94,18 @@ onMounted(() => {
         </template>
       </el-result>
 
+      <el-alert v-if="infoDirty" type="info" title="商品资料有未保存的修改，可保存或放弃修改后管理规格、供给和上架状态。" :closable="false" />
       <el-tabs v-if="detail" v-model="tab">
         <el-tab-pane label="基本资料" name="info">
-          <ProductInfoPanel :api="api" :detail="detail" @changed="changed" />
+          <ProductInfoPanel :api="api" :detail="detail" @dirty="infoDirty = $event" @changed="changed" />
         </el-tab-pane>
-        <el-tab-pane :label="`规格（${detail.skus.length}）`" name="skus">
+        <el-tab-pane :label="`规格（${detail.skus.length}）`" name="skus" :disabled="infoDirty">
           <SkuPanel :api="api" :detail="detail" @changed="changed" />
         </el-tab-pane>
-        <el-tab-pane :label="`在售供给（${detail.offers.length}）`" name="offers">
+        <el-tab-pane :label="`在售供给（${detail.offers.length}）`" name="offers" :disabled="infoDirty">
           <OfferPanel :api="api" :detail="detail" :merchant="merchant" @changed="changed" />
         </el-tab-pane>
-        <el-tab-pane v-if="!merchant" label="交易条款" name="terms" lazy>
+        <el-tab-pane v-if="!merchant" label="交易条款" name="terms" :disabled="infoDirty" lazy>
           <!-- 交易条款的改动记在操作记录里，保存后重新读一次详情，操作记录页签跟着更新。 -->
           <TradeTermsPanel :api="termsApi" :product-id="detail.product.productId" :offers="detail.offers"
                            @changed="load" />

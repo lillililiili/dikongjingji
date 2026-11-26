@@ -155,4 +155,37 @@ describe('对账页面', () => {
     expect(page.text()).toContain('这一天没有差异')
     page.unmount()
   })
+
+  it('没有应对账商户的历史账期显示独立空态，允许下载', async () => {
+    const page = mount(ReconciliationPage, {
+      props: { api: fakeApi({ read: vi.fn().mockResolvedValue({
+        date: '2000-01-01', importedAt: null, matchedCount: 0, differences: [],
+      }) }) },
+      global: { plugins: [ElementPlus] },
+    })
+    await settle()
+    expect(page.text()).toContain('当天没有需要对账的商户或交易')
+    expect(page.text()).not.toContain('账单导入时间')
+    expect(page.findAll('button').find(button => button.text().includes('下载差异表'))!.attributes('disabled')).toBeUndefined()
+    page.unmount()
+  })
+
+  it('切换日期会收起旧结果，进行中的 CSV 下载始终使用原账单日', async () => {
+    let finish!: (file: { blob: Blob, fileName: null }) => void
+    const api = fakeApi({
+      read: vi.fn().mockResolvedValueOnce(RESULT).mockReturnValueOnce(new Promise(() => {})),
+      downloadCsv: vi.fn().mockImplementation(() => new Promise(resolve => { finish = resolve })),
+    })
+    const save = vi.fn()
+    const page = mount(ReconciliationPage, { props: { api, save }, global: { plugins: [ElementPlus] } })
+    await settle()
+    await page.findAll('button').find(button => button.text().includes('下载差异表'))!.trigger('click')
+    page.getComponent({ name: 'ElDatePicker' }).vm.$emit('update:modelValue', '2020-03-12')
+    await settle()
+    expect(page.text()).not.toContain('12 笔')
+    finish({ blob: new Blob(['csv']), fileName: null })
+    await settle()
+    expect(save).toHaveBeenCalledWith(expect.any(Blob), `reconciliation-${defaultReconciliationDate()}.csv`)
+    page.unmount()
+  })
 })

@@ -1,4 +1,4 @@
-import type { FormRules } from 'element-plus'
+import type { CascaderOption, FormRules } from 'element-plus'
 
 import { newIdempotencyKey, type ApiClient } from '@/core/http/api-client'
 import { matches, maxChars, required } from '@/core/ui/form-rules'
@@ -6,7 +6,7 @@ import type { DirectoryCity, QualificationStatus } from '@/features/organization
 import { LICENSE_NUMBER, LIMITS, LOGIN_NAME } from '@/features/organization/organization-rules'
 
 // 契约 contracts/openapi-organization-signup.yaml 1.0.0 的公开接口：商家在登录页“申请入驻”。
-// 不登录；验证码的频率和错误次数由后端限制。申请成功后用登录名在登录页登录。
+// 不登录；验证码的频率和错误次数由后端限制。申请成功后用用户名在登录页登录。
 
 export const SIGNUP_LIMITS = {
   organizationName: LIMITS.name,
@@ -21,7 +21,7 @@ export const SIGNUP_LIMITS = {
 
 export const PHONE = /^1[3-9][0-9]{9}$/
 export const SMS_CODE = /^[0-9]{6}$/
-/** 口令：8–64 位，至少一个字母和一个数字，不含空白。 */
+/** 密码：8–64 位，至少一个字母和一个数字，不含空白。 */
 export const PASSWORD = /^(?=.*[A-Za-z])(?=.*[0-9])\S{8,64}$/
 
 export interface SignupForm {
@@ -61,11 +61,11 @@ export function signupRules(form: SignupForm): FormRules {
     contactName: [required('联系人'), maxChars('联系人', SIGNUP_LIMITS.contactName)],
     phone: [required('手机号'), matches(PHONE, '手机号格式不对')],
     smsCode: [required('验证码'), matches(SMS_CODE, '验证码是 6 位数字')],
-    loginName: [required('登录名'), matches(LOGIN_NAME, '登录名 4–32 位：小写字母开头，只能用小写字母、数字、_ 和 -')],
-    password: [required('口令'), matches(PASSWORD, '口令 8–64 位，至少一个字母和一个数字，不含空格', (v) => v)],
-    passwordAgain: [required('确认口令'), {
+    loginName: [required('用户名'), matches(LOGIN_NAME, '用户名 4–32 位：小写字母开头，只能用小写字母、数字、_ 和 -')],
+    password: [required('密码'), matches(PASSWORD, '密码 8–64 位，至少一个字母和一个数字，不含空格', (v) => v)],
+    passwordAgain: [required('确认密码'), {
       validator: (_rule, value: string, callback) => {
-        callback(value === form.password ? undefined : new Error('两次输入的口令不一样'))
+        callback(value === form.password ? undefined : new Error('两次输入的密码不一样'))
       },
       trigger: 'blur',
     }],
@@ -88,8 +88,28 @@ export function signupRequestBody(form: SignupForm) {
   }
 }
 
+export interface DirectoryProvince {
+  code: string
+  name: string
+  cities: DirectoryCity[]
+}
+
 interface CityDirectoryResponse {
-  provinces: Array<{ cities: DirectoryCity[] }>
+  provinces: DirectoryProvince[]
+}
+
+/** 转为省 → 市两级级联选项；省份节点加前缀避免北京等直辖市省码与市码相同（如均为 110000）时冲突。 */
+export function toCityCascaderOptions(provinces: DirectoryProvince[]): CascaderOption[] {
+  return provinces
+    .filter((province) => province.cities.length > 0)
+    .map((province) => ({
+      value: `province:${province.code}`,
+      label: province.name,
+      children: province.cities.map((city) => ({
+        value: city.code,
+        label: city.name,
+      })),
+    }))
 }
 
 export function createSignupApi(http: ApiClient) {
@@ -101,9 +121,9 @@ export function createSignupApi(http: ApiClient) {
     signUp(form: SignupForm, idempotencyKey: string = newIdempotencyKey()): Promise<SignupResult> {
       return http.post<SignupResult>('/api/v1/organization-signups', signupRequestBody(form), { idempotencyKey })
     },
-    async cities(): Promise<DirectoryCity[]> {
+    async provinces(): Promise<DirectoryProvince[]> {
       const directory = await http.get<CityDirectoryResponse>('/api/v1/platform/cities')
-      return directory.provinces.flatMap((province) => province.cities)
+      return directory.provinces
     },
   }
 }

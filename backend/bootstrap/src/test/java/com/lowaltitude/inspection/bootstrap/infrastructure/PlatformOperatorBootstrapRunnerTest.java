@@ -65,7 +65,7 @@ class PlatformOperatorBootstrapRunnerTest {
         when(mapper.findActivePlatformOrganization("PLATFORM")).thenReturn(PLATFORM_ORG);
         when(accounts.insertAccount(eq("ops-admin"), anyString(), anyString(), eq(PLATFORM_ORG), any()))
                 .thenReturn(ACCOUNT);
-        when(accounts.grantRole(eq(ACCOUNT), eq("PLATFORM_OPERATOR"), eq(null), any())).thenReturn(1);
+        when(accounts.grantRole(eq(ACCOUNT), eq("PLATFORM_OPERATOR"), eq(null))).thenReturn(1);
     }
 
     @Test
@@ -84,7 +84,7 @@ class PlatformOperatorBootstrapRunnerTest {
         run("ops-admin", null, file);
 
         assertThat(hashed).containsExactly(STRONG);
-        verify(accounts).grantRole(eq(ACCOUNT), eq("PLATFORM_OPERATOR"), eq(null), any());
+        verify(accounts).grantRole(eq(ACCOUNT), eq("PLATFORM_OPERATOR"), eq(null));
         assertThat(output).contains("created platform operator account ops-admin")
                 .doesNotContain(STRONG).doesNotContain(secrets.toString());
     }

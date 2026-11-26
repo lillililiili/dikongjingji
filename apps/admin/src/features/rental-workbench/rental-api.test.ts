@@ -145,6 +145,8 @@ describe('报价表单', () => {
 
   it.each([
     [{ dailyRentYuan: '0' }, '日租金'],
+    [{ dailyRentYuan: '99999999', days: 2 }, '合计不能超过'],
+    [{ fees: [{ key: 1, name: '运输费', note: '', amountYuan: '100000001' }] }, '金额不能超过'],
     [{ days: 91 }, '天数'],
     [{ quantity: 0 }, '台数'],
     [{ fees: [{ key: 1, name: '租金', note: '', amountYuan: '1' }] }, '不能叫“租金”'],
@@ -175,6 +177,7 @@ describe('报价表单', () => {
       },
     }
     const prefilled = initialQuoteForm(quoted, NOW)
+    expect(prefilled.validUntil).toEqual(new Date('2026-11-24T00:00:00Z'))
     expect(prefilled).toMatchObject({ dailyRentYuan: '350.50', days: 5, quantity: 1, scheduleAvailable: false, terms: '条款' })
     expect(prefilled.fees[0]).toMatchObject({ name: '运输费', note: '', amountYuan: '0.00' })
   })

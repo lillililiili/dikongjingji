@@ -72,16 +72,21 @@ async function load(): Promise<void> {
 
 function changeDate(value: string | null): void {
   date.value = value ?? ''
+  revision++
+  loading.value = false
+  result.value = null
+  error.value = null
   lastRun.value = null
   void load()
 }
 
 async function download(): Promise<void> {
   if (!canQuery.value || downloading.value) return
+  const selectedDate = date.value
   downloading.value = true
   try {
-    const file = await api.downloadCsv(date.value)
-    save(file.blob, csvFileName(date.value, file.fileName))
+    const file = await api.downloadCsv(selectedDate)
+    save(file.blob, csvFileName(selectedDate, file.fileName))
   } catch (failure) {
     showError(failure)
   } finally {
@@ -91,18 +96,23 @@ async function download(): Promise<void> {
 
 async function run(): Promise<void> {
   if (!canQuery.value || running.value) return
-  const confirmed = await confirmAction({
-    title: '重新对账',
-    message: redo.value
-      ? `向微信重新下载 ${date.value} 所有子商户的账单并覆盖，再逐笔核对。差异只记录，不会改订单。`
-      : `补导入 ${date.value} 还没导入成功的子商户账单（已导入的跳过），再逐笔核对。差异只记录，不会改订单。`,
-    confirmText: '开始对账',
-  })
-  if (!confirmed) return
+  const selectedDate = date.value
+  const redownload = redo.value
   running.value = true
   try {
-    lastRun.value = await api.run(date.value, redo.value)
-    await load()
+    const confirmed = await confirmAction({
+      title: '重新对账',
+      message: redownload
+        ? `向微信重新下载 ${selectedDate} 所有子商户的账单并覆盖，再逐笔核对。差异只记录，不会改订单。`
+        : `补导入 ${selectedDate} 还没导入成功的子商户账单（已导入的跳过），再逐笔核对。差异只记录，不会改订单。`,
+      confirmText: '开始对账',
+    })
+    if (!confirmed) return
+    const summary = await api.run(selectedDate, redownload)
+    if (selectedDate === date.value) {
+      lastRun.value = summary
+      await load()
+    }
   } catch (failure) {
     showError(failure)
   } finally {
@@ -166,6 +176,7 @@ onMounted(() => {
           </template>
         </el-result>
 
+        <el-empty v-else-if="result && result.importedAt === null" description="当天没有需要对账的商户或交易" />
         <template v-else-if="result">
           <el-descriptions :column="4" border>
             <el-descriptions-item label="日期">{{ result.date }}</el-descriptions-item>

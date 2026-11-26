@@ -10,9 +10,10 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { http } from '@/core/http'
 import { errorMessage } from '@/core/http/api-error'
+import { useChangeHistory } from '@/core/ops/use-change-history'
 import ChangeLogTable from '@/core/ops/ChangeLogTable.vue'
 import MediaField from '@/core/ops/MediaField.vue'
-import { describeMissing, type OpsChange } from '@/core/ops/ops-common'
+import { describeMissing } from '@/core/ops/ops-common'
 import RowListEditor from '@/core/ops/RowListEditor.vue'
 import { confirmAction, notifyRecorded, showError } from '@/core/ui/feedback'
 import { formatDateTime } from '@/core/ui/format'
@@ -47,7 +48,7 @@ const api = createProServiceApi(http)
 const formRef = ref<FormInstance>()
 const form = reactive<ProServiceForm>(emptyForm())
 const detail = shallowRef<OpsProService | null>(null)
-const changes = ref<OpsChange[]>([])
+const { changes, loading: changesLoading, error: changesError, load: loadChanges } = useChangeHistory(api.changes)
 const loading = ref(false)
 const loadError = ref('')
 const busy = ref(false)
@@ -83,7 +84,7 @@ async function load(): Promise<void> {
   try {
     if (!creating.value) {
       show(await api.detail(serviceId.value))
-      changes.value = await api.changes(serviceId.value)
+      void loadChanges(serviceId.value)
     } else {
       detail.value = null
       Object.assign(form, emptyForm())
@@ -129,7 +130,7 @@ async function save(): Promise<void> {
     if (current) {
       show(await api.update(current.serviceId, request, current.version))
       notifyRecorded('保存修改', '改动记录')
-      changes.value = await api.changes(current.serviceId)
+      void loadChanges(current.serviceId)
     } else {
       const created = await api.create(request)
       notifyRecorded('新建服务', '改动记录')
@@ -164,7 +165,7 @@ async function changeStatus(publish: boolean): Promise<void> {
     show(publish ? await api.publish(current.serviceId, current.version)
       : await api.offline(current.serviceId, current.version))
     notifyRecorded(publish ? '上架' : '下架', '改动记录')
-    changes.value = await api.changes(current.serviceId)
+    void loadChanges(current.serviceId)
   } catch (failure) {
     explain(failure)
   } finally {
@@ -206,7 +207,7 @@ onMounted(() => {
     </el-alert>
     <el-alert v-if="problem" class="problem" type="warning" :title="problem" :closable="false" show-icon />
 
-    <el-form v-if="!loadError" ref="formRef" v-loading="loading" :model="form" :rules="proServiceRules" label-width="110px">
+    <el-form v-if="!loadError" ref="formRef" v-loading="loading" :disabled="loading || busy" :model="form" :rules="proServiceRules" label-width="110px">
       <h2 class="group">基本信息</h2>
       <el-form-item label="服务商" prop="providerId">
         <ProviderSelect v-model="form.providerId" :current-name="detail?.providerName" />
@@ -297,7 +298,8 @@ onMounted(() => {
 
     <template v-if="detail">
       <h2 class="group">改动记录</h2>
-      <ChangeLogTable :changes="changes" :subject-labels="CHANGE_SUBJECT_LABELS" :action-labels="CHANGE_ACTION_LABELS" />
+      <el-button v-if="changesError" size="small" @click="loadChanges(serviceId)">重试改动记录</el-button>
+      <ChangeLogTable :changes="changes" :error="changesError" :loading="changesLoading" :subject-labels="CHANGE_SUBJECT_LABELS" :action-labels="CHANGE_ACTION_LABELS" />
     </template>
   </PageSection>
 </template>

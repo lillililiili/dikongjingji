@@ -30,7 +30,7 @@ class OpsFeedbackOpenApiContractTest {
 
     @Test
     void contractMatchesTheController() {
-        checker.verifyAll("1.0.0");
+        checker.verifyAll("1.1.0");
     }
 
     @Test

@@ -341,7 +341,7 @@ public class OrganizationOnboardingService {
         }
         mapper.insertMember(id, accountId, at);
         for (OpsGrantableRole role : roles) {
-            mapper.grantRole(accountId, role.name(), role.organizationScoped() ? id : null, at);
+            mapper.grantRole(accountId, role.name(), role.organizationScoped() ? id : null);
         }
         record(id, OpsOrganizationAction.ACCOUNT_CREATE,
                 "新建账号 " + login + "（" + name + "），角色：" + roleLabels(roles), operator, at);
@@ -371,7 +371,7 @@ public class OrganizationOnboardingService {
             throw new OnboardingException(Error.NOT_FOUND);
         }
         OffsetDateTime at = now();
-        Set<String> current = mapper.findAccountRoles(id, List.of(accountId), at).stream()
+        Set<String> current = mapper.findAccountRoles(id, List.of(accountId)).stream()
                 .map(AccountRoleRow::roleCode)
                 .collect(Collectors.toSet());
         List<OpsGrantableRole> granted = new ArrayList<>();
@@ -379,10 +379,14 @@ public class OrganizationOnboardingService {
         for (OpsGrantableRole role : OpsGrantableRole.forType(type)) {
             UUID scope = role.organizationScoped() ? id : null;
             if (wanted.contains(role) && !current.contains(role.name())) {
-                mapper.grantRole(accountId, role.name(), scope, at);
+                if (mapper.grantRole(accountId, role.name(), scope) != 1) {
+                    throw new OnboardingException(Error.VERSION_CONFLICT);
+                }
                 granted.add(role);
             } else if (!wanted.contains(role) && current.contains(role.name())) {
-                mapper.revokeRole(accountId, role.name(), scope, at);
+                if (mapper.revokeRole(accountId, role.name(), scope) != 1) {
+                    throw new OnboardingException(Error.VERSION_CONFLICT);
+                }
                 revoked.add(role);
             }
         }
@@ -470,7 +474,7 @@ public class OrganizationOnboardingService {
         }
         Map<UUID, Set<String>> roles = new LinkedHashMap<>();
         for (AccountRoleRow role : mapper.findAccountRoles(organizationId,
-                rows.stream().map(AccountRow::accountId).toList(), now())) {
+                rows.stream().map(AccountRow::accountId).toList())) {
             roles.computeIfAbsent(role.accountId(), ignored -> new TreeSet<>()).add(role.roleCode());
         }
         return rows.stream()
@@ -705,7 +709,7 @@ public class OrganizationOnboardingService {
      */
     @Transactional(readOnly = true)
     public List<LiveHostOrganizationView> liveHostOrganizations() {
-        return mapper.findRoleHolderOrganizations(OpsGrantableRole.LIVE_HOST.name(), now(), MAX_LIVE_HOSTS).stream()
+        return mapper.findRoleHolderOrganizations(OpsGrantableRole.LIVE_HOST.name(), MAX_LIVE_HOSTS).stream()
                 .map(row -> new LiveHostOrganizationView(row.organizationId(), row.organizationName(),
                         row.cityCode(), row.accountCount()))
                 .toList();

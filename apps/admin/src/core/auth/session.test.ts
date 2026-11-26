@@ -102,6 +102,29 @@ describe('登录状态', () => {
     expect(tokens.get()).toBeNull()
   })
 
+  it('密码校验成功后读资料短暂失败，重试即可进入后台', async () => {
+    api.me.mockRejectedValueOnce(new ApiRequestError(503, 'COMMON_SERVICE_UNAVAILABLE', '', null))
+    const session = store()
+    await expect(session.login('dev-operator', 'pw')).rejects.toBeInstanceOf(ApiRequestError)
+    expect(session.signedIn).toBe(false)
+    expect(session.restoreError).toBeTruthy()
+    expect(session.hasToken()).toBe(true)
+    expect(await session.ensureAccount()).toBe(true)
+    expect(api.login).toHaveBeenCalledTimes(1)
+  })
+
+  it('刷新时后端暂时不可用可用原登录重试', async () => {
+    tokens.set('still-valid', 900)
+    api.me.mockRejectedValueOnce(new ApiRequestError(503, 'COMMON_SERVICE_UNAVAILABLE', '', null))
+    const session = store()
+    expect(await session.ensureAccount()).toBe(false)
+    expect(session.restoreError).toBeTruthy()
+    expect(tokens.hasLogin()).toBe(true)
+    expect(await session.ensureAccount()).toBe(true)
+    expect(session.restoreError).toBe('')
+    expect(api.logout).not.toHaveBeenCalled()
+  })
+
   it('登录时存刷新令牌；访问令牌过期但能续期时仍算登录着；退出时请后端撤销这次登录', async () => {
     api.login.mockResolvedValue({
       accessToken: 'jwt', tokenType: 'Bearer', expiresInSeconds: 900,

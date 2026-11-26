@@ -57,6 +57,16 @@ class OpsUserLookupServiceTest {
     }
 
     @Test
+    void masksLegacyPhoneShapedUsernamesInLookupResults() {
+        when(mapper.countUsers(any(), any(), any(), any())).thenReturn(1L);
+        when(mapper.findUsers(any(), any(), any(), any(), anyInt(), anyInt())).thenReturn(List.of(
+                new UserRow(USER, "客户", "13800002026", null, "ACTIVE", false, "PASSWORD", "CUSTOMER", AT)));
+        var customer = service.search("13800002026", 1, 20).items().get(0);
+        assertThat(customer.loginName()).isEqualTo("138****2026");
+        assertThat(customer.maskedPhone()).isNull();
+    }
+
+    @Test
     void statusRolesAndPhoneAreShapedForTheOpsPage() {
         when(mapper.countUsers(any(), any(), any(), any())).thenReturn(3L);
         when(mapper.findUsers(any(), any(), any(), any(), anyInt(), anyInt())).thenReturn(List.of(

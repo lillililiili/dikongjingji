@@ -30,8 +30,6 @@ const pendingCount = computed(() => (list.last.value as OpsFeedbackPage | null)?
 const formRef = ref<FormInstance>()
 const handling = reactive<{ feedback: OpsFeedback | null, note: string }>({ feedback: null, note: '' })
 const busy = ref(false)
-/** 这一页里已经点过隐藏的举报（接口幂等，这里只用来把按钮改成“已隐藏”）。 */
-const hidden = reactive(new Set<string>())
 
 const rules: FormRules = {
   note: [required('处理说明'), maxChars('处理说明', HANDLE_NOTE_MAX)],
@@ -44,7 +42,7 @@ function setStatus(value: string | number | boolean | undefined): void {
 
 function openHandle(feedback: OpsFeedback): void {
   handling.feedback = feedback
-  handling.note = hidden.has(feedback.feedbackId) ? `已${hideLabel(feedback.source)}。` : ''
+  handling.note = feedback.target?.visibility === 'HIDDEN' ? `已${hideLabel(feedback.source)}。` : ''
   formRef.value?.clearValidate()
 }
 
@@ -60,8 +58,8 @@ async function hide(feedback: OpsFeedback): Promise<void> {
   busy.value = true
   try {
     await api.hideTarget(feedback)
-    hidden.add(feedback.feedbackId)
     notifyRecorded(label, '内容的隐藏记录（隐藏人和时间）')
+    await list.load()
   } catch (failure) {
     showError(failure)
   } finally {
@@ -142,7 +140,10 @@ onMounted(() => {
         <template #default="{ row }">{{ FEEDBACK_TYPE_LABELS[(row as OpsFeedback).type] }}</template>
       </el-table-column>
       <el-table-column label="内容" min-width="280">
-        <template #default="{ row }"><span class="text">{{ (row as OpsFeedback).text }}</span></template>
+        <template #default="{ row }">
+          <div class="text">{{ (row as OpsFeedback).text }}</div>
+          <div v-if="(row as OpsFeedback).target?.text" class="text">被举报原文：{{ (row as OpsFeedback).target?.text }}</div>
+        </template>
       </el-table-column>
       <el-table-column label="提交人" width="120">
         <template #default="{ row }">{{ (row as OpsFeedback).reporter.displayName ?? '账号已停用' }}</template>
@@ -161,8 +162,9 @@ onMounted(() => {
       <el-table-column label="操作" width="170" fixed="right">
         <template #default="{ row }">
           <template v-if="(row as OpsFeedback).target">
-            <el-button v-if="hidden.has((row as OpsFeedback).feedbackId)" link disabled>已隐藏</el-button>
-            <el-button v-else link type="danger" :disabled="busy" @click="hide(row as OpsFeedback)">
+            <span v-if="(row as OpsFeedback).target?.visibility === 'HIDDEN'">已隐藏</span>
+            <span v-else-if="(row as OpsFeedback).target?.visibility === 'MISSING'">内容已不存在</span>
+            <el-button v-else-if="(row as OpsFeedback).target?.visibility === 'VISIBLE'" link type="danger" :disabled="busy" @click="hide(row as OpsFeedback)">
               {{ hideLabel((row as OpsFeedback).source) }}
             </el-button>
           </template>

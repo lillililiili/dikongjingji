@@ -47,8 +47,8 @@ async function save(): Promise<void> {
   const confirmed = await confirmAction({
     title: editing.value ? '确认修改设备' : '确认新增设备',
     message: form.productId.trim()
-      ? '关联的商品要在场馆所在城市在售；App 商品详情的“先体验，再决定”会列出这家场馆。'
-      : '保存后 App 的“馆内设备”立即显示。',
+      ? '场馆上线、设备启用且商品在本城有售后，用户可从商品详情查看这家场馆。'
+      : 'App 的“馆内设备”展示已上线场馆中的启用设备。',
     confirmText: '保存',
   })
   if (!confirmed) return

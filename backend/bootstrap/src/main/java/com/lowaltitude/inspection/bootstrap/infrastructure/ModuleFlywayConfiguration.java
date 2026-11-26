@@ -55,7 +55,7 @@ public class ModuleFlywayConfiguration {
 
     @Bean(initMethod = "migrate")
     Flyway identityFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
-        return factory.identity(dataSource);
+        return IdentityMigrationHistory.forDatabase(factory.identity(dataSource));
     }
 
     // 本地验收和联调用的两个示例账号，密码写在种子里；只有 dev 环境加载。

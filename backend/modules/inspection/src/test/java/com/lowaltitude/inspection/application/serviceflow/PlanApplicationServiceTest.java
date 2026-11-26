@@ -66,6 +66,19 @@ class PlanApplicationServiceTest {
     }
 
     @Test
+    void publisherReadsTheCurrentEditionOnlyForItsAssignedReservation() {
+        assertThatThrownBy(() -> service.currentForProvider(provider(PROVIDER), RESERVATION))
+                .isInstanceOf(PlanResourceNotFoundException.class);
+        ServicePlanView published = service.publish(provider(PROVIDER), RESERVATION, PUBLISH_KEY, 0,
+                command("现行方案", 100), "publish");
+        assertThat(service.currentForProvider(provider(PROVIDER), RESERVATION)).isEqualTo(published);
+        assertThatThrownBy(() -> service.currentForProvider(provider(UUID.randomUUID()), RESERVATION))
+                .isInstanceOf(PlanResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.currentForProvider(customer(CUSTOMER), RESERVATION))
+                .isInstanceOf(PlanForbiddenException.class);
+    }
+
+    @Test
     void changedRequestCannotReusePublishIdempotencyKey() {
         service.publish(
                 provider(PROVIDER),
@@ -744,6 +757,14 @@ final class InMemoryPlanStore implements PlanStore {
     @Override
     public Optional<PlanReservation> findReservation(UUID reservationId) {
         return reservation.id().equals(reservationId) ? Optional.of(reservation) : Optional.empty();
+    }
+
+    @Override
+    public Optional<StoredServicePlan> findCurrentPlan(UUID reservationId) {
+        return plans.values().stream()
+                .filter(plan -> plan.reservation().id().equals(reservationId))
+                .filter(plan -> plan.status() == PlanStatus.PUBLISHED || plan.status() == PlanStatus.CONFIRMED)
+                .max(java.util.Comparator.comparingInt(StoredServicePlan::planVersion));
     }
 
     @Override

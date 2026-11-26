@@ -81,16 +81,28 @@ const visibleChannels = resolveVisibleHomeChannels(PLATFORM_PREVIEW_ENABLED)
 const channelCards = resolveHomeChannelCards(PLATFORM_PREVIEW_ENABLED)
 const kingEntries = resolveHomeKingEntries(PLATFORM_PREVIEW_ENABLED)
 const carouselSlides = ref<HomeCarouselSlide[]>([])
-watch(() => currentCityStore.currentCity?.code, (cityCode, _, onCleanup) => {
-  carouselSlides.value = []
-  if (!cityCode) return
-  let current = true
-  onCleanup(() => { current = false })
-  void loadHomeCarousel(cityCode, PLATFORM_PREVIEW_ENABLED)
-    .then((slides) => { if (current) carouselSlides.value = slides })
-    .catch(() => { /* The city has no available carousel while its request is failing. */ })
-}, { immediate: true })
+const carouselError = ref(false)
 const pageVisible = ref(false)
+let carouselRequest = 0
+async function refreshCarousel(): Promise<void> {
+  const request = ++carouselRequest
+  const city = currentCityStore.currentCity?.code
+  carouselError.value = false
+  if (!city || !pageVisible.value) return
+  try {
+    const slides = await loadHomeCarousel(city, PLATFORM_PREVIEW_ENABLED)
+    if (request === carouselRequest) carouselSlides.value = slides
+  } catch {
+    if (request === carouselRequest) {
+      carouselSlides.value = []
+      carouselError.value = true
+    }
+  }
+}
+watch([() => currentCityStore.currentCity?.code, pageVisible], ([city], [previousCity]) => {
+  if (city !== previousCity) carouselSlides.value = []
+  void refreshCarousel()
+})
 const serviceChannelOpened = ref(activeChannel.value === 'SERVICE')
 const activityChannelOpened = ref(activeChannel.value === 'ACTIVITY')
 const activityChannel = ref<{ loadMore(): Promise<void> } | null>(null)
@@ -446,9 +458,11 @@ onHide(() => {
         :cards="channelCards"
         :king-entries="kingEntries"
         :carousel-slides="carouselSlides"
+        :carousel-error="carouselError"
         :carousel-active="pageVisible && activeChannel === 'RECOMMEND'"
         :show-sections="!PLATFORM_PREVIEW_ENABLED"
         @retry="loadHomeContent"
+        @retry-carousel="refreshCarousel"
         @search="openCatalog"
         @select-entry="openEntry"
         @select-featured-service="selectFeatured"

@@ -60,7 +60,7 @@ describe('出方案', () => {
     const publishPlan = vi.fn().mockResolvedValue({ id: 'plan-1', planNo: 'SP1', planVersion: 1, totalAmountMinor: 128050 })
     confirmAction.mockResolvedValue(true)
     const wrapper = mount(PlanPublishDialog, {
-      props: { api: { publishPlan } as unknown as InspectionWorkbenchApi, reservation: RESERVATION, republish: false },
+      props: { api: { publishPlan } as unknown as InspectionWorkbenchApi, reservation: RESERVATION, previous: null },
       global: { plugins: [ElementPlus] },
       attachTo: document.body,
     })
@@ -99,14 +99,22 @@ describe('出方案', () => {
     wrapper.unmount()
   })
 
-  it('再发一版没写变更说明不提交', async () => {
-    const publishPlan = vi.fn()
+  it('新版本复用现有报价和约定，自定义编码与服务方式保留，必须填写本次变更说明', async () => {
+    const publishPlan = vi.fn().mockResolvedValue({ planNo: 'SP2', planVersion: 2 })
+    const previous = {
+      id: 'plan-0', planNo: 'SP1', planVersion: 1, totalAmountMinor: 20500, serviceDate: '2099-12-02',
+      validUntil: '2099-11-30T03:00:00Z', visits: [{ plannedDate: '2099-12-02' }, { plannedDate: '2099-12-03' }],
+      summary: '巡检园区南门', scopeSummary: '南门两组设备', serviceMethods: [{ code: 'VISUAL', label: '现场目检' }],
+      deliveryTerms: { reportDueHours: null, mediaRetentionDays: 37 },
+      planItems: [{ code: 'ITEM-2', name: '设备目检', quantity: 2, unit: '组', unitPriceMinor: 10250 }],
+      deliverables: [{ code: 'D-2', label: '设备档案', fileType: null }],
+    }
     confirmAction.mockResolvedValue(true)
     const wrapper = mount(PlanPublishDialog, {
       props: {
         api: { publishPlan } as unknown as InspectionWorkbenchApi,
         reservation: { ...RESERVATION, status: 'PLAN_PUBLISHED', currentPlanId: 'plan-0' },
-        republish: true,
+        previous,
       },
       global: { plugins: [ElementPlus] },
       attachTo: document.body,
@@ -114,10 +122,31 @@ describe('出方案', () => {
     await settle()
     const price = Array.from(document.body.querySelectorAll<HTMLInputElement>('input'))
       .find((input) => input.placeholder === '单价（元）')!
-    type(price, '100')
+    expect(price.value).toBe('102.50')
     publishButton().click()
     await settle()
     expect(publishPlan).not.toHaveBeenCalled()
+    const note = document.body.querySelector<HTMLInputElement>('input[placeholder="这一版改了什么，客户会看到"]')!
+    type(note, '降低单价')
+    type(price, '100')
+    const buttons = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button'))
+    buttons.find(button => button.textContent?.trim() === '加一行')!.click()
+    buttons.find(button => button.textContent?.trim() === '加一项')!.click()
+    await settle()
+    const names = document.body.querySelectorAll<HTMLInputElement>('input[placeholder="名称"]')
+    type(names[1]!, '复核')
+    type(names[3]!, '补充记录')
+    type(document.body.querySelectorAll<HTMLInputElement>('input[placeholder="单价（元）"]')[1]!, '10')
+    await settle()
+    publishButton().click()
+    await settle()
+    expect(publishPlan.mock.calls[0]?.[1]).toMatchObject({
+      validUntil: new Date(previous.validUntil).toISOString(), visits: previous.visits, summary: previous.summary,
+      scopeSummary: previous.scopeSummary, serviceMethods: previous.serviceMethods, deliveryTerms: previous.deliveryTerms,
+      changeNote: '降低单价',
+      planItems: [{ ...previous.planItems[0], unitPriceMinor: 10000 }, { code: 'ITEM-1', name: '复核', unitPriceMinor: 1000 }],
+      deliverables: [{ code: 'D-2', name: '设备档案', fileType: null }, { code: 'D-1', name: '补充记录', fileType: null }],
+    })
     wrapper.unmount()
   })
 })

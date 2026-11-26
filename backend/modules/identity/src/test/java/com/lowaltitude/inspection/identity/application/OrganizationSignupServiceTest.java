@@ -80,7 +80,7 @@ class OrganizationSignupServiceTest {
         ordered.verify(mapper).findSignupReceipt(KEY);
         ordered.verify(smsCodes).verify("13800001234", SmsCodeService.SIGNUP, "123456", null);
         verify(mapper).insertMember(ORG, ACCOUNT, AT);
-        verify(mapper).grantRole(ACCOUNT, "PROVIDER_OPERATOR", ORG, AT);
+        verify(mapper).grantRole(ACCOUNT, "PROVIDER_OPERATOR", ORG);
         // 统一社会信用代码转成大写；资质由申请人自己的账号提交。
         verify(mapper).insertQualification(ORG, "东营翼飞科技有限公司", LICENSE, "无人机销售", null, ACCOUNT, AT);
         verify(mapper).insertOperation(eq(ORG), eq("SIGNUP"), anyString(), eq(ACCOUNT), eq("王芳"), eq(AT));

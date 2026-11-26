@@ -30,7 +30,7 @@ class OpsFeedbackControllerTest {
 
     private static OpsFeedbackView view(SupportFeedbackHandleStatus status) {
         return new OpsFeedbackView(FEEDBACK, SupportFeedbackType.CONTENT, SupportFeedbackSource.LIVE_COMMENT_REPORT,
-                "举报直播弹幕：第 3 条", new SupportReportTargetView(COMMENT, ROOM),
+                "举报直播弹幕：第 3 条", new SupportReportTargetView(COMMENT, ROOM, "HIDDEN", "测试弹幕"),
                 new SupportFeedbackReporterView("王女士（示例）"), status,
                 status == SupportFeedbackHandleStatus.HANDLED
                         ? new SupportFeedbackHandlingView("已隐藏该弹幕", OpsTestSupport.SUPPORT_NAME, AT) : null,
@@ -49,6 +49,8 @@ class OpsFeedbackControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.pendingCount").value(3))
                 .andExpect(jsonPath("$.items[0].target.parentId").value(ROOM.toString()))
+                .andExpect(jsonPath("$.items[0].target.visibility").value("HIDDEN"))
+                .andExpect(jsonPath("$.items[0].target.text").value("测试弹幕"))
                 .andExpect(jsonPath("$.items[0].handling").isEmpty());
         mockMvc.perform(post("/api/v1/ops/feedback/" + FEEDBACK + "/handle").principal(OpsTestSupport.support())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"note\":\"已隐藏该弹幕\",\"version\":0}"))

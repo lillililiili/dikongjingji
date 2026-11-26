@@ -1,23 +1,42 @@
 /*
- * 运营端主题：Element Plus 常规后台样式，主色 #ff6a00（和 App 一致）。浅色系数按 Element Plus 的做法和白色混合，
- * 深一档和黑色按 20% 混合。版面颜色照原型 Ops 看板：底色 #f5f7fc、细边 #e5ebf3、正文 #202c42、选中项 #fff0e3 / #ba470b。
+ * 标准企业级中后台设计令牌（参照若依 RuoYi-Vue3 / Ant Design Pro 规范）：
+ * 默认采用经典企业蓝 #1677ff + 深藏青侧栏 #001529 + #f0f2f5 浅灰背景，克制、扁平、高可读。
  */
 :root {
-  --el-color-primary: #ff6a00;
-  --el-color-primary-light-3: #ff974d;
-  --el-color-primary-light-5: #ffb580;
-  --el-color-primary-light-7: #ffd2b3;
-  --el-color-primary-light-8: #ffe1cc;
-  --el-color-primary-light-9: #fff0e6;
-  --el-color-primary-dark-2: #cc5500;
+  --el-color-primary: #1677ff;
+  --el-color-primary-light-3: #4096ff;
+  --el-color-primary-light-5: #69b1ff;
+  --el-color-primary-light-7: #bae0ff;
+  --el-color-primary-light-8: #d6ecff;
+  --el-color-primary-light-9: #e6f4ff;
+  --el-color-primary-dark-2: #0958d9;
 
-  --admin-background: #f5f7fc;
-  --admin-border: #e5ebf3;
-  --admin-text: #202c42;
-  --admin-text-secondary: #536178;
-  --admin-brand-surface: #fff0e3;
-  --admin-brand-text: #ba470b;
-  --admin-surface-muted: #f5f7fc;
+  --el-border-radius-base: 4px;
+  --el-border-radius-small: 3px;
+
+  --admin-background: #f0f2f5;
+  --admin-surface: #ffffff;
+  --admin-surface-muted: #fafafa;
+  --admin-border: #e5e6eb;
+  --admin-border-subtle: #f0f0f0;
+
+  --admin-heading: #1f2329;
+  --admin-text: #1f2329;
+  --admin-text-secondary: #595959;
+  --admin-text-muted: #8c8c8c;
+
+  --admin-brand-surface: #e6f4ff;
+  --admin-brand-text: #0958d9;
+
+  --ruoyi-sidebar-dark-bg: #001529;
+  --ruoyi-sidebar-dark-sub-bg: #000c17;
+  --ruoyi-sidebar-dark-border: rgba(255, 255, 255, 0.08);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 html,
@@ -25,7 +44,9 @@ body {
   margin: 0;
   color: var(--admin-text);
   background: var(--admin-background);
-  font-family: -apple-system, 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 #app {

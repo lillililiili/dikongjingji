@@ -15,6 +15,7 @@ import {
 
 /** 页头的状态和上架 / 下架：上架前缺必填时按钮禁用，旁边列出缺什么。 */
 const props = defineProps<{
+  disabled?: boolean
   api: CatalogApi
   detail: OpsProductDetail
 }>()
@@ -36,7 +37,7 @@ const published = computed(() => props.detail.product.status === 'PUBLISHED')
 const blockers = computed(() => serverBlockers.value ?? props.detail.publishBlockers)
 
 async function change(): Promise<void> {
-  if (busy.value) return
+  if (busy.value || props.disabled) return
   const publishing = !published.value
   if (publishing && blockers.value.length > 0) return
   const confirmed = await confirmAction({
@@ -76,7 +77,7 @@ async function change(): Promise<void> {
       :type="published ? 'danger' : 'primary'"
       :plain="published"
       :loading="busy"
-      :disabled="!published && blockers.length > 0"
+      :disabled="disabled || (!published && blockers.length > 0)"
       data-testid="publish-button"
       @click="change"
     >

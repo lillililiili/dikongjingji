@@ -110,9 +110,13 @@ const items = {
     await tap(app, 'booking-agreement');
     await app.locator('.inspection-booking__submit').click();
     await app.getByTestId('booking-submitted-status').waitFor();
+    const reservationId = new URLSearchParams(new URL(app.url()).hash.split('?')[1]).get('reservationId');
+    if (!reservationId) throw new Error('预约提交结果缺少预约 ID');
+    const reservationNo = (await app.locator('.booking-submitted__number-value').innerText()).trim();
+    const orderCard = app.getByTestId('inspection-order-' + reservationId);
     log('客户提交预约');
     const web = await openAdmin('dev-provider', '/workbench/inspection');
-    await web.getByRole('button', { name: '处理' }).first().click();
+    await web.getByRole('row').filter({ hasText: reservationNo }).getByRole('button', { name: '处理' }).click();
     await web.getByRole('button', { name: /出方案/ }).click();
     await web.waitForTimeout(600);
     await dialog(web).locator('textarea').first().fill('输电线路巡检方案');
@@ -124,7 +128,7 @@ const items = {
     await success(web);
     log('服务商发布方案');
     await go(app, '/pages/mine/inspection-orders');
-    await app.getByText('确认方案').first().click();
+    await orderCard.getByText('确认方案', { exact: true }).click();
     await app.locator('uni-button').filter({ hasText: '我已核对' }).click();
     await app.waitForTimeout(400);
     await app.locator('.plan-confirmation__primary').last().click();
@@ -134,7 +138,7 @@ const items = {
     await payHere(app);
     await shot(app, '1-首付');
     log('客户确认方案、付首付 30%');
-    await web.getByRole('button', { name: '刷新' }).click();
+    await web.getByRole('button', { name: '刷新', exact: true }).click();
     await web.getByRole('button', { name: /安排/ }).click();
     const device = dialog(web).locator('input[placeholder^="设备名称"]');
     if (!(await device.count())) await dialog(web).getByRole('button', { name: '加设备' }).click();
@@ -155,17 +159,19 @@ const items = {
     }
     log('服务商安排、排期、开工、现场完成');
     await row.getByRole('button', { name: '上传交付并发布' }).click();
-    const files = dialog(web).locator('input[type=file]');
     const names = { zip: '巡检影像.zip', xlsx: '缺陷清单.xlsx', kml: '点位标注.kml', pdf: '巡检报告.pdf' };
-    for (let i = 0; i < await files.count(); i += 1) await files.nth(i).setInputFiles(sample(names[(await files.nth(i).getAttribute('accept')).slice(1)]));
+    for (const [extension, filename] of Object.entries(names)) {
+      await dialog(web).locator(`input[type=file][accept=".${extension}"]`).setInputFiles(sample(filename));
+    }
     const numbers = dialog(web).locator('.el-input-number input');
     for (let i = 0; i < await numbers.count(); i += 1) if (!(await numbers.nth(i).inputValue())) await numbers.nth(i).fill('3');
     await dialog(web).getByRole('button', { name: '上传并发布' }).click();
     await confirmBox(web);
-    await expect(web.locator('.el-message').filter({ hasText: '已交付' })).toBeVisible();
+    await expect(dialog(web)).toBeHidden({ timeout: 20_000 });
+    await expect(row).toContainText('已交付，待客户验收');
     log('服务商上传四类文件并交付');
     await go(app, '/pages/mine/inspection-orders');
-    await app.getByText(/去验收|查看交付/).last().click();
+    await orderCard.getByTestId('inspection-order-action').click();
     await app.locator('.delivery__accept').click();
     await app.locator('.acceptance-sheet__confirm').click();
     await tap(app, 'delivery-pay');
@@ -231,6 +237,7 @@ const items = {
     log('商家同意');
     await tap(app, 'aftersale-refresh');
     await tap(app, 'aftersale-action-submit_return');
+    await app.getByTestId('aftersale-carrier-name').locator('input').fill('顺丰速运');
     await app.getByTestId('aftersale-tracking-no').locator('input').fill('2026112400012');
     await app.waitForTimeout(200);
     await tap(app, 'aftersale-waybill-submit');
@@ -301,8 +308,9 @@ const items = {
     await web.goto(`${ADMIN}/signup`);
     const field = (label) => web.locator('.el-form-item').filter({ hasText: label }).locator('input, textarea').first();
     await field('机构名称').fill(tag);
-    await field('所在城市').click();
-    await web.locator('.el-select-dropdown__item').filter({ hasText: '东营' }).first().click();
+    await web.getByPlaceholder('请选择省份 / 城市').click();
+    await web.getByRole('menuitem', { name: '山东省' }).click();
+    await web.getByRole('menuitem', { name: '东营市' }).click();
     await field('主体名称').fill(`${tag}科技有限公司`);
     await field('统一社会信用代码').fill(credit());
     await field('联系人姓名').fill('李经理');
@@ -314,15 +322,20 @@ const items = {
       const text = await (await fetch(`http://127.0.0.1:${PORTS.console}/`)).text();
       code = new RegExp(`${phone}</td><td><b class="code">(\\d{6})`).exec(text)?.[1] ?? null;
     }
-    log(`从演示控制台看到验证码 ${code}`);
+    if (!code) throw new Error('演示控制台未显示本次申请的短信验证码');
+    log('已从演示控制台核对本次申请的验证码');
     await field('短信验证码').fill(code);
-    await field('登录名').fill(loginName);
+    await web.getByLabel('用户名', { exact: true }).fill(loginName);
     await web.locator('input[type=password]').nth(0).fill(secret);
     await web.locator('input[type=password]').nth(1).fill(secret);
     const agree = web.locator('.el-checkbox:not(.is-checked)');
     if (await agree.count()) await agree.first().click();
+    const submitting = web.waitForResponse((response) => response.request().method() === 'POST' &&
+      new URL(response.url()).pathname === '/api/v1/organization-signups');
     await web.getByRole('button', { name: '提交申请' }).click();
-    await web.getByRole('button', { name: '去登录' }).waitFor();
+    const submitted = await submitting;
+    if (submitted.status() !== 201) throw new Error(`入驻提交未成功（HTTP ${submitted.status()}）`);
+    await expect(web.getByTestId('signup-login-name')).toHaveText(loginName);
     await shot(web, '5-入驻');
     log('新机构在网页提交入驻');
     const token = await login(loginName, secret);
@@ -374,18 +387,15 @@ const items = {
   },
 
   async 8() {
-    const web = await openAdmin('dev-support', '/lookup/orders');
-    if (goodsOrderNo) await expect(web.locator('body')).toContainText('打码').catch(() => undefined);
-    await web.goto(`${ADMIN}/`);
+    const web = await openAdmin('dev-support', '/');
     await web.getByTestId('kpi-orders').waitFor();
     const read = async () => Number((await web.getByTestId('kpi-orders').innerText()).replace(/[^\d]/g, ' ').trim().split(/\s+/)[0]);
     const before = await read();
     items.app2 = null;
     await items[2]();
-    await web.getByRole('button', { name: '刷新' }).first().click();
-    await web.waitForTimeout(1500);
+    await web.getByRole('button', { name: '刷新', exact: true }).click();
+    await expect.poll(read).toBe(before + 1);
     const after = await read();
-    if (after !== before + 1) throw new Error(`新增一笔付款后，付款订单数 ${before} → ${after}`);
     await shot(web, '8-经营概览');
     log(`新增一笔订单后，付款订单 ${before} → ${after}`);
   },

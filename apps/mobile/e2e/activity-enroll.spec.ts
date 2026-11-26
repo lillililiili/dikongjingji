@@ -5,6 +5,7 @@ import { testApi as API } from './support/test-stack'
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
 import { purgeFreeEnrollments } from './support/activity-fixtures'
+import { expectCurrentAgreement } from './support/agreement'
 import { databaseAvailable } from './support/trade-fixtures'
 
 // 免费活动报名：参与人、填写报名、报名凭证、我的报名、取消。
@@ -298,10 +299,9 @@ test.describe('免费活动报名', () => {
     await expect(page.getByTestId('activity-enroll-count')).toHaveText('已选 2 人')
     // 报名里有孩子，同意语以监护人身份说。
     await expect(page.locator('.activity-enroll__agree-text')).toContainText('我是参与人监护人，已阅读并同意')
-    // 协议正文还没有（G1 起打开协议页，正文是占位）；回来后勾选不变。
+    // 报名须知按运营发布的版本展示，返回后保留选中的参与人。
     await page.getByTestId('activity-enroll-notice').click()
-    await expect(page.getByTestId('agreement-title')).toHaveText('报名须知与照片使用说明')
-    await expect(page.getByTestId('agreement-unpublished')).toHaveText('协议正文尚未发布')
+    await expectCurrentAgreement(page, 'ENROLLMENT_NOTICE', '报名须知与照片使用说明')
     await page.getByTestId('agreement-back').click()
     await expect(page.getByTestId('activity-enroll-count')).toHaveText('已选 2 人')
     await page.getByTestId('activity-enroll-agree').click()

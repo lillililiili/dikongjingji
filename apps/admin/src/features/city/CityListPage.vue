@@ -5,7 +5,7 @@ import { http } from '@/core/http'
 import { formatDateTime } from '@/core/ui/format'
 import PagedTable from '@/core/ui/PagedTable.vue'
 import PageSection from '@/core/ui/PageSection.vue'
-import { showError } from '@/core/ui/feedback'
+import { useChangeHistory } from '@/core/ops/use-change-history'
 import { usePagedList } from '@/core/ui/use-paged-list'
 
 import {
@@ -15,7 +15,6 @@ import {
   createCityApi,
   type CityFilters,
   type OpsCity,
-  type OpsCityStatusChange,
 } from './city-api'
 import CityStatusDialog from './CityStatusDialog.vue'
 
@@ -25,20 +24,11 @@ const list = usePagedList<OpsCity, CityFilters>((filters, page, size) => api.lis
 
 const editing = ref<OpsCity | null>(null)
 const historyCity = ref<OpsCity | null>(null)
-const history = ref<OpsCityStatusChange[]>([])
-const historyLoading = ref(false)
+const { changes: history, loading: historyLoading, error: historyError, load: loadHistory } = useChangeHistory(api.changes)
 
-async function openHistory(city: OpsCity): Promise<void> {
+function openHistory(city: OpsCity): void {
   historyCity.value = city
-  history.value = []
-  historyLoading.value = true
-  try {
-    history.value = await api.changes(city.cityCode)
-  } catch (failure) {
-    showError(failure)
-  } finally {
-    historyLoading.value = false
-  }
+  void loadHistory(city.cityCode)
 }
 
 function changed(): void {
@@ -125,7 +115,10 @@ onMounted(() => {
     @close="historyCity = null"
   >
     <div v-loading="historyLoading">
-      <el-empty v-if="!historyLoading && history.length === 0" description="还没有改过开通状态" />
+      <el-alert v-if="historyError" type="error" :title="historyError" :closable="false">
+        <el-button v-if="historyCity" size="small" @click="loadHistory(historyCity.cityCode)">重试改动记录</el-button>
+      </el-alert>
+      <el-empty v-else-if="!historyLoading && history.length === 0" description="还没有改过开通状态" />
       <el-timeline v-else>
         <el-timeline-item
           v-for="change in history"

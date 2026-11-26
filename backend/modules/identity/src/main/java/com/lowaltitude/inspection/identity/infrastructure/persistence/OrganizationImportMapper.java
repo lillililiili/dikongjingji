@@ -95,11 +95,11 @@ public interface OrganizationImportMapper {
             JOIN identity_role r ON r.id = ur.role_id
             WHERE ur.user_id = #{accountId}
               AND ur.organization_id = #{organizationId}
-              AND ur.valid_from <= #{at}
-              AND (ur.valid_until IS NULL OR ur.valid_until > #{at})
+              AND r.status = 'ACTIVE' AND r.scope_type = 'ORGANIZATION'
+              AND ur.valid_from <= statement_timestamp()
+              AND (ur.valid_until IS NULL OR ur.valid_until > statement_timestamp())
             """)
-    List<String> findRoles(@Param("accountId") UUID accountId, @Param("organizationId") UUID organizationId,
-                           @Param("at") OffsetDateTime at);
+    List<String> findRoles(@Param("accountId") UUID accountId, @Param("organizationId") UUID organizationId);
 
     record OrganizationRef(UUID id, String organizationType, String status) {
     }

@@ -2,9 +2,7 @@ package com.lowaltitude.inspection.identity.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -35,8 +33,7 @@ class PostgresIdentityAdapterTest {
                                 NOW.minusSeconds(60), null, "inspection.plan.read.all"),
                         role("EXPIRED_ROLE", "ACTIVE", "ORGANIZATION", ORGANIZATION_ID,
                                 NOW.minusSeconds(120), NOW.minusSeconds(1), "inspection.delivery.download.all")));
-        PostgresIdentityAccountAdapter adapter = new PostgresIdentityAccountAdapter(
-                reader, Clock.fixed(NOW, ZoneOffset.UTC));
+        PostgresIdentityAccountAdapter adapter = new PostgresIdentityAccountAdapter(reader);
 
         Optional<IdentityAccount> account = adapter.findByLoginName("provider");
 
@@ -55,16 +52,14 @@ class PostgresIdentityAdapterTest {
                         role("PROVIDER_OPERATOR", "ACTIVE", "ORGANIZATION", ORGANIZATION_ID,
                                 NOW.minusSeconds(60), null, "inspection.order.read.assigned"),
                         role("OTHER_TENANT", "ACTIVE", "ORGANIZATION", OTHER_ORGANIZATION_ID,
-                                NOW.minusSeconds(60), null, "inspection.order.read.all"))),
-                Clock.fixed(NOW, ZoneOffset.UTC));
+                                NOW.minusSeconds(60), null, "inspection.order.read.all"))));
 
         IdentityAccount account = adapter.findBySubjectId(USER_ID).orElseThrow();
         assertThat(account.roles()).containsExactly("PROVIDER_OPERATOR");
         assertThat(account.permissions()).containsExactly("inspection.order.read.assigned");
 
         PostgresIdentityAccountAdapter withoutMembership = new PostgresIdentityAccountAdapter(
-                new StubIdentityPersistenceReader(user(ORGANIZATION_ID, "ACTIVE", "DISABLED"), List.of()),
-                Clock.fixed(NOW, ZoneOffset.UTC));
+                new StubIdentityPersistenceReader(user(ORGANIZATION_ID, "ACTIVE", "DISABLED"), List.of()));
         assertThat(withoutMembership.findBySubjectId(USER_ID)).isEmpty();
     }
 
@@ -75,10 +70,27 @@ class PostgresIdentityAdapterTest {
                 user(ORGANIZATION_ID, "DISABLED", "ACTIVE"),
                 user(ORGANIZATION_ID, "ACTIVE", "DISABLED"))) {
             PostgresIdentityAccountAdapter adapter = new PostgresIdentityAccountAdapter(
-                    new StubIdentityPersistenceReader(invalid, List.of()), Clock.fixed(NOW, ZoneOffset.UTC));
+                    new StubIdentityPersistenceReader(invalid, List.of()));
 
             assertThat(adapter.findByLoginName("provider")).isEmpty();
         }
+    }
+
+    @Test
+    void evaluatesNewFutureAndExpiredGrantsAtTheSameDatabaseInstant() {
+        Instant databaseTime = NOW.plusNanos(5_581_000);
+        StubIdentityPersistenceReader reader = new StubIdentityPersistenceReader(validUser(), List.of(
+                new PersistedRolePermission("CUSTOMER", "ACTIVE", "GLOBAL", null,
+                        databaseTime, null, "new-grant", databaseTime),
+                new PersistedRolePermission("FUTURE", "ACTIVE", "GLOBAL", null,
+                        databaseTime.plusNanos(1_000), null, "pending", databaseTime),
+                new PersistedRolePermission("EXPIRED", "ACTIVE", "GLOBAL", null,
+                        NOW, databaseTime, "expired", databaseTime)));
+
+        IdentityAccount account = new PostgresIdentityAccountAdapter(reader).findBySubjectId(USER_ID).orElseThrow();
+
+        assertThat(account.roles()).containsExactly("CUSTOMER");
+        assertThat(account.permissions()).containsExactly("new-grant");
     }
 
     @Test
@@ -120,7 +132,7 @@ class PostgresIdentityAdapterTest {
             String permissionCode
     ) {
         return new PersistedRolePermission(
-                roleCode, roleStatus, scopeType, organizationId, validFrom, validUntil, permissionCode);
+                roleCode, roleStatus, scopeType, organizationId, validFrom, validUntil, permissionCode, NOW);
     }
 
     private record StubIdentityPersistenceReader(

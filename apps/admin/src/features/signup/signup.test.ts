@@ -4,7 +4,14 @@ import { describe, expect, it } from 'vitest'
 import { jsonBody, recordingClient } from '@/core/http/recording-client'
 import { firstError } from '@/core/ui/form-rules'
 
-import { createSignupApi, emptySignupForm, signupRequestBody, signupRules, type SignupForm } from './signup-api'
+import {
+  createSignupApi,
+  emptySignupForm,
+  signupRequestBody,
+  signupRules,
+  toCityCascaderOptions,
+  type SignupForm,
+} from './signup-api'
 
 function filled(): SignupForm {
   return { ...emptySignupForm(), organizationName: ' 东营翼飞科技 ', cityCode: '370500', subjectName: '东营翼飞科技有限公司',
@@ -31,17 +38,46 @@ describe('商家入驻申请', () => {
     expect(signupRequestBody(filled())).not.toHaveProperty('passwordAgain')
   })
 
-  it('表单规则和后端一致：代码格式、登录名、口令强度、两次口令', async () => {
+  it('表单规则和后端一致：代码格式、用户名、密码强度、两次密码', async () => {
     const form = filled()
     const rules = signupRules(form)
     const rule = (field: keyof SignupForm) => (rules[field] ?? []) as FormItemRule[]
     expect(await firstError(rule('licenseNumber'), '1234')).toContain('18 位')
     expect(await firstError(rule('licenseNumber'), '00000000000000000x')).toBeNull()
+    expect(await firstError(rule('loginName'), '')).toBe('请填写用户名')
     expect(await firstError(rule('loginName'), 'Admin')).toContain('小写字母开头')
+    expect(await firstError(rule('password'), '')).toBe('请填写密码')
     expect(await firstError(rule('password'), 'onlyletters')).toContain('至少一个字母和一个数字')
     expect(await firstError(rule('password'), 'Fly2026ok')).toBeNull()
-    expect(await firstError(rule('passwordAgain'), 'different')).toContain('不一样')
+    expect(await firstError(rule('passwordAgain'), '')).toBe('请填写确认密码')
+    expect(await firstError(rule('passwordAgain'), 'different')).toBe('两次输入的密码不一样')
     expect(await firstError(rule('passwordAgain'), 'Fly2026ok')).toBeNull()
     expect(await firstError(rule('phone'), '12345')).toContain('手机号')
+  })
+
+  it('省市目录转为两级级联选项，直辖市省码与市码不冲突', () => {
+    const options = toCityCascaderOptions([
+      { code: '110000', name: '北京市', cities: [{ code: '110000', name: '北京市', provinceName: '北京市' }] },
+      {
+        code: '370000',
+        name: '山东省',
+        cities: [
+          { code: '370500', name: '东营市', provinceName: '山东省' },
+          { code: '370100', name: '济南市', provinceName: '山东省' },
+        ],
+      },
+      { code: '990000', name: '空省份', cities: [] },
+    ])
+    expect(options).toEqual([
+      { value: 'province:110000', label: '北京市', children: [{ value: '110000', label: '北京市' }] },
+      {
+        value: 'province:370000',
+        label: '山东省',
+        children: [
+          { value: '370500', label: '东营市' },
+          { value: '370100', label: '济南市' },
+        ],
+      },
+    ])
   })
 })

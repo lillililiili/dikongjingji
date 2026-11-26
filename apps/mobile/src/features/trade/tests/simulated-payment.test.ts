@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { SIMULATED_PAYMENT_ENABLED, createSimulatedPaymentLauncher } from '../application/simulated-payment'
 import source from '../application/simulated-payment.ts?raw'
-import { createTradeApi } from '../data/trade-api'
+import { requestSimulatedPayment } from '../data/trade-api'
 
 const APP_CALL = {} as never
 
@@ -24,7 +24,7 @@ describe('simulated payment (demo builds only)', () => {
 
   it('asks the dev-only endpoint with the buyer token', async () => {
     const request = vi.fn(async () => undefined)
-    await createTradeApi(request as never).simulatePayment('tok', 'o-1')
+    await requestSimulatedPayment(request, 'tok', 'o-1')
     expect(request).toHaveBeenCalledWith({
       url: '/api/v1/dev/trade/orders/o-1/simulated-payment', method: 'POST', headers: { Authorization: 'Bearer tok' },
     })

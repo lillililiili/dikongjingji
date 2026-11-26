@@ -169,10 +169,11 @@ public interface AccountMapper {
     /** Role reads during token issuance use the transaction's timestamp. The new grant is effective in that transaction. */
     @Insert("""
             INSERT INTO identity_user_role (user_id, role_id, organization_id, valid_from)
-            SELECT #{userId}, r.id, NULL, CURRENT_TIMESTAMP
+            SELECT #{userId}, r.id, NULL, statement_timestamp()
               FROM identity_role r
              WHERE r.role_code = 'CUSTOMER'
                AND r.status = 'ACTIVE'
+               AND r.scope_type = 'GLOBAL'
             ON CONFLICT (user_id, role_id, COALESCE(organization_id, '00000000-0000-0000-0000-000000000000'::uuid))
             DO NOTHING
             """)
@@ -185,11 +186,12 @@ public interface AccountMapper {
              WHERE ur.user_id = #{userId}
                AND r.role_code = 'CUSTOMER'
                AND r.status = 'ACTIVE'
+               AND r.scope_type = 'GLOBAL'
                AND ur.organization_id IS NULL
-               AND ur.valid_from <= #{at}
-               AND (ur.valid_until IS NULL OR ur.valid_until > #{at})
+               AND ur.valid_from <= statement_timestamp()
+               AND (ur.valid_until IS NULL OR ur.valid_until > statement_timestamp())
             """)
-    boolean hasCustomerRole(@Param("userId") UUID userId, @Param("at") OffsetDateTime at);
+    boolean hasCustomerRole(@Param("userId") UUID userId);
 
     @Update("UPDATE identity_user SET mobile = #{phone}, updated_at = #{at} WHERE id = #{userId}")
     int updateMobile(@Param("userId") UUID userId, @Param("phone") String phone, @Param("at") OffsetDateTime at);

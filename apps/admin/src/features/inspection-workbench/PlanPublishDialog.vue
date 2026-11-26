@@ -4,10 +4,11 @@ import { computed, reactive, ref } from 'vue'
 
 import { newIdempotencyKey } from '@/core/http/api-client'
 import { confirmAction, showError } from '@/core/ui/feedback'
-import { charCount, formatMoney, yuanToMinor } from '@/core/ui/format'
+import { charCount, formatMoney, minorToYuanText, yuanToMinor } from '@/core/ui/format'
 
 import {
   DELIVERY_FILE_TYPES,
+  type CurrentProviderPlan,
   type DeliveryFileType,
   type InspectionWorkbenchApi,
   type PublishedPlan,
@@ -30,8 +31,7 @@ import {
 const props = defineProps<{
   api: InspectionWorkbenchApi
   reservation: Reservation
-  /** 已经发过方案、这次是再发一版。 */
-  republish: boolean
+  previous: CurrentProviderPlan | null
 }>()
 
 const emit = defineEmits<{
@@ -47,24 +47,31 @@ function addDays(date: string, days: number): string {
 
 const today = beijingToday()
 const firstDate = props.reservation.preferredServiceDate >= today ? props.reservation.preferredServiceDate : today
+const previous = props.previous
+const priorMethods = previous?.serviceMethods ?? []
+const methodOptions = [
+  ...priorMethods,
+  ...SERVICE_METHOD_OPTIONS.filter(option => !priorMethods.some(method => method.code === option.code)),
+]
+const items: PlanItemDraft[] = previous
+  ? previous.planItems.map(({ code, name, quantity, unit, unitPriceMinor }) =>
+    ({ code, name, quantity, unit, unitPrice: minorToYuanText(unitPriceMinor) }))
+  : props.reservation.inspectionItems.map(({ code, label }) => ({ code, name: label, quantity: 1, unit: '项', unitPrice: '' }))
+const deliverables: Array<{ code: string, name: string, fileType: DeliveryFileType | null }> = previous
+  ? previous.deliverables.map(({ code, label, fileType }) => ({ code, name: label, fileType }))
+  : DEFAULT_DELIVERABLES.map(item => ({ ...item }))
 
 const form = reactive({
-  validUntil: new Date(Date.now() + 3 * 86_400_000).toISOString(),
-  visits: [firstDate] as string[],
-  summary: '',
-  scopeSummary: '',
-  serviceMethods: ['DRONE'] as string[],
-  reportDueHours: 48 as number | null,
-  mediaRetentionDays: 90 as number | null,
+  validUntil: previous?.validUntil ?? new Date(Date.now() + 3 * 86_400_000).toISOString(),
+  visits: previous?.visits.length ? previous.visits.map(visit => visit.plannedDate) : [previous?.serviceDate ?? firstDate],
+  summary: previous?.summary ?? '',
+  scopeSummary: previous?.scopeSummary ?? '',
+  serviceMethods: previous ? previous.serviceMethods.map(method => method.code) : ['DRONE'],
+  reportDueHours: previous ? previous.deliveryTerms?.reportDueHours ?? null : 48,
+  mediaRetentionDays: previous ? previous.deliveryTerms?.mediaRetentionDays ?? null : 90,
   changeNote: '',
-  items: props.reservation.inspectionItems.map((item) => ({
-    code: item.code, name: item.label, quantity: 1, unit: '项', unitPrice: '',
-  })) as PlanItemDraft[],
-  deliverables: DEFAULT_DELIVERABLES.map((item) => ({ ...item })) as Array<{
-    code: string
-    name: string
-    fileType: DeliveryFileType | null
-  }>,
+  items,
+  deliverables,
 })
 if (form.items.length === 0) form.items.push({ code: 'ITEM-1', name: '', quantity: 1, unit: '项', unitPrice: '' })
 
@@ -80,11 +87,17 @@ function addVisit(): void {
 }
 
 function addItem(): void {
-  form.items.push({ code: `ITEM-${form.items.length + 1}`, name: '', quantity: 1, unit: '项', unitPrice: '' })
+  form.items.push({ code: nextCode('ITEM', form.items), name: '', quantity: 1, unit: '项', unitPrice: '' })
 }
 
 function addDeliverable(): void {
-  form.deliverables.push({ code: `D-${form.deliverables.length + 1}`, name: '', fileType: null })
+  form.deliverables.push({ code: nextCode('D', form.deliverables), name: '', fileType: null })
+}
+
+function nextCode(prefix: string, rows: Array<{ code: string }>): string {
+  let index = 1
+  while (rows.some(row => row.code === `${prefix}-${index}`)) index++
+  return `${prefix}-${index}`
 }
 
 /** 提交前检查，返回第一条问题。 */
@@ -104,7 +117,7 @@ function problem(): string | null {
   for (const [index, item] of form.deliverables.entries()) {
     if (!item.name.trim() || charCount(item.name.trim()) > 120) return `第 ${index + 1} 项交付物要填名称`
   }
-  if (props.republish && !form.changeNote.trim()) return '再发一版要写变更说明，客户会看到'
+  if (previous && !form.changeNote.trim()) return '再发一版要写变更说明，客户会看到'
   if (charCount(form.changeNote.trim()) > 200) return '变更说明最多 200 个字'
   return null
 }
@@ -117,12 +130,12 @@ function request(): PublishPlanRequest {
     visits: form.visits.map((plannedDate) => ({ plannedDate })),
     summary: text(form.summary),
     scopeSummary: text(form.scopeSummary),
-    serviceMethods: SERVICE_METHOD_OPTIONS.filter((option) => form.serviceMethods.includes(option.code))
+    serviceMethods: methodOptions.filter((option) => form.serviceMethods.includes(option.code))
       .map((option) => ({ code: option.code, label: option.label })),
     deliveryTerms: form.reportDueHours === null && form.mediaRetentionDays === null
       ? null
       : { reportDueHours: form.reportDueHours, mediaRetentionDays: form.mediaRetentionDays },
-    changeNote: props.republish ? text(form.changeNote) : null,
+    changeNote: previous ? text(form.changeNote) : null,
     planItems: form.items.map((item) => ({
       code: item.code,
       name: item.name.trim(),
@@ -143,7 +156,7 @@ async function submit(): Promise<void> {
     return
   }
   const confirmed = await confirmAction({
-    title: props.republish ? '再发一版方案' : '发布方案',
+    title: previous ? '再发一版方案' : '发布方案',
     message: `共 ${form.visits.length} 次巡检，合计 ${formatMoney(total.value)}。发布后客户在 App 里能看到并确认；客户确认后就不能再改。`,
     confirmText: '发布',
   })
@@ -163,7 +176,7 @@ async function submit(): Promise<void> {
 </script>
 
 <template>
-  <el-dialog :model-value="true" :title="republish ? '再发一版方案' : '出方案'" width="860px"
+  <el-dialog :model-value="true" :title="previous ? '再发一版方案' : '出方案'" width="860px"
              :close-on-click-modal="false" @close="emit('close')">
     <el-form label-width="96px" class="plan-form">
       <el-form-item label="有效期至">
@@ -189,7 +202,7 @@ async function submit(): Promise<void> {
       </el-form-item>
       <el-form-item label="服务方式">
         <el-checkbox-group v-model="form.serviceMethods">
-          <el-checkbox v-for="option in SERVICE_METHOD_OPTIONS" :key="option.code" :value="option.code">
+          <el-checkbox v-for="option in methodOptions" :key="option.code" :value="option.code">
             {{ option.label }}
           </el-checkbox>
         </el-checkbox-group>
@@ -229,7 +242,7 @@ async function submit(): Promise<void> {
           <div class="hint">每次交付要按这里写的文件类型各传一份；都不写文件类型时，每次要四类文件各一份。</div>
         </div>
       </el-form-item>
-      <el-form-item v-if="republish" label="变更说明">
+      <el-form-item v-if="previous" label="变更说明">
         <el-input v-model="form.changeNote" maxlength="200" show-word-limit placeholder="这一版改了什么，客户会看到" />
       </el-form-item>
     </el-form>

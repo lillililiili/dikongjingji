@@ -110,7 +110,8 @@ public class OpsUserLookupService {
         List<String> roles = row.roles() == null || row.roles().isEmpty()
                 ? List.of()
                 : Arrays.stream(row.roles().split(",")).toList();
-        return new OpsUserSummaryView(row.id(), row.displayName(), row.loginName(), PhoneNumbers.mask(row.mobile()),
+        String loginName = PhoneNumbers.isValid(row.loginName()) ? PhoneNumbers.mask(row.loginName()) : row.loginName();
+        return new OpsUserSummaryView(row.id(), row.displayName(), loginName, PhoneNumbers.mask(row.mobile()),
                 status, row.registeredVia(), roles, row.createdAt());
     }
 

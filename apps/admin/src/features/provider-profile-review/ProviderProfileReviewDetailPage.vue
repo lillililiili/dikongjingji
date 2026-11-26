@@ -46,6 +46,7 @@ async function load(): Promise<void> {
   try {
     profile.value = await api.detail(providerId.value)
   } catch (failure) {
+    profile.value = null
     error.value = errorMessage(failure)
   } finally {
     loading.value = false
@@ -98,6 +99,7 @@ onMounted(() => {
     traced
   >
     <template #actions>
+      <el-button :loading="loading" @click="load">刷新</el-button>
       <el-button @click="router.push({ name: 'provider-profile-reviews' })">返回列表</el-button>
       <template v-if="profile && canReview(profile)">
         <el-button type="danger" plain :disabled="busy" @click="rejecting = true">驳回</el-button>

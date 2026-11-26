@@ -1,0 +1,176 @@
+/*
+ * 若依（RuoYi-Vue3）标准业务布局全局样式：
+ * 去除多余嵌套框、大圆角与发光阴影，采用扁平检索栏、紧凑灰底表头与 4px 标准圆角。
+ */
+
+/* 1. 业务页内的检索栏 / 工具栏：扁平排布 + 1px 底部分割线，不做框中套框 */
+.page-section__body > .el-form--inline,
+.page-section__body > .toolbar,
+.page-section__body > .filters,
+.reconciliation__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin: 0 0 16px;
+  padding: 0 0 16px;
+  border-bottom: 1px solid var(--admin-border-subtle);
+}
+
+.page-section__body > .el-form--inline .el-form-item,
+.page-section__body > .filters .el-form-item {
+  margin-right: 0;
+  margin-bottom: 0;
+}
+
+.page-section__body > .el-form--inline .el-form-item__label,
+.page-section__body > .filters .el-form-item__label {
+  font-weight: 400;
+  color: #262626;
+}
+
+/* 2. 标准企业数据表格 */
+.el-table {
+  --el-table-border-color: #ebeef5;
+  --el-table-header-bg-color: #fafafa;
+  --el-table-header-text-color: #262626;
+  --el-table-row-hover-bg-color: #f5f7fa;
+  font-size: 13.5px;
+}
+
+.el-table th.el-table__cell {
+  background-color: #fafafa !important;
+  color: #262626;
+  font-weight: 600;
+  font-size: 13px;
+  height: 42px;
+}
+
+.el-table td.el-table__cell {
+  padding: 9px 0;
+  color: #262626;
+  font-variant-numeric: tabular-nums;
+}
+
+.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background-color: #fcfcfd;
+}
+
+/* 3. 控件与标签：标准 4px 直爽圆角，无悬浮弹跳 */
+.el-button {
+  border-radius: 4px;
+  font-weight: 400;
+}
+
+.el-tag {
+  border-radius: 3px;
+  font-weight: 400;
+}
+
+/* 4. 详情页页签与描述列表 */
+.el-tabs__nav-wrap::after {
+  height: 1px;
+  background-color: var(--admin-border-subtle);
+}
+
+.el-tabs__item {
+  height: 40px;
+  font-size: 14px;
+  color: var(--admin-text-secondary);
+}
+
+.el-tabs__item.is-active {
+  font-weight: 600;
+  color: var(--el-color-primary);
+}
+
+.el-descriptions__label.el-descriptions__cell.is-bordered-label {
+  background: #fafafa !important;
+  color: #595959;
+  font-weight: 500;
+}
+
+/* 5. 弹窗与抽屉：标准若依 6px 圆角与清晰分割线 */
+.el-dialog {
+  border-radius: 6px !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.el-dialog__header {
+  margin: 0 !important;
+  padding: 14px 20px !important;
+  border-bottom: 1px solid var(--admin-border-subtle);
+  background: #ffffff;
+}
+
+.el-dialog__title {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: var(--admin-heading) !important;
+}
+
+.el-dialog__headerbtn {
+  top: 12px !important;
+  right: 14px !important;
+}
+
+.el-dialog__body {
+  padding: 20px !important;
+}
+
+.el-dialog__footer {
+  padding: 12px 20px !important;
+  border-top: 1px solid var(--admin-border-subtle);
+  background: #ffffff;
+}
+
+.el-message-box {
+  border-radius: 6px !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.el-message-box__header {
+  padding: 14px 20px !important;
+  border-bottom: 1px solid var(--admin-border-subtle);
+}
+
+.el-message-box__title {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+.el-message-box__content {
+  padding: 18px 20px !important;
+}
+
+.el-message-box__btns {
+  padding: 10px 20px 14px !important;
+}
+
+.el-drawer__header {
+  margin-bottom: 0 !important;
+  padding: 14px 20px !important;
+  border-bottom: 1px solid var(--admin-border-subtle);
+  color: var(--admin-heading);
+  font-weight: 600;
+}
+
+.el-alert {
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(140, 140, 140, 0.35);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 140, 140, 0.55);
+}

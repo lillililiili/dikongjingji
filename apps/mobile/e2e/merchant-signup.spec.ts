@@ -35,7 +35,7 @@ function rememberSession(ids: Set<string>, token: string) {
   if (payload.sid) ids.add(payload.sid)
 }
 
-test('商家从登录页申请入驻，经平台审核后上架商品，客户在 H5 可购买，下架后失效', async ({ browser, page, request, baseURL }) => {
+test('商家入驻审核后上架，资质变更时 H5 隐藏商品与商家，重新审核自动恢复，下架后不能购买', async ({ browser, page, request, baseURL }) => {
   test.setTimeout(180_000)
   const operatorPassword = process.env.DEV_OPERATOR_PASSWORD
   test.skip(!operatorPassword, '需独立测试库及运营账号 DEV_OPERATOR_PASSWORD')
@@ -49,7 +49,7 @@ test('商家从登录页申请入驻，经平台审核后上架商品，客户�
   process.env.BASE_URL = API
   const fixture = require('../../../infra/scripts/s6-rehearsal/lib.cjs') as {
     PNG: Buffer; PDF: Buffer; fakeCreditCode(): string
-    purge(ids: string[]): { residue: string }
+    purge(ids: string[]): { residue: string; dryRun: boolean }
     removeLocalFiles(ids: Set<string>): { remaining: number }
   }
   const suffix = randomUUID().slice(0, 8)
@@ -67,9 +67,9 @@ test('商家从登录页申请入驻，经平台审核后上架商品，客户�
     await merchant.goto(`${admin}/login`)
     await merchant.getByRole('link', { name: '申请入驻' }).click()
     await merchant.getByLabel('机构名称（对外显示的商家名）').fill(shop)
-    await merchant.getByRole('combobox').click()
-    await merchant.getByRole('combobox').fill('东营')
-    await merchant.getByRole('option', { name: /东营/ }).click()
+    await merchant.getByTestId('signup-city').locator('.el-cascader').click()
+    await merchant.getByRole('menuitem', { name: '山东省' }).click()
+    await merchant.getByRole('menuitem', { name: '东营市' }).click()
     await merchant.getByLabel('主体名称').fill(shop)
     await merchant.getByLabel('统一社会信用代码').fill(fixture.fakeCreditCode())
     await merchant.getByLabel('联系人姓名').fill('验收员')
@@ -81,9 +81,9 @@ test('商家从登录页申请入驻，经平台审核后上架商品，客户�
     const code = /验证码 (\d{6})/.exec(message)?.[1]
     if (!code) throw new Error('开发短信发件箱没有收到本次入驻验证码')
     await merchant.locator('input[autocomplete="one-time-code"]').fill(code)
-    await merchant.getByLabel('登录名', { exact: true }).fill(login)
-    await merchant.getByLabel('口令', { exact: true }).fill(password)
-    await merchant.getByLabel('再输一次口令').fill(password)
+    await merchant.getByLabel('用户名', { exact: true }).fill(login)
+    await merchant.getByLabel('密码', { exact: true }).fill(password)
+    await merchant.getByLabel('再输一次密码').fill(password)
     const registration = merchant.waitForResponse(r => r.url().endsWith('/organization-signups') && r.request().method() === 'POST')
     await merchant.getByRole('button', { name: '提交申请' }).click()
     const registered = await registration
@@ -117,6 +117,7 @@ test('商家从登录页申请入驻，经平台审核后上架商品，客户�
     expect(beforeReview.status()).toBe(409)
     expect((await beforeReview.json()).code).toBe('OPS_MERCHANT_NOT_QUALIFIED')
     expect((await request.get(`${API}/api/v1/mall/products/${productId}?cityCode=${CITY}`)).status()).toBe(404)
+    expect((await request.get(`${API}/api/v1/mall/merchants/${organizationId}?cityCode=${CITY}`)).status()).toBe(404)
 
     await operatorPage.goto(`${admin}/organizations/${organizationId}`)
     const platformHeaders = await signIn(operatorPage, 'dev-operator', operatorPassword!)
@@ -126,9 +127,14 @@ test('商家从登录页申请入驻，经平台审核后上架商品，客户�
     await expect(operatorPage.locator('.summary')).toContainText('资质已通过')
     await merchant.goto(`${admin}/workbench/organization`)
     await expect(merchant.getByTestId('qualification-status')).toHaveText('已通过')
+    await merchant.goto(`${admin}/workbench/merchant-account`)
+    await expect(merchant.locator('.account__empty')).toContainText('还没有登记收款账户')
     await success(await request.put(`${API}/api/v1/ops/merchant-accounts/${organizationId}`, {
       headers: platformHeaders, data: { subMchid: `19${phone.slice(-8)}`, active: true },
     }))
+    await merchant.getByRole('button', { name: '刷新', exact: true }).click()
+    await expect(merchant.locator('.account__number')).toHaveText('******' + phone.slice(-4))
+    await expect(merchant.locator('.account')).toContainText('可以收款')
     const media = await success(await request.post(`${catalog}/media`, {
       headers: merchantHeaders, multipart: { file: { name: 'robot.png', mimeType: 'image/png', buffer: fixture.PNG } },
     }))
@@ -156,12 +162,75 @@ test('商家从登录页申请入驻，经平台审核后上架商品，客户�
     await expect(merchant.getByTestId('product-status')).toContainText('已上架')
     const mobile = await browser.newPage({ baseURL, viewport: { width: 390, height: 844 } })
     try {
+      await merchant.goto(`${admin}/workbench/merchant-profile`)
+      const entity = shop + '科技有限公司'
+      await merchant.getByPlaceholder('营业执照上的主体名称').fill(entity)
+      await merchant.getByRole('button', { name: '提交审核' }).click()
+      const submitted = merchant.waitForResponse(r => r.url().endsWith('/merchant-profile') && r.request().method() === 'PUT')
+      await confirm(merchant, '提交审核')
+      const profile = await submitted
+      expect(profile.ok()).toBe(true)
+      const { latest } = await profile.json()
+      ids.add(latest.submissionId)
+      const publicShop = `/#/pages/mall/merchant?merchantId=${organizationId}&cityCode=${CITY}`
+      await mobile.goto(publicShop)
+      await expect(mobile.getByTestId('mall-merchant-name')).toHaveText(shop)
+      await expect(mobile.getByTestId('mall-merchant')).not.toContainText(entity)
+      await operatorPage.goto(`${admin}/merchant-profiles/${latest.submissionId}`)
+      await operatorPage.getByRole('button', { name: '审核通过', exact: true }).click()
+      await confirm(operatorPage, '审核通过')
+      await expect(operatorPage.locator('.el-descriptions').first()).toContainText('已通过')
+      await mobile.reload()
+      await expect(mobile.getByTestId('mall-merchant-info-entity')).toHaveText(entity)
+
+      await operatorPage.goto(`${admin}/organizations/${organizationId}`)
+      await operatorPage.getByRole('tab', { name: '服务商资料' }).click()
+      await operatorPage.getByRole('button', { name: '开通服务商资料' }).click()
+      await confirm(operatorPage, '开通')
+      await expect(operatorPage.locator('[data-test="review-provider-profile"]')).toBeVisible()
+      await merchant.goto(`${admin}/workbench/provider-profile`)
+      await merchant.getByPlaceholder('营业执照上的名称').fill(entity)
+      const modes = '无人机巡检和人工复核'
+      await merchant.getByPlaceholder('如 无人机巡检 · 机器狗夜巡').fill(modes)
+      await merchant.getByRole('button', { name: '提交审核' }).click()
+      await confirm(merchant, '提交审核')
+      await expect(merchant.locator('.status')).toContainText('待审核')
+      await operatorPage.goto(`${admin}/provider-profiles/${organizationId}`)
+      await operatorPage.getByRole('button', { name: '审核通过', exact: true }).click()
+      await confirm(operatorPage, '审核通过')
+      await expect(operatorPage.locator('.status')).toContainText('已通过')
+      await mobile.goto(`/#/pages/provider/detail?providerId=${organizationId}&cityCode=${CITY}`)
+      await expect(mobile.getByTestId('provider-profile-entity')).toHaveText(entity)
+      await expect(mobile.getByTestId('provider-profile-modes')).toHaveText(modes)
+
+      await merchant.goto(`${admin}/workbench/products/${productId}`)
       await mobile.goto(`/#/pages/mall/product?productId=${productId}&cityCode=${CITY}`)
       await expect(mobile.getByTestId('mall-product-name')).toHaveText(productName)
       await expect(mobile.getByTestId('mall-product-primary')).toHaveText('立即购买')
       await mobile.getByTestId('mall-product-primary').click()
       await expect(mobile.getByTestId('mall-buy-sheet')).toContainText(shop)
       await mobile.getByTestId('mall-buy-close').click()
+
+      await merchant.goto(`${admin}/workbench/organization`)
+      await merchant.getByLabel('经营范围').fill('设备销售和巡检服务')
+      await merchant.getByRole('button', { name: '保存修改' }).click()
+      await confirm(merchant, '保存')
+      await expect(merchant.getByTestId('qualification-status')).toHaveText('待审核')
+      await mobile.reload()
+      await expect(mobile.getByTestId('mall-product-missing')).toBeVisible()
+      await expect(mobile.getByTestId('mall-product-primary')).toHaveCount(0)
+      await mobile.goto(publicShop)
+      await expect(mobile.getByTestId('mall-merchant-missing')).toBeVisible()
+
+      await operatorPage.goto(`${admin}/organizations/${organizationId}`)
+      await operatorPage.getByRole('button', { name: '审核通过', exact: true }).click()
+      await confirm(operatorPage, '审核通过')
+      await expect(operatorPage.locator('.summary')).toContainText('资质已通过')
+      await mobile.reload()
+      await expect(mobile.getByTestId('mall-merchant-name')).toHaveText(shop)
+      await mobile.goto(`/#/pages/mall/product?productId=${productId}&cityCode=${CITY}`)
+      await expect(mobile.getByTestId('mall-product-primary')).toHaveText('立即购买')
+      await merchant.goto(`${admin}/workbench/products/${productId}`)
       await merchant.getByTestId('publish-button').click()
       await confirm(merchant, '下架')
       await expect(merchant.getByTestId('publish-button')).toHaveText('上架')
@@ -183,11 +252,12 @@ test('商家从登录页申请入驻，经平台审核后上架商品，客户�
     try {
       await operator.close()
     } finally {
-      try {
-        expect(fixture.removeLocalFiles(ids).remaining).toBe(0)
-      } finally {
-        expect(fixture.purge([...ids]).residue).toBe('none')
-      }
+      const cleanup = fixture.purge([...ids])
+      expect(cleanup.dryRun).toBe(false)
+      expect(cleanup.residue).toBe('none')
+      expect(psql(`SELECT count(*) FROM mall_product WHERE name='${productName}'`)).toBe('0')
+      expect(psql(`SELECT count(*) FROM identity_user WHERE login_name='${login}'`)).toBe('0')
+      expect(fixture.removeLocalFiles(ids).remaining).toBe(0)
     }
   }
 })

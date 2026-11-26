@@ -1,7 +1,8 @@
 import { ElMessageBox } from 'element-plus'
-import { ref, shallowRef, type Ref, type ShallowRef } from 'vue'
+import { computed, ref, shallowRef, type Ref, type ShallowRef } from 'vue'
 
 import { errorMessage } from '@/core/http/api-error'
+import { useChangeHistory } from '@/core/ops/use-change-history'
 import { describeMissing, type OpsChange } from '@/core/ops/ops-common'
 import { notifyRecorded, showError } from '@/core/ui/feedback'
 
@@ -14,6 +15,8 @@ export interface Editable {
 export interface ContentEditor<V extends Editable> {
   entity: ShallowRef<V | null>
   loading: Ref<boolean>
+  dirty: Readonly<Ref<boolean>>
+  markSaved: () => void
   busy: Ref<boolean>
   error: Ref<string>
   changes: Ref<OpsChange[]>
@@ -29,27 +32,19 @@ export interface ContentEditor<V extends Editable> {
 export function useContentEditor<V extends Editable>(
   read: (id: string) => Promise<V>,
   readChanges: (id: string) => Promise<OpsChange[]>,
+  form: object,
 ): ContentEditor<V> {
   const entity = shallowRef(null) as ShallowRef<V | null>
+  const savedForm = ref('')
+  const dirty = computed(() => entity.value !== null && JSON.stringify(form) !== savedForm.value)
+  function markSaved(): void {
+    savedForm.value = JSON.stringify(form)
+  }
+
   const loading = ref(false)
   const busy = ref(false)
   const error = ref('')
-  const changes = ref<OpsChange[]>([])
-  const changesError = ref('')
-  const changesLoading = ref(false)
-
-  async function refreshChanges(id: string): Promise<void> {
-    changesLoading.value = true
-    changesError.value = ''
-    try {
-      changes.value = await readChanges(id)
-    } catch (failure) {
-      changes.value = []
-      changesError.value = errorMessage(failure)
-    } finally {
-      changesLoading.value = false
-    }
-  }
+  const { changes, loading: changesLoading, error: changesError, load: refreshChanges } = useChangeHistory(readChanges)
 
   async function load(id: string): Promise<V | null> {
     loading.value = true
@@ -88,5 +83,5 @@ export function useContentEditor<V extends Editable>(
     }
   }
 
-  return { entity, loading, busy, error, changes, changesError, changesLoading, load, refreshChanges, run }
+  return { entity, dirty, markSaved, loading, busy, error, changes, changesError, changesLoading, load, refreshChanges, run }
 }

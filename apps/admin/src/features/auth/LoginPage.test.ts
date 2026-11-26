@@ -47,8 +47,8 @@ describe('登录页', () => {
     await settle()
 
     // 错误提示有 100ms 防抖（Element Plus 表单项）。
-    await vi.waitFor(() => expect(wrapper.text()).toContain('请填写登录名'), { timeout: 2000 })
-    expect(wrapper.text()).toContain('请填写口令')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('请填写用户名'), { timeout: 2000 })
+    expect(wrapper.text()).toContain('请填写密码')
     expect(login).not.toHaveBeenCalled()
     wrapper.unmount()
   })
@@ -67,7 +67,7 @@ describe('登录页', () => {
     wrapper.unmount()
   })
 
-  it('口令不对：提示并清空口令', async () => {
+  it('密码不对：提示并清空密码', async () => {
     login.mockRejectedValue(new ApiRequestError(401, 'COMMON_UNAUTHORIZED', '用户名或密码错误', 't'))
     const { wrapper, router } = await mountAt('/login')
 
@@ -77,7 +77,7 @@ describe('登录页', () => {
     await wrapper.find('form').trigger('submit')
     await settle()
 
-    expect(wrapper.text()).toContain('登录名或口令不对')
+    expect(wrapper.text()).toContain('用户名或密码错误')
     expect((password.element as HTMLInputElement).value).toBe('')
     expect(router.currentRoute.value.path).toBe('/login')
     wrapper.unmount()

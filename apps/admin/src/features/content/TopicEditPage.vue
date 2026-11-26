@@ -34,8 +34,8 @@ import { useContentEditor } from './use-content-editor'
 const route = useRoute()
 const router = useRouter()
 const api = createContentOpsApi(http)
-const editor = useContentEditor<OpsTopic>(api.topic, api.topicChanges)
 const form = reactive<TopicForm>(topicForm())
+const editor = useContentEditor<OpsTopic>(api.topic, api.topicChanges, form)
 const dates = ref<[string, string] | null>(null)
 
 const topicId = computed(() => (route.params.topicId ? String(route.params.topicId) : null))
@@ -50,6 +50,7 @@ const counts = computed(() => ({
 watch(topic, (current) => {
   if (!current) return
   Object.assign(form, topicForm(current))
+  editor.markSaved()
   dates.value = current.startsOn && current.endsOn ? [current.startsOn, current.endsOn] : null
 })
 
@@ -63,6 +64,7 @@ function addMerchantItem(): void {
 }
 
 async function save(): Promise<void> {
+  if (editor.busy.value || (topicId.value && !topic.value)) return
   if (!form.title.trim()) {
     showError(new Error('请填写标题'))
     return
@@ -94,7 +96,7 @@ async function save(): Promise<void> {
 
 async function publish(): Promise<void> {
   const current = topic.value
-  if (!current) return
+  if (!current || editor.dirty.value) return
   const confirmed = await confirmAction({
     title: '确认上线',
     message: `上线后 ${current.startsOn} 至 ${current.endsOn} 在本城发现页推荐频道显示“${current.title}”，过期的分享链接仍能打开。`,
@@ -106,7 +108,7 @@ async function publish(): Promise<void> {
 
 async function offline(): Promise<void> {
   const current = topic.value
-  if (!current) return
+  if (!current || editor.dirty.value) return
   const confirmed = await confirmAction({
     title: '确认下线',
     message: `下线后 App 推荐频道不再显示“${current.title}”，打开专题链接会提示专题已下线。`,
@@ -124,21 +126,24 @@ onMounted(() => {
 
 <template>
   <PageSection
-    :title="topic ? topic.title : '新建专题'"
+    :title="topic?.title ?? (topicId ? '专题详情' : '新建专题')"
     :description="topic ? `${topic.publisher.name} · ${topic.startsOn}–${topic.endsOn}` : '一个城市一段时间的合集，挂活动、场馆、图文和商家内容。'"
     traced
   >
     <template #actions>
       <el-button @click="router.push({ name: 'content', query: { tab: 'topics' } })">返回列表</el-button>
       <template v-if="topic">
-        <el-button v-if="topic.status !== 'PUBLISHED'" type="success" :disabled="editor.busy.value" @click="publish">上线</el-button>
-        <el-button v-else type="danger" plain :disabled="editor.busy.value" @click="offline">下线</el-button>
+        <el-button v-if="topic.status !== 'PUBLISHED'" type="success" :disabled="editor.busy.value || editor.dirty.value" @click="publish">上线</el-button>
+        <el-button v-else type="danger" plain :disabled="editor.busy.value || editor.dirty.value" @click="offline">下线</el-button>
       </template>
-      <el-button type="primary" :loading="editor.busy.value" @click="save">保存</el-button>
+      <el-button v-if="!topicId || topic" type="primary" :loading="editor.busy.value" @click="save">保存</el-button>
     </template>
 
-    <el-alert v-if="editor.error.value" type="error" :title="editor.error.value" :closable="false" show-icon />
-    <div v-loading="editor.loading.value" class="topic-edit">
+    <el-alert v-if="editor.error.value" type="error" :title="editor.error.value" :closable="false" show-icon>
+      <el-button v-if="topicId" size="small" @click="editor.load(topicId)">重新加载</el-button>
+    </el-alert>
+    <div v-else v-loading="editor.loading.value || editor.busy.value" class="topic-edit">
+      <el-alert v-if="editor.dirty.value" title="内容有未保存的修改，请先保存再调整上线状态。" type="info" :closable="false" />
       <div v-if="topic" class="topic-edit__status">
         <el-tag :type="publishStatusTag(topic.status)">{{ publishStatusLabel(topic.status) }}</el-tag>
         <span>版本 {{ topic.version }} · 最后修改 {{ formatDateTime(topic.updatedAt) }}</span>
@@ -147,7 +152,7 @@ onMounted(() => {
         </span>
       </div>
 
-      <el-form label-width="96px" @submit.prevent>
+      <el-form :disabled="editor.loading.value || editor.busy.value" label-width="96px" @submit.prevent>
         <el-form-item label="标题" required>
           <el-input v-model="form.title" :maxlength="LIMITS.topicTitle" show-word-limit placeholder="比如“黄河口低空体验季”" />
         </el-form-item>

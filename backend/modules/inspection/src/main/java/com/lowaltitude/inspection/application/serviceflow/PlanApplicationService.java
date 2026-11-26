@@ -187,6 +187,15 @@ public class PlanApplicationService {
         return toView(plan);
     }
 
+    public ServicePlanView currentForProvider(CurrentSubject subject, UUID reservationId) {
+        requireProviderPublisher(subject);
+        StoredServicePlan plan = store.findCurrentPlan(reservationId)
+                .filter(current -> subject.organizationId().equals(current.reservation().providerId())
+                        && subject.organizationId().equals(current.providerId()))
+                .orElseThrow(PlanResourceNotFoundException::new);
+        return toView(plan);
+    }
+
     public ServicePlanView read(CurrentSubject subject, UUID planId) {
         if (subject == null || planId == null) {
             throw new PlanResourceNotFoundException();

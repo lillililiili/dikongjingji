@@ -39,9 +39,10 @@ export function usePagedList<T, F extends object>(loader: PageLoader<T, F>, init
       items.value = result.items
       total.value = result.total
       // 删掉或筛掉之后这一页空了，退回上一页。
-      if (result.items.length === 0 && page.value > 1 && result.total > 0) {
-        page.value = Math.max(1, Math.ceil(result.total / size.value))
-        await load()
+      const lastPage = Math.max(1, Math.ceil(result.total / size.value))
+      if (result.items.length === 0 && page.value > lastPage) {
+        page.value = lastPage
+        if (result.total > 0) await load()
       }
     } catch (failure) {
       if (mine !== revision) return

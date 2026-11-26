@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { UploadFile, UploadUserFile } from 'element-plus'
-import { computed, onMounted, ref, shallowRef } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref, shallowRef, watch } from 'vue'
 
 import { http } from '@/core/http'
 import { errorMessage } from '@/core/http/api-error'
@@ -29,7 +28,6 @@ import {
 } from './import-api'
 import { runImport } from './run-import'
 
-const router = useRouter()
 const api = createImportApi(http)
 const kinds = shallowRef<OpsImportKindSpec[]>([])
 const kindsError = ref('')
@@ -39,6 +37,13 @@ const checking = ref(false)
 const running = ref(false)
 const result = shallowRef<OpsImportBatch | null>(null)
 const createdAccounts = shallowRef<OpsImportCreatedAccount[]>([])
+let selectionVersion = 0
+
+// 预检只对当时选择的文件有效，包括同名文件被替换的情况。
+watch([kind, () => fileList.value.map(file => file.uid)], () => {
+  selectionVersion++
+  result.value = null
+}, { flush: 'sync' })
 
 const batches = usePagedList<OpsImportBatchSummary, BatchFilters>(
   (filters, page, size) => api.batches(filters, page, size), { kind: '' }, 10)
@@ -57,10 +62,9 @@ async function loadKinds(): Promise<void> {
 }
 
 function choose(next: OpsImportKind): void {
-  if (kind.value === next) return
+  if (running.value || kind.value === next) return
   kind.value = next
   fileList.value = []
-  result.value = null
 }
 
 function rawFiles(): File[] {
@@ -68,7 +72,8 @@ function rawFiles(): File[] {
 }
 
 async function check(): Promise<void> {
-  if (!kind.value || checking.value) return
+  if (!kind.value || checking.value || running.value) return
+  result.value = null
   const files = rawFiles()
   const problem = filesProblem(files)
   if (problem) {
@@ -76,11 +81,13 @@ async function check(): Promise<void> {
     return
   }
   checking.value = true
+  const selection = selectionVersion
   try {
-    result.value = await api.check(kind.value, files)
+    const batch = await api.check(kind.value, files)
+    if (selection === selectionVersion) result.value = batch
     void batches.search()
   } catch (failure) {
-    showError(failure)
+    if (selection === selectionVersion) showError(failure)
   } finally {
     checking.value = false
   }
@@ -102,10 +109,6 @@ async function run(): Promise<void> {
   }
 }
 
-function openBatch(batchId: string): void {
-  void router.push({ name: 'import-batch', params: { batchId } })
-}
-
 onMounted(() => {
   void loadKinds()
   void batches.load()
@@ -120,8 +123,7 @@ onMounted(() => {
   >
     <el-alert type="info" :closable="false" class="block">
       <template #title>
-        模板在仓库 <code>infra/import-templates/</code>（只有表头），填表规则见 <code>docs/ops/首批资源导入.md</code>：
-        表头不要改，另存为“CSV UTF-8”，金额填分，时间填北京时间，状态先填草稿或停用。
+        选择导入类别后，下载对应的模板并从第二行填写。保留原表头，另存为 CSV UTF-8。金额填分，时间填北京时间，状态先填草稿或停用。
       </template>
     </el-alert>
 
@@ -134,6 +136,7 @@ onMounted(() => {
         v-for="spec in kinds"
         :key="spec.kind"
         type="button"
+        :disabled="running"
         :class="['kind', { 'kind--on': spec.kind === kind }]"
         @click="choose(spec.kind)"
       >
@@ -148,7 +151,13 @@ onMounted(() => {
     <template v-if="chosen">
       <h3 class="title">{{ chosen.title || KIND_LABELS[chosen.kind] }}：选文件</h3>
       <el-table :data="chosen.files" row-key="fileName" border size="small" class="block">
-        <el-table-column prop="fileName" label="模板文件" min-width="220" />
+        <el-table-column label="模板文件" min-width="220">
+          <template #default="{ row }">
+            <div>{{ row.fileName }}</div>
+            <a :download="row.fileName" :aria-label="`下载模板 ${row.fileName}`"
+               :href="'data:text/csv;charset=utf-8,' + encodeURIComponent('\uFEFF' + row.columns.join(',') + '\r\n')">下载模板</a>
+          </template>
+        </el-table-column>
         <el-table-column prop="title" label="内容" min-width="200" />
         <el-table-column label="必须带" width="80">
           <template #default="{ row }">{{ row.required ? '是' : '否' }}</template>
@@ -157,7 +166,7 @@ onMounted(() => {
           <template #default="{ row }"><code class="columns">{{ row.columns.join(',') }}</code></template>
         </el-table-column>
       </el-table>
-      <el-upload v-model:file-list="fileList" :auto-upload="false" multiple accept=".csv,text/csv" drag
+      <el-upload v-model:file-list="fileList" :auto-upload="false" :disabled="running" multiple accept=".csv,text/csv" drag
                  data-testid="import-upload">
         <div>把 CSV 拖到这里，或<em>点击选择</em></div>
         <template #tip>
@@ -165,7 +174,7 @@ onMounted(() => {
         </template>
       </el-upload>
       <div class="actions">
-        <el-button type="primary" :loading="checking" :disabled="fileList.length === 0" data-testid="import-check"
+        <el-button type="primary" :loading="checking" :disabled="running || fileList.length === 0" data-testid="import-check"
                    @click="check">
           预检
         </el-button>
@@ -173,14 +182,18 @@ onMounted(() => {
     </template>
 
     <template v-if="result">
-      <h3 class="title">预检结果</h3>
+      <h3 class="title">{{ result.importedAt ? '导入结果' : '预检结果' }}</h3>
       <ImportBatchResult
         :batch="result"
         :runnable="canRun(result, resultWritable)"
         :running="running"
         :check-only="!resultWritable"
         @run="run"
-      />
+      >
+        <template #actions>
+          <router-link :to="{ name: 'import-batch', params: { batchId: result.batchId } }">查看本批次详情</router-link>
+        </template>
+      </ImportBatchResult>
     </template>
 
     <h3 class="title">导入记录</h3>
@@ -190,6 +203,9 @@ onMounted(() => {
                    @change="batches.search()">
           <el-option v-for="value in KIND_ORDER" :key="value" :label="KIND_LABELS[value]" :value="value" />
         </el-select>
+      </el-form-item>
+      <el-form-item>
+        <el-button :loading="batches.loading.value" @click="batches.load()">刷新记录</el-button>
       </el-form-item>
     </el-form>
     <PagedTable
@@ -205,11 +221,12 @@ onMounted(() => {
       @change-size="batches.changeSize"
       @retry="batches.load()"
     >
-      <el-table-column label="预检时间" width="160">
+      <el-table-column label="批次号 / 预检时间" min-width="200">
         <template #default="{ row }">
-          <el-button link type="primary" @click="openBatch((row as OpsImportBatchSummary).batchId)">
-            {{ formatDateTime((row as OpsImportBatchSummary).checkedAt) }}
-          </el-button>
+          <router-link :to="{ name: 'import-batch', params: { batchId: row.batchId } }" class="batch-id">
+            {{ row.batchId }}
+          </router-link>
+          <div class="sub">{{ formatDateTime((row as OpsImportBatchSummary).checkedAt) }}</div>
         </template>
       </el-table-column>
       <el-table-column label="类别" width="140">
@@ -253,27 +270,36 @@ onMounted(() => {
 
 .kinds {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
 }
 
 .kind {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 6px;
-  padding: 12px;
-  border: 1px solid var(--admin-border);
-  border-radius: 10px;
-  background: #fff;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--admin-border);
+  border-radius: 11px;
+  background: #fafbfd;
   text-align: left;
   cursor: pointer;
   font: inherit;
+  transition: all 0.16s ease;
+}
+
+.kind:hover {
+  border-color: var(--el-color-primary-light-5);
+  background: #fff;
+  box-shadow: var(--admin-shadow-sm);
 }
 
 .kind--on {
   border-color: var(--el-color-primary);
-  background: var(--el-color-primary-light-9);
+  background: var(--admin-brand-surface);
+  box-shadow: var(--admin-shadow-sm);
 }
 
 .kind__title {
@@ -297,6 +323,10 @@ onMounted(() => {
 .columns {
   font-size: 12px;
   word-break: break-all;
+}
+
+.batch-id {
+  overflow-wrap: anywhere;
 }
 
 .actions {

@@ -75,4 +75,4 @@ http.createServer((req, res) => {
     const host = /^[\w.-]+(:\d+)?$/.test(req.headers.host ?? '') ? req.headers.host : null;
     res.end(target.endsWith('.js') && host ? content.toString('utf8').replaceAll(H5_ORIGIN, `http://${host}`) : content);
   });
-}).listen(PORTS.h5, '0.0.0.0', () => console.log(`h5 on port ${PORTS.h5}`));
+}).listen(PORTS.h5, process.env.DEMO_HOST === '127.0.0.1' ? '127.0.0.1' : '0.0.0.0', () => console.log(`h5 on port ${PORTS.h5}`));

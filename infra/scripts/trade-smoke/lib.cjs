@@ -88,13 +88,14 @@ async function fake(method, route) {
 }
 
 /** 跑一条 SQL，返回去掉首尾空白的输出。SQL 从标准输入传，不经过 shell 转义。 */
-function psql(sql) {
+function psql(sql, { includeNotices = false } = {}) {
+  const command = 'psql -v ON_ERROR_STOP=1 -At -U "${PGU:-$POSTGRES_USER}" -d "${PGD:-$POSTGRES_DB}"';
   return execFileSync('docker', [
     'exec', '-i',
     '-e', `PGU=${process.env.PG_USER || ''}`,
     '-e', `PGD=${process.env.PG_DB || ''}`,
     PG_CONTAINER, 'sh', '-c',
-    'psql -v ON_ERROR_STOP=1 -At -U "${PGU:-$POSTGRES_USER}" -d "${PGD:-$POSTGRES_DB}"',
+    includeNotices ? command + ' 2>&1' : command,
   ], { input: sql, encoding: 'utf8' }).trim();
 }
 

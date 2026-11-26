@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * 页面标题区：标题、一句说明、右侧操作按钮，下面是一张白底卡片（照原型 Ops 看板：白底、#e5ebf3 细边、12px 圆角）。
- * traced 为 true 时在说明后面提示“本页的修改都会记录操作人和时间”。
+ * 标准企业后台业务页容器：
+ * 单层紧凑白底卡片（无多余外框套内框、无背景底纹与悬浮胶囊），顶部标题行与下方内容区以 1px 细线自然分隔。
  */
 defineProps<{
   title: string
@@ -20,7 +20,7 @@ defineProps<{
           <span v-if="traced" class="page-section__trace">本页的修改都会记录操作人和时间。</span>
         </p>
       </div>
-      <div class="page-section__actions">
+      <div v-if="$slots.actions" class="page-section__actions">
         <slot name="actions" />
       </div>
     </header>
@@ -32,17 +32,19 @@ defineProps<{
 
 <style scoped>
 .page-section {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 4px;
+  background: #ffffff;
 }
 
 .page-section__header {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--admin-border-subtle);
 }
 
 /* 放不下时操作按钮换到下一行，标题和说明不被挤成一列字。 */
@@ -53,19 +55,21 @@ defineProps<{
 
 .page-section__title {
   margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--admin-text);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--admin-heading);
+  line-height: 1.4;
 }
 
 .page-section__description {
-  margin: 6px 0 0;
-  font-size: 13px;
-  color: var(--admin-text-secondary);
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #8c8c8c;
 }
 
 .page-section__trace {
-  color: var(--admin-brand-text);
+  color: #595959;
 }
 
 .page-section__actions {
@@ -73,12 +77,10 @@ defineProps<{
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  max-width: 100%;
 }
 
 .page-section__body {
-  padding: 20px;
-  border: 1px solid var(--admin-border);
-  border-radius: 12px;
-  background: #fff;
+  padding: 16px 20px 20px;
 }
 </style>

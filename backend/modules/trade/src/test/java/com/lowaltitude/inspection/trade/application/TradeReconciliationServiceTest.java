@@ -469,6 +469,16 @@ class TradeReconciliationServiceTest {
     // ---- 读结果 ----
 
     @Test
+    void pastDayWithNoEligibleMerchantHasAnEmptyReportAndHeaderOnlyCsv() {
+        store.account(SUB_A, true, DAY_END);
+        var result = service.read(DAY);
+        assertThat(result.importedAt()).isNull();
+        assertThat(result.matchedCount()).isZero();
+        assertThat(result.differences()).isEmpty();
+        assertThat(TradeReconciliationService.csv(result).lines().count()).isEqualTo(1);
+    }
+
+    @Test
     void aDayIsReadyOnlyWhenEveryMerchantIsImported() {
         store.account(SUB_A, true);
         store.account(SUB_B, true);
@@ -533,14 +543,16 @@ class TradeReconciliationServiceTest {
         assertThatThrownBy(() -> service.read(null)).isInstanceOf(IllegalArgumentException.class);
     }
 
-    // 疑点（现状）：一天里一个要对的子商户都没有（没登记收款账户、也没有交易）时，对账什么也不记，这一天永远“未就绪”。
+    // 空账期手动补导也不请求渠道、没有导入时间；有应对账商户却未导入的情况单独校验。
     @Test
-    void aDayWithNothingToReconcileIsNeverReady() {
+    void rerunningAnEmptyHistoricalDayKeepsTheSameEmptyReport() {
+        var before = service.read(DAY);
         ReconciliationRunView run = service.reconcile(DAY, false);
 
         assertThat(run).isEqualTo(new ReconciliationRunView(DAY, 0, 0, 0, 0, 0));
         assertThat(channel.calls).isEmpty();
-        assertNotReady();
+        assertThat(service.read(DAY)).isEqualTo(before);
+        assertThat(before.importedAt()).isNull();
     }
 
     // ---- CSV ----

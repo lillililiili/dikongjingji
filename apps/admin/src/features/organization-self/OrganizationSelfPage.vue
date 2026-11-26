@@ -51,6 +51,7 @@ async function load(): Promise<void> {
   try {
     apply(await api.read())
   } catch (failure) {
+    state.value = null
     error.value = errorMessage(failure)
   } finally {
     loading.value = false

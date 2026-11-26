@@ -352,7 +352,9 @@ public class SupportService {
         SupportFeedbackHandleStatus status = SupportFeedbackHandleStatus.valueOf(row.handleStatus());
         return new OpsFeedbackView(row.id(), SupportFeedbackType.valueOf(row.feedbackType()),
                 SupportFeedbackSource.valueOf(row.source()), row.body(),
-                row.targetId() == null ? null : new SupportReportTargetView(row.targetId(), row.targetParentId()),
+                row.targetId() == null ? null
+                        : new SupportReportTargetView(row.targetId(), row.targetParentId(), row.targetVisibility(),
+                                row.targetText()),
                 new SupportFeedbackReporterView(profiles.displayName(row.accountId()).orElse(null)),
                 status,
                 status == SupportFeedbackHandleStatus.HANDLED

@@ -52,6 +52,42 @@ describe('客服会话', () => {
     showError.mockReset()
   })
 
+  it('已打开会话的刷新失败可见，可以重试且保留草稿', async () => {
+    const page = { conversation: { ...CONVERSATION, unreadCount: 0 }, items: [message(1)], hasMore: false }
+    const messages = vi.fn().mockResolvedValueOnce(page).mockRejectedValueOnce(new Error('网络中断'))
+      .mockResolvedValueOnce({ ...page, items: [message(2)] })
+    const wrapper = mountThread({ messages })
+    await settle()
+    await wrapper.get('textarea').setValue('尚未发送')
+    await button(wrapper, '刷新').trigger('click')
+    await settle()
+    expect(wrapper.text()).toContain('网络中断')
+    await button(wrapper, '重新加载').trigger('click')
+    await settle()
+    expect(wrapper.text()).toContain('客户第2条')
+    expect(wrapper.get('textarea').element.value).toBe('尚未发送')
+    wrapper.unmount()
+  })
+
+  it('重试原文沿用幂等键，修改回复后以新键发送', async () => {
+    const reply = vi.fn().mockRejectedValueOnce(new Error('断线')).mockRejectedValueOnce(new Error('断线'))
+      .mockResolvedValueOnce(message(2, { text: '另一条' }))
+    const wrapper = mountThread({ messages: vi.fn().mockResolvedValue({ conversation: { ...CONVERSATION, unreadCount: 0 },
+      items: [message(1)], hasMore: false }), reply })
+    await settle()
+    await wrapper.get('textarea').setValue('原文')
+    for (let i = 0; i < 2; i++) {
+      await button(wrapper, '发送').trigger('click')
+      await settle()
+    }
+    await wrapper.get('textarea').setValue('另一条')
+    await button(wrapper, '发送').trigger('click')
+    await settle()
+    expect(reply.mock.calls[1]![2]).toBe(reply.mock.calls[0]![2])
+    expect(reply.mock.calls[2]![2]).not.toBe(reply.mock.calls[1]![2])
+    wrapper.unmount()
+  })
+
   it('进来读最新一页并标已读；卡片显示类型和标题；更早的消息按 before 往前翻', async () => {
     const latest: DeskMessagePage = {
       conversation: CONVERSATION,

@@ -21,6 +21,7 @@ import { prepare } from './prepare.mjs';
 /** 演示图片的假主机，App 和运营端都会换成能读到的地址（apps/mobile/src/shared/http/media-url.ts）。 */
 const MEDIA_ORIGIN = 'https://media.demo.localhost';
 const JAR = path.join(STATE, 'backend.jar');
+const ADMIN = path.join(STATE, 'admin');
 const H5 = path.join(STATE, 'h5');
 const APP = path.join(REPO, 'output', 'demo-app');
 const file = (name) => path.join(STATE, name);
@@ -51,9 +52,10 @@ function secrets() {
 }
 
 function stackEnv(host) {
+  const bind = host === '127.0.0.1' ? '127.0.0.1' : '0.0.0.0';
   return {
     ...process.env, ...secrets(),
-    INSPECTION_APP_BIND_ADDRESS: '127.0.0.1', INSPECTION_BACKEND_BIND_ADDRESS: '0.0.0.0', INSPECTION_MINIO_BIND_ADDRESS: '0.0.0.0',
+    INSPECTION_APP_BIND_ADDRESS: '127.0.0.1', INSPECTION_BACKEND_BIND_ADDRESS: bind, INSPECTION_MINIO_BIND_ADDRESS: bind,
     INSPECTION_APP_PORT: String(PORTS.backend), INSPECTION_POSTGRES_PORT: String(PORTS.postgres), INSPECTION_REDIS_PORT: String(PORTS.redis),
     INSPECTION_MINIO_API_PORT: String(PORTS.minio), INSPECTION_MINIO_CONSOLE_PORT: String(PORTS.minioConsole),
     // 交付文件的短时下载链接要手机也打得开。
@@ -82,7 +84,9 @@ function backendEnv(host) {
 }
 
 function compose(host, ...args) {
-  execFileSync('docker', ['compose', '-p', PROJECT, '-f', path.join(REPO, 'infra/compose.yaml'), ...args], { env: stackEnv(host), stdio: 'inherit' });
+  const files = ['-f', path.join(REPO, 'infra/compose.yaml')];
+  if (process.env.DEMO_COMPOSE_OVERRIDE) files.push('-f', path.resolve(process.env.DEMO_COMPOSE_OVERRIDE));
+  execFileSync('docker', ['compose', '-p', PROJECT, ...files, ...args], { env: stackEnv(host), stdio: 'inherit' });
 }
 
 // ---- 进程：只认自己记下的 PID ----
@@ -94,7 +98,7 @@ function start(name, command, args, env, cwd = REPO) {
   if (known[name] && alive(known[name])) return;
   fs.mkdirSync(file('logs'), { recursive: true });
   const log = fs.openSync(file(`logs/${name}.log`), 'a');
-  const child = spawn(command, args, { cwd, env, detached: true, stdio: ['ignore', log, log] });
+  const child = spawn(command, args, { cwd, env, detached: true, windowsHide: true, stdio: ['ignore', log, log] });
   child.unref();
   fs.writeFileSync(file('pids.json'), JSON.stringify({ ...known, [name]: child.pid }, null, 2));
 }
@@ -111,43 +115,80 @@ function appEnv(host, discovery) {
   return {
     ...process.env,
     VITE_INSPECTION_API_BASE_URL: `http://${host}:${PORTS.backend}`,
+    VITE_INSPECTION_ALLOW_INSECURE_LOCAL_API: String(host === '127.0.0.1'),
     VITE_INSPECTION_ALLOW_INSECURE_LAN_API: 'true', VITE_INSPECTION_ENABLE_LAN_DISCOVERY: String(discovery),
     VITE_PLATFORM_PREVIEW_ENABLED: 'true', VITE_SIMULATED_PAYMENT: 'true', VITE_DEMO_MEDIA_REWRITE: 'true',
     VITE_INSPECTION_DEFAULT_CITY_CODE: '370500', VITE_INSPECTION_DEFAULT_CITY_NAME: '东营市',
   };
 }
 
+function buildBackend() {
+  if (process.env.DEMO_BACKEND_JAR) {
+    const source = path.resolve(process.env.DEMO_BACKEND_JAR);
+    if (source !== JAR) fs.copyFileSync(source, JAR);
+    else fs.accessSync(JAR, fs.constants.R_OK);
+    return;
+  }
+  // Maven 的子模块都有自己的 target，单独复制当前源码以涵盖工作区修改，并避开正在使用的开发 JAR。
+  const buildRoot = fs.mkdtempSync(path.join(STATE, 'maven-'));
+  try {
+    for (const entry of ['pom.xml', '.mvn', 'mvnw', 'mvnw.cmd', 'backend']) {
+      fs.cpSync(path.join(REPO, entry), path.join(buildRoot, entry), {
+        recursive: true, dereference: true, filter: (source) => path.basename(source) !== 'target',
+      });
+    }
+    const args = ['-B', '-q', '-DskipTests', '-pl', ':bootstrap', '-am', 'package'];
+    const options = { cwd: buildRoot, stdio: 'inherit', windowsHide: true };
+    if (process.platform === 'win32') {
+      execFileSync(process.env.ComSpec || 'cmd.exe', ['/d', '/c', 'mvnw.cmd', ...args], options);
+    } else {
+      execFileSync('sh', ['./mvnw', ...args], options);
+    }
+    fs.copyFileSync(path.join(buildRoot, 'backend/bootstrap/target/bootstrap-0.1.0-SNAPSHOT.jar'), JAR);
+  } finally {
+    if (path.dirname(buildRoot) === STATE) fs.rmSync(buildRoot, { recursive: true, force: true });
+  }
+}
+
 const commands = {
   build() {
     const host = lanHost();
     secrets();
-    const run = (command, args, options) => execFileSync(command, args, { stdio: 'inherit', ...options });
-    console.log('1/4 后端'); run('mvn', ['-o', '-q', '-DskipTests', 'package'], { cwd: path.join(REPO, 'backend') });
-    fs.copyFileSync(path.join(REPO, 'backend/bootstrap/target/bootstrap-0.1.0-SNAPSHOT.jar'), JAR);
-    console.log('2/4 运营端'); run('npm', ['run', 'build', '--silent'], { cwd: path.join(REPO, 'apps/admin') });
+    const run = (cli, args, cwd, env = process.env) =>
+      execFileSync(process.execPath, [cli, ...args], { cwd, env, stdio: 'inherit', windowsHide: true });
+    console.log('1/4 后端'); buildBackend();
+    const admin = path.join(REPO, 'apps/admin');
+    console.log('2/4 运营端');
+    run('node_modules/vue-tsc/bin/vue-tsc.js', ['--noEmit', '-p', 'tsconfig.app.json'], admin);
+    run('node_modules/vite/bin/vite.js', ['build', '--outDir', ADMIN, '--emptyOutDir'], admin);
     const mobile = path.join(REPO, 'apps/mobile');
-    const uni = path.join(mobile, 'node_modules/.bin/uni');
-    console.log('3/4 App 的 H5（手机浏览器备用）'); run(uni, ['build'], { cwd: mobile, env: { ...appEnv(host, false), VITE_INSPECTION_API_BASE_URL: H5_ORIGIN, VITE_INSPECTION_ALLOW_INSECURE_LOCAL_API: 'true', UNI_OUTPUT_DIR: H5 } });
-    console.log('4/4 App 资源'); run(uni, ['build', '-p', 'app'], { cwd: mobile, env: { ...appEnv(host, true), UNI_OUTPUT_DIR: APP } });
+    const uni = 'node_modules/@dcloudio/vite-plugin-uni/bin/uni.js';
+    console.log('3/4 App 的 H5（手机浏览器备用）'); run(uni, ['build'], mobile, { ...appEnv(host, false), VITE_INSPECTION_API_BASE_URL: H5_ORIGIN, VITE_INSPECTION_ALLOW_INSECURE_LOCAL_API: 'true', UNI_OUTPUT_DIR: H5 });
+    console.log('4/4 App 资源'); run(uni, ['build', '-p', 'app'], mobile, { ...appEnv(host, true), UNI_OUTPUT_DIR: APP });
     console.log(`完成。App 资源在 output/demo-app（后端地址 ${host}，App 会在同一网段自动找后端）。`);
   },
 
   async up() {
     const host = lanHost();
-    if (!fs.existsSync(JAR)) throw new Error('先跑 node infra/demo/demo.mjs build');
+    if (![JAR, path.join(ADMIN, 'index.html'), path.join(H5, 'index.html')].every((asset) => fs.existsSync(asset))) {
+      throw new Error('演示构建产物不完整，先跑 node infra/demo/demo.mjs build');
+    }
     compose(host, 'up', '-d', '--wait', 'postgres', 'redis', 'minio');
-    compose(host, 'up', '--no-log-prefix', 'minio-init');
+    compose(host, 'run', '--rm', '--no-deps', 'minio-init');
     start('wechat', process.execPath, ['infra/dev/fake-wechat/server.mjs'], {
       ...process.env, FAKE_WECHAT_DIR: file('wechat'), FAKE_WECHAT_PORT: String(PORTS.wechat),
       FAKE_WECHAT_BACKEND_URL: `http://127.0.0.1:${PORTS.backend}`, FAKE_WECHAT_AUTO_REFUND_MS: '3000',
     });
     await waitFor(`http://127.0.0.1:${PORTS.wechat}/_control/orders`, 10);
-    start('backend', 'java', ['-jar', JAR, `--server.port=${PORTS.backend}`, '--server.address=0.0.0.0'], backendEnv(host), STATE);
+    const env = backendEnv(host);
+    const java = process.env.JAVA_HOME ? path.join(process.env.JAVA_HOME, 'bin', process.platform === 'win32' ? 'java.exe' : 'java') : 'java';
+    start('backend', java, ['-jar', JAR, `--server.port=${PORTS.backend}`, `--server.address=${env.INSPECTION_BACKEND_BIND_ADDRESS}`], env, STATE);
     await waitFor(`http://127.0.0.1:${PORTS.backend}/actuator/health`, 90, (status) => status === 200);
-    start('admin', process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--port', String(PORTS.admin)],
+    start('admin', process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--outDir', ADMIN, '--port', String(PORTS.admin), '--strictPort'],
       { ...process.env, ADMIN_API_TARGET: `http://127.0.0.1:${PORTS.backend}` }, path.join(REPO, 'apps/admin'));
     start('console', process.execPath, ['infra/demo/console.mjs'], process.env);
-    await waitFor(`http://127.0.0.1:${PORTS.console}/`, 10);
+    await Promise.all([PORTS.admin, PORTS.h5, PORTS.console].map((port) =>
+      waitFor(`http://127.0.0.1:${port}/`, 10, (status) => status === 200)));
     await this.status();
   },
 

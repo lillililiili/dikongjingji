@@ -104,9 +104,11 @@ export async function fakeWechatPays(request: APIRequestContext, outTradeNo: str
   expect(paid.ok()).toBe(true)
 }
 
-export async function fakeWechatRefunds(request: APIRequestContext, outRefundNo: string): Promise<void> {
+export async function fakeWechatRefunds(
+  request: APIRequestContext, outRefundNo: string, status: 'SUCCESS' | 'ABNORMAL' = 'SUCCESS',
+): Promise<void> {
   expect(outRefundNo).not.toBe('')
-  const refunded = await request.post(`${FAKE_WECHAT}/_control/refund/${outRefundNo}?status=SUCCESS&notify=1`)
+  const refunded = await request.post(`${FAKE_WECHAT}/_control/refund/${outRefundNo}?status=${status}&notify=1`)
   expect(refunded.ok()).toBe(true)
 }
 

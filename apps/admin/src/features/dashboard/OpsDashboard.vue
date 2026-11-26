@@ -3,6 +3,7 @@
  * 运营端首页“经营概览”（契约 contracts/openapi-ops-dashboard.yaml）：全平台的客户、机构、成交、转化、来源、城市、
  * 平台资源和待处理。数字都是接口现算的，没有估算；待处理只给当前账号进得去的页面加链接。
  */
+import { Refresh } from '@element-plus/icons-vue'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -45,6 +46,7 @@ async function load(): Promise<void> {
   controller = current
   loading.value = true
   error.value = ''
+  if (data.value && data.value.days !== days.value) data.value = null
   try {
     const result = await api.dashboard(days.value, current.signal)
     if (controller === current) data.value = result
@@ -73,15 +75,34 @@ const kpis = computed<Kpi[]>(() => {
   const d = data.value
   if (!d) return []
   return [
-    { key: 'net', label: '净成交额', value: formatBigMoney(d.trade.netPaidMinor),
+    {
+      key: 'net',
+      label: '净成交额',
+      value: formatBigMoney(d.trade.netPaidMinor),
       change: changeRatio(d.trade.netPaidMinor, d.trade.previousNetPaidMinor),
-      hint: `实付 ${formatBigMoney(d.trade.paidMinor)}，已退 ${formatBigMoney(d.trade.refundedMinor)}` },
-    { key: 'orders', label: '付款订单', value: formatCount(d.trade.paidOrders),
-      change: changeRatio(d.trade.paidOrders, d.trade.previousPaidOrders), hint: '按付款时间统计' },
-    { key: 'buyers', label: '付款客户', value: formatCount(d.trade.payingCustomers),
-      change: changeRatio(d.trade.payingCustomers, d.trade.previousPayingCustomers), hint: '按客户账号去重' },
-    { key: 'average', label: '客单价', value: formatBigMoney(d.trade.averageOrderMinor), change: null,
-      hint: '净成交额 ÷ 付款订单' },
+      hint: `实付 ${formatBigMoney(d.trade.paidMinor)}，已退 ${formatBigMoney(d.trade.refundedMinor)}`,
+    },
+    {
+      key: 'orders',
+      label: '付款订单',
+      value: formatCount(d.trade.paidOrders),
+      change: changeRatio(d.trade.paidOrders, d.trade.previousPaidOrders),
+      hint: '按付款时间统计',
+    },
+    {
+      key: 'buyers',
+      label: '付款客户',
+      value: formatCount(d.trade.payingCustomers),
+      change: changeRatio(d.trade.payingCustomers, d.trade.previousPayingCustomers),
+      hint: '按客户账号去重',
+    },
+    {
+      key: 'average',
+      label: '客单价',
+      value: formatBigMoney(d.trade.averageOrderMinor),
+      change: null,
+      hint: '净成交额 ÷ 付款订单',
+    },
   ]
 })
 
@@ -89,16 +110,41 @@ const people = computed<Kpi[]>(() => {
   const d = data.value
   if (!d) return []
   return [
-    { key: 'customers', label: '注册客户', value: formatCount(d.customers.total), change: null,
-      hint: `企业组织 ${formatCount(d.customers.enterprises)} 个` },
-    { key: 'new', label: '新增客户', value: formatCount(d.customers.newInPeriod),
-      change: changeRatio(d.customers.newInPeriod, d.customers.newPreviousPeriod), hint: '按注册时间' },
-    { key: 'active', label: '活跃客户', value: formatCount(d.customers.activeInPeriod), change: null,
-      hint: '统计期内用过 App' },
-    { key: 'providers', label: '入驻机构', value: formatCount(d.organizations.providers), change: null,
-      hint: `资质已审核 ${formatCount(d.organizations.qualificationReviewed)}，本期新增 ${formatCount(d.organizations.newInPeriod)}` },
-    { key: 'merchants', label: '能收款的商家', value: formatCount(d.organizations.collectingMerchants),
-      change: null, hint: `商城在售商家 ${formatCount(d.organizations.sellingMerchants)}` },
+    {
+      key: 'customers',
+      label: '注册客户',
+      value: formatCount(d.customers.total),
+      change: null,
+      hint: `企业组织 ${formatCount(d.customers.enterprises)} 个`,
+    },
+    {
+      key: 'new',
+      label: '新增客户',
+      value: formatCount(d.customers.newInPeriod),
+      change: changeRatio(d.customers.newInPeriod, d.customers.newPreviousPeriod),
+      hint: '按注册时间',
+    },
+    {
+      key: 'active',
+      label: '活跃客户',
+      value: formatCount(d.customers.activeInPeriod),
+      change: null,
+      hint: '统计期内用过 App',
+    },
+    {
+      key: 'providers',
+      label: '入驻机构',
+      value: formatCount(d.organizations.providers),
+      change: null,
+      hint: `资质已审核 ${formatCount(d.organizations.qualificationReviewed)}，本期新增 ${formatCount(d.organizations.newInPeriod)}`,
+    },
+    {
+      key: 'merchants',
+      label: '能收款的商家',
+      value: formatCount(d.organizations.collectingMerchants),
+      change: null,
+      hint: `商城在售商家 ${formatCount(d.organizations.sellingMerchants)}`,
+    },
   ]
 })
 
@@ -111,10 +157,20 @@ const funnelRows = computed<ShareRow[]>(() => {
   }
   return [
     { key: 'submitted', label: '提交订单', value: d.funnel.submitted, valueText: formatCount(d.funnel.submitted) },
-    { key: 'paid', label: '完成付款', value: d.funnel.paid, valueText: formatCount(d.funnel.paid),
-      note: rate(d.funnel.paid) },
-    { key: 'kept', label: '没有全额退款', value: d.funnel.kept, valueText: formatCount(d.funnel.kept),
-      note: rate(d.funnel.kept) },
+    {
+      key: 'paid',
+      label: '完成付款',
+      value: d.funnel.paid,
+      valueText: formatCount(d.funnel.paid),
+      note: rate(d.funnel.paid),
+    },
+    {
+      key: 'kept',
+      label: '没有全额退款',
+      value: d.funnel.kept,
+      valueText: formatCount(d.funnel.kept),
+      note: rate(d.funnel.kept),
+    },
   ]
 })
 
@@ -174,7 +230,6 @@ interface Todo {
   to: string | { path: string, query: Record<string, string> }
 }
 
-/** 只给当前账号进得去的页面加链接（看路由要求的角色）。 */
 function reachable(to: Todo['to']): boolean {
   const resolved = router.resolve(to)
   if (resolved.name === 'not-found') return false
@@ -190,10 +245,18 @@ const todos = computed(() => {
     { key: 'merchant', label: '商家资料待审核', count: d.todo.merchantProfileReviews, to: '/merchant-profiles' },
     { key: 'provider', label: '服务商资料待审核', count: d.todo.providerProfileReviews, to: '/provider-profiles' },
     { key: 'feedback', label: '举报与反馈待处理', count: d.todo.pendingFeedback, to: '/feedback' },
-    { key: 'conversation', label: '客服会话待回复', count: d.todo.conversationsAwaitingReply,
-      to: '/support/conversations' },
-    { key: 'refund', label: '退款异常的订单', count: d.todo.refundFailedOrders,
-      to: { path: '/lookup/orders', query: { status: 'REFUND_FAILED' } } },
+    {
+      key: 'conversation',
+      label: '客服会话待回复',
+      count: d.todo.conversationsAwaitingReply,
+      to: '/support/conversations',
+    },
+    {
+      key: 'refund',
+      label: '退款异常的订单',
+      count: d.todo.refundFailedOrders,
+      to: { path: '/lookup/orders', query: { status: 'REFUND_FAILED' } },
+    },
   ]
   return items.map((item) => ({ ...item, link: reachable(item.to) }))
 })
@@ -214,20 +277,44 @@ function changeClass(change: number | null): string {
 
 <template>
   <section class="dashboard" data-testid="ops-dashboard">
-    <header class="dashboard__head">
-      <div>
-        <h1 class="dashboard__title">经营概览</h1>
-        <p v-if="data" class="dashboard__meta">
-          全平台 · {{ data.fromDate }} 至 {{ data.toDate }}（北京时间）· 数据更新于 {{ formatDateTime(data.generatedAt) }}
-        </p>
+    <div class="dashboard__top-card">
+      <header class="dashboard__head">
+        <div>
+          <h1 class="dashboard__title">经营概览</h1>
+          <p v-if="data" class="dashboard__meta">
+            全平台 · {{ data.fromDate }} 至 {{ data.toDate }}（北京时间）· 数据更新于 {{ formatDateTime(data.generatedAt) }}
+          </p>
+        </div>
+        <div class="dashboard__actions">
+          <el-radio-group v-model="days" size="default" data-testid="dashboard-days" @change="load()">
+            <el-radio-button v-for="value in DASHBOARD_DAYS" :key="value" :value="value">近 {{ value }} 天</el-radio-button>
+          </el-radio-group>
+          <el-button :icon="Refresh" :loading="loading" @click="load()">刷新</el-button>
+        </div>
+      </header>
+
+      <div v-if="data" class="hero" data-testid="dashboard-hero">
+        <div class="hero__primary">
+          <span class="hero__label">平台累计净成交</span>
+          <strong class="hero__value">{{ formatBigMoney(data.trade.lifetimeNetPaidMinor) }}</strong>
+          <span class="hero__note">累计实付减已退，不分期</span>
+        </div>
+        <div class="hero__metrics">
+          <div class="hero__metric">
+            <span>本期实付总额</span>
+            <strong>{{ formatBigMoney(data.trade.paidMinor) }}</strong>
+          </div>
+          <div class="hero__metric">
+            <span>本期累计退款</span>
+            <strong>{{ formatBigMoney(data.trade.refundedMinor) }}</strong>
+          </div>
+          <div class="hero__metric">
+            <span>开通城市</span>
+            <strong>{{ formatCount(data.supply.openCities) }}</strong>
+          </div>
+        </div>
       </div>
-      <div class="dashboard__actions">
-        <el-radio-group v-model="days" size="default" data-testid="dashboard-days" @change="load()">
-          <el-radio-button v-for="value in DASHBOARD_DAYS" :key="value" :value="value">近 {{ value }} 天</el-radio-button>
-        </el-radio-group>
-        <el-button :loading="loading" @click="load()">刷新</el-button>
-      </div>
-    </header>
+    </div>
 
     <el-alert v-if="error" type="error" :title="error" :closable="false" show-icon>
       <el-button size="small" @click="load()">重新加载</el-button>
@@ -235,12 +322,6 @@ function changeClass(change: number | null): string {
     <div v-else-if="!data" v-loading="true" class="dashboard__placeholder" />
 
     <template v-else>
-      <div class="hero" data-testid="dashboard-hero">
-        <span class="hero__label">平台累计净成交</span>
-        <strong class="hero__value">{{ formatBigMoney(data.trade.lifetimeNetPaidMinor) }}</strong>
-        <span class="hero__note">累计实付减已退，不分期</span>
-      </div>
-
       <div v-loading="loading" class="kpis kpis--trade">
         <article v-for="item in kpis" :key="item.key" class="kpi kpi--strong" :data-testid="`kpi-${item.key}`">
           <span class="kpi__label">{{ item.label }}</span>
@@ -283,12 +364,12 @@ function changeClass(change: number | null): string {
         <article class="panel">
           <h2 class="panel__title">成交来源</h2>
           <p class="panel__note">按净成交额排序</p>
-          <ShareBars :rows="sourceRows" empty-text="统计期内没有付款订单" />
+          <ShareBars :rows="sourceRows" ranked empty-text="统计期内没有付款订单" />
         </article>
         <article class="panel">
           <h2 class="panel__title">城市分布</h2>
           <p class="panel__note">净成交额前 8 的城市</p>
-          <ShareBars :rows="cityRows" empty-text="统计期内没有付款订单" />
+          <ShareBars :rows="cityRows" ranked empty-text="统计期内没有付款订单" />
         </article>
       </div>
 
@@ -297,25 +378,30 @@ function changeClass(change: number | null): string {
           <h2 class="panel__title">平台资源</h2>
           <p class="panel__note">当前在架的数量</p>
           <dl class="counts">
-            <div v-for="item in supply" :key="item.key">
+            <div v-for="item in supply" :key="item.key" class="counts__cell">
               <dt>{{ item.label }}</dt>
               <dd>{{ formatCount(item.value) }}</dd>
             </div>
           </dl>
         </article>
+
         <article class="panel">
           <h2 class="panel__title">到场与预约</h2>
           <p class="panel__note">统计期内</p>
           <dl class="counts">
-            <div v-for="item in engagement" :key="item.key">
+            <div v-for="item in engagement" :key="item.key" class="counts__cell">
               <dt>{{ item.label }}</dt>
               <dd>{{ formatCount(item.value) }}</dd>
             </div>
           </dl>
         </article>
+
         <article class="panel" data-testid="dashboard-todo">
-          <h2 class="panel__title">待处理<span v-if="todoTotal > 0" class="panel__badge">{{ todoTotal }}</span></h2>
-          <p class="panel__note">当前还没处理的</p>
+          <h2 class="panel__title">
+            待处理
+            <span v-if="todoTotal > 0" class="panel__badge">{{ todoTotal }}</span>
+          </h2>
+          <p class="panel__note">当前还没处理的事项</p>
           <ul class="todos">
             <li v-for="item in todos" :key="item.key" :class="{ 'todos__item--done': item.count === 0 }">
               <router-link v-if="item.link && item.count > 0" :to="item.to">{{ item.label }}</router-link>
@@ -333,27 +419,36 @@ function changeClass(change: number | null): string {
 .dashboard {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
+}
+
+.dashboard__top-card {
+  border: 1px solid var(--admin-border);
+  border-radius: 4px;
+  background: #ffffff;
 }
 
 .dashboard__head {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--admin-border-subtle);
 }
 
 .dashboard__title {
   margin: 0;
-  font-size: 22px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--admin-heading);
 }
 
 .dashboard__meta {
-  margin: 6px 0 0;
-  font-size: 13px;
-  color: var(--admin-text-secondary);
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: #8c8c8c;
 }
 
 .dashboard__actions {
@@ -368,40 +463,76 @@ function changeClass(change: number | null): string {
 }
 
 .dashboard__placeholder {
-  min-height: 320px;
+  min-height: 280px;
+  border: 1px solid var(--admin-border);
+  border-radius: 4px;
+  background: #fff;
 }
 
 .hero {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  background: #fafafa;
+}
+
+.hero__primary {
+  display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 12px;
-  padding: 18px 22px;
-  border-radius: 12px;
-  background: linear-gradient(100deg, #ff6a00 0%, #ff8a3d 60%, #ffb27a 100%);
-  color: #fff;
 }
 
 .hero__label {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
+  color: #595959;
 }
 
 .hero__value {
-  font-size: 34px;
+  font-size: 28px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.5px;
+  color: var(--el-color-primary);
 }
 
 .hero__note {
   font-size: 12px;
-  opacity: 0.9;
+  color: #8c8c8c;
+}
+
+.hero__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+}
+
+.hero__metric {
+  padding-left: 20px;
+  border-left: 1px solid var(--admin-border);
+}
+
+.hero__metric span {
+  display: block;
+  font-size: 12px;
+  color: #8c8c8c;
+}
+
+.hero__metric strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #1f2329;
 }
 
 .kpis {
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
 .kpis--trade {
@@ -415,27 +546,28 @@ function changeClass(change: number | null): string {
 .kpi {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
   padding: 16px 18px;
   border: 1px solid var(--admin-border);
-  border-radius: 12px;
+  border-radius: 4px;
   background: #fff;
 }
 
 .kpi__label {
   font-size: 13px;
-  color: var(--admin-text-secondary);
+  color: #595959;
 }
 
 .kpi__value {
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
+  color: #1f2329;
 }
 
 .kpi--strong .kpi__value {
-  font-size: 28px;
+  font-size: 26px;
 }
 
 .kpi__foot {
@@ -443,6 +575,8 @@ function changeClass(change: number | null): string {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 4px 10px;
+  padding-top: 8px;
+  border-top: 1px solid #f5f5f5;
   font-size: 12px;
 }
 
@@ -452,29 +586,29 @@ function changeClass(change: number | null): string {
 
 .kpi__change small {
   font-weight: 400;
-  color: var(--admin-text-secondary);
+  color: #8c8c8c;
 }
 
 .kpi__change--up {
-  color: #18864b;
+  color: #009a29;
 }
 
 .kpi__change--down {
-  color: #c2410c;
+  color: #d9363e;
 }
 
 .kpi__change--flat {
-  color: var(--admin-text-secondary);
+  color: #8c8c8c;
 }
 
 .kpi__hint {
-  color: var(--admin-text-secondary);
+  color: #8c8c8c;
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-  gap: 16px;
+  gap: 14px;
 }
 
 .grid--wide {
@@ -493,9 +627,9 @@ function changeClass(change: number | null): string {
 
 .panel {
   min-width: 0;
-  padding: 16px 18px;
+  padding: 16px 20px;
   border: 1px solid var(--admin-border);
-  border-radius: 12px;
+  border-radius: 4px;
   background: #fff;
 }
 
@@ -504,25 +638,27 @@ function changeClass(change: number | null): string {
   align-items: center;
   gap: 8px;
   margin: 0;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2329;
 }
 
 .panel__badge {
   min-width: 20px;
   padding: 0 6px;
   border-radius: 10px;
-  background: var(--admin-brand-surface);
-  color: var(--admin-brand-text);
+  background: #fff1f0;
+  border: 1px solid #ffa39e;
+  color: #cf1322;
   font-size: 12px;
-  line-height: 20px;
+  line-height: 18px;
   text-align: center;
 }
 
 .panel__note {
   margin: 4px 0 14px;
   font-size: 12px;
-  color: var(--admin-text-secondary);
+  color: #8c8c8c;
 }
 
 .counts {
@@ -532,42 +668,53 @@ function changeClass(change: number | null): string {
   margin: 0;
 }
 
-.counts div {
+.counts__cell {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: #fafafa;
 }
 
 .counts dt {
   font-size: 12px;
-  color: var(--admin-text-secondary);
+  color: #8c8c8c;
 }
 
 .counts dd {
   margin: 0;
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 19px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
+  color: #1f2329;
 }
 
 .todos {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 14px;
+  font-size: 13.5px;
 }
 
 .todos li {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.todos li:last-child {
+  border-bottom: 0;
 }
 
 .todos a {
-  color: var(--admin-brand-text);
+  color: var(--el-color-primary);
   text-decoration: none;
 }
 
@@ -580,6 +727,6 @@ function changeClass(change: number | null): string {
 }
 
 .todos__item--done {
-  color: var(--admin-text-secondary);
+  color: #8c8c8c;
 }
 </style>

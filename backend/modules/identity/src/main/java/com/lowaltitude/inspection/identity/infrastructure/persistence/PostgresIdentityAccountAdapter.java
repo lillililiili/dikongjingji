@@ -1,6 +1,5 @@
 package com.lowaltitude.inspection.identity.infrastructure.persistence;
 
-import java.time.Clock;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Optional;
@@ -17,11 +16,9 @@ public final class PostgresIdentityAccountAdapter implements IdentityAccountPort
     private static final String ORGANIZATION = "ORGANIZATION";
 
     private final IdentityPersistenceReader reader;
-    private final Clock clock;
 
-    public PostgresIdentityAccountAdapter(IdentityPersistenceReader reader, Clock clock) {
+    public PostgresIdentityAccountAdapter(IdentityPersistenceReader reader) {
         this.reader = reader;
-        this.clock = clock;
     }
 
     @Override
@@ -46,11 +43,10 @@ public final class PostgresIdentityAccountAdapter implements IdentityAccountPort
             return Optional.empty();
         }
 
-        Instant now = clock.instant();
         Set<String> roles = new LinkedHashSet<>();
         Set<String> permissions = new LinkedHashSet<>();
         for (PersistedRolePermission assignment : reader.findRolePermissions(user.subjectId())) {
-            if (!isCurrentRoleForDefaultOrganization(assignment, user.defaultOrganizationId(), now)) {
+            if (!isCurrentRoleForDefaultOrganization(assignment, user.defaultOrganizationId())) {
                 continue;
             }
             roles.add(assignment.roleCode());
@@ -77,10 +73,12 @@ public final class PostgresIdentityAccountAdapter implements IdentityAccountPort
 
     private static boolean isCurrentRoleForDefaultOrganization(
             PersistedRolePermission assignment,
-            java.util.UUID defaultOrganizationId,
-            Instant now
+            java.util.UUID defaultOrganizationId
     ) {
+        // Match the clock and exact statement snapshot that PostgreSQL used to filter this row.
+        Instant now = assignment.evaluatedAt();
         if (!ACTIVE.equals(assignment.roleStatus())
+                || now == null
                 || assignment.validFrom() == null
                 || assignment.validFrom().isAfter(now)
                 || (assignment.validUntil() != null && !assignment.validUntil().isAfter(now))) {

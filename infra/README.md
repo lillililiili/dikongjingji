@@ -21,6 +21,8 @@
 node infra/dev/e2e/stack.mjs up
 ```
 
+如果本机日常服务正在运行默认输出目录中的 JAR，可在独立工作目录打包，并通过 `E2E_BACKEND_JAR` 指定该文件。需要复用或保留独立测试库时，先在测试 PostgreSQL 中创建 `inspection_e2e_` 开头的数据库，在启动和执行用例的两个终端设置相同的 `E2E_PG_DATABASE`。
+
 保留该终端，在另一个终端运行测试。H5 在测试开始时自动启动。
 
 ```powershell

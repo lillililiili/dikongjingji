@@ -10,10 +10,11 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { http } from '@/core/http'
 import { errorMessage } from '@/core/http/api-error'
+import { useChangeHistory } from '@/core/ops/use-change-history'
 import ChangeLogTable from '@/core/ops/ChangeLogTable.vue'
 import MediaField from '@/core/ops/MediaField.vue'
 import DeliverableImages from '@/features/page-content/DeliverableImages.vue'
-import { describeMissing, type OpsChange } from '@/core/ops/ops-common'
+import { describeMissing } from '@/core/ops/ops-common'
 import RowListEditor from '@/core/ops/RowListEditor.vue'
 import { confirmAction, notifyRecorded, showError } from '@/core/ui/feedback'
 import { formatDateTime } from '@/core/ui/format'
@@ -53,7 +54,7 @@ const formRef = ref<FormInstance>()
 const form = reactive<InspectionServiceForm>(emptyForm())
 const detail = shallowRef<OpsInspectionService | null>(null)
 const categories = ref<OpsInspectionCategory[]>([])
-const changes = ref<OpsChange[]>([])
+const { changes, loading: changesLoading, error: changesError, load: loadChanges } = useChangeHistory(api.changes)
 const loading = ref(false)
 const loadError = ref('')
 const busy = ref(false)
@@ -89,7 +90,7 @@ async function load(): Promise<void> {
     categories.value = await api.categories()
     if (!creating.value) {
       show(await api.detail(serviceId.value))
-      changes.value = await api.changes(serviceId.value)
+      void loadChanges(serviceId.value)
     } else {
       detail.value = null
       Object.assign(form, emptyForm())
@@ -141,7 +142,7 @@ async function save(): Promise<void> {
       await router.replace({ name: 'inspection-service', params: { serviceId: created.serviceId } })
       return
     }
-    changes.value = await api.changes(current.serviceId)
+    void loadChanges(current.serviceId)
   } catch (failure) {
     explain(failure)
   } finally {
@@ -171,7 +172,7 @@ async function changeStatus(publish: boolean): Promise<void> {
     show(publish ? await api.publish(current.serviceId, current.version)
       : await api.offline(current.serviceId, current.version))
     notifyRecorded(publish ? '上架' : '下架', '改动记录')
-    changes.value = await api.changes(current.serviceId)
+    void loadChanges(current.serviceId)
   } catch (failure) {
     explain(failure)
   } finally {
@@ -213,7 +214,7 @@ onMounted(() => {
     </el-alert>
     <el-alert v-if="problem" class="problem" type="warning" :title="problem" :closable="false" show-icon />
 
-    <el-form v-if="!loadError" ref="formRef" v-loading="loading" :model="form" :rules="serviceRules" label-width="110px">
+    <el-form v-if="!loadError" ref="formRef" v-loading="loading" :disabled="loading || busy" :model="form" :rules="serviceRules" label-width="110px">
       <h2 class="group">基本信息</h2>
       <el-form-item label="服务商" prop="providerId">
         <ProviderSelect v-model="form.providerId" :current-name="detail?.providerName" />
@@ -304,7 +305,8 @@ onMounted(() => {
       <h2 class="group">交付样图</h2>
       <DeliverableImages :service-id="detail.serviceId" :version="detail.version" :disabled="dirty || busy" @saved="load" />
       <h2 class="group">改动记录</h2>
-      <ChangeLogTable :changes="changes" :subject-labels="CHANGE_SUBJECT_LABELS" :action-labels="CHANGE_ACTION_LABELS" />
+      <el-button v-if="changesError" size="small" @click="loadChanges(serviceId)">重试改动记录</el-button>
+      <ChangeLogTable :changes="changes" :error="changesError" :loading="changesLoading" :subject-labels="CHANGE_SUBJECT_LABELS" :action-labels="CHANGE_ACTION_LABELS" />
     </template>
   </PageSection>
 </template>

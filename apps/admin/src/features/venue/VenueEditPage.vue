@@ -10,9 +10,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { http } from '@/core/http'
 import { newIdempotencyKey } from '@/core/http/api-client'
 import { errorMessage } from '@/core/http/api-error'
+import { useChangeHistory } from '@/core/ops/use-change-history'
 import ChangeLogTable from '@/core/ops/ChangeLogTable.vue'
 import MediaField from '@/core/ops/MediaField.vue'
-import { describeMissing, formatYuan, type OpsChange } from '@/core/ops/ops-common'
+import { describeMissing, formatYuan } from '@/core/ops/ops-common'
 import { confirmAction, notifyRecorded, showError } from '@/core/ui/feedback'
 import { formatDateTime } from '@/core/ui/format'
 import PageSection from '@/core/ui/PageSection.vue'
@@ -64,14 +65,15 @@ let createKey = newIdempotencyKey()
 
 const operatorOptions = ref<Array<{ value: string, label: string }>>([])
 const cityOptions = ref<Array<{ value: string, label: string }>>([])
-const changes = shallowRef<OpsChange[]>([])
-const changesLoading = ref(false)
+const { changes, loading: changesLoading, error: changesError, load: loadChanges } = useChangeHistory(api.changes)
 
 const projectDialog = reactive({ open: false, project: null as OpsVenueProject | null })
 const generateDialog = reactive({ open: false, project: null as OpsVenueProject | null })
 const sessionsDrawer = reactive({ open: false, project: null as OpsVenueProject | null })
 const deviceDialog = reactive({ open: false, device: null as OpsVenueDevice | null })
 
+const dirty = computed(() => detail.value !== null && (lateEntryLimited.value !== (detail.value.lateEntryMinutes !== null)
+  || JSON.stringify(form) !== JSON.stringify(venueDraftOf(detail.value))))
 const hoursProblem = computed(() => openingHoursProblem(form.opensAt, form.closesAt))
 const notePreview = computed(() => openingNotePreview(form.opensAt, form.closesAt, form.closedNote))
 const summaryPreview = computed(() => projectSummaryPreview(form.projectSummary, detail.value?.projects ?? []))
@@ -98,23 +100,11 @@ async function load(): Promise<void> {
   loadError.value = ''
   try {
     fill(await api.get(venueId.value))
-    void loadChanges()
+    void loadChanges(venueId.value)
   } catch (failure) {
     loadError.value = errorMessage(failure)
   } finally {
     loading.value = false
-  }
-}
-
-async function loadChanges(): Promise<void> {
-  if (!venueId.value) return
-  changesLoading.value = true
-  try {
-    changes.value = await api.changes(venueId.value)
-  } catch (failure) {
-    showError(failure)
-  } finally {
-    changesLoading.value = false
   }
 }
 
@@ -149,7 +139,7 @@ function moveInfoItem(index: number, offset: number): void {
 }
 
 async function save(): Promise<void> {
-  if (!formRef.value || busy.value) return
+  if (!formRef.value || busy.value || (venueId.value && !detail.value)) return
   if (!(await formRef.value.validate().catch(() => false))) return
   if (hoursProblem.value) {
     showError(new Error(hoursProblem.value))
@@ -174,7 +164,7 @@ async function save(): Promise<void> {
     if (current) {
       fill(await api.update(current.venueId, draft, current.version))
       notifyRecorded('保存场馆资料', '改动记录')
-      void loadChanges()
+      void loadChanges(venueId.value)
     } else {
       const created = await api.create(draft, createKey)
       notifyRecorded('新建场馆草稿', '改动记录')
@@ -206,7 +196,7 @@ async function transition(kind: 'publish' | 'offline'): Promise<void> {
       ? await api.publish(current.venueId, current.version, '')
       : await api.offline(current.venueId, current.version, ''))
     notifyRecorded(kind === 'publish' ? '上线' : '下线', '改动记录')
-    void loadChanges()
+    void loadChanges(venueId.value)
   } catch (failure) {
     const missing = describeMissing(failure, PUBLISH_FIELD_LABELS)
     showError(missing ? new Error(missing) : failure)
@@ -221,7 +211,7 @@ async function toggleProject(project: OpsVenueProject): Promise<void> {
   const disabling = project.status === 'ACTIVE'
   const confirmed = await confirmAction({
     title: disabling ? '确认停用项目' : '确认启用项目',
-    message: disabling ? `停用“${project.name}”后 App 不再显示、不接新预约；已有预约照常。` : `启用“${project.name}”后 App 上能看到。`,
+    message: disabling ? `停用“${project.name}”会关闭新预约，已有预约照常。` : `启用“${project.name}”后，用户可在已上线的场馆查看项目。`,
     confirmText: disabling ? '停用' : '启用',
     danger: disabling,
   })
@@ -229,7 +219,7 @@ async function toggleProject(project: OpsVenueProject): Promise<void> {
   try {
     fill(await api.projectStatus(current.venueId, project.projectId, disabling ? 'DISABLED' : 'ACTIVE', project.version))
     notifyRecorded(disabling ? '停用项目' : '启用项目', '改动记录')
-    void loadChanges()
+    void loadChanges(venueId.value)
   } catch (failure) {
     const missing = describeMissing(failure, PUBLISH_FIELD_LABELS)
     showError(missing ? new Error('场馆已上线，不能停用最后一个启用的项目') : failure)
@@ -242,7 +232,7 @@ async function toggleDevice(device: OpsVenueDevice): Promise<void> {
   const disabling = device.status === 'ACTIVE'
   const confirmed = await confirmAction({
     title: disabling ? '确认停用设备' : '确认启用设备',
-    message: disabling ? `停用后 App“馆内设备”不再显示“${device.name}”。` : `启用后 App 上能看到“${device.name}”。`,
+    message: disabling ? `停用后 App“馆内设备”不再显示“${device.name}”。` : `启用“${device.name}”后，用户可在已上线的场馆查看设备。`,
     confirmText: disabling ? '停用' : '启用',
     danger: disabling,
   })
@@ -250,7 +240,7 @@ async function toggleDevice(device: OpsVenueDevice): Promise<void> {
   try {
     fill(await api.deviceStatus(current.venueId, device.deviceId, disabling ? 'DISABLED' : 'ACTIVE', device.version))
     notifyRecorded(disabling ? '停用设备' : '启用设备', '改动记录')
-    void loadChanges()
+    void loadChanges(venueId.value)
   } catch (failure) {
     showError(failure)
   }
@@ -260,7 +250,7 @@ function saved(next: OpsVenueDetail): void {
   projectDialog.open = false
   deviceDialog.open = false
   fill(next)
-  void loadChanges()
+  void loadChanges(venueId.value)
 }
 
 async function refreshAfterSessions(): Promise<void> {
@@ -280,17 +270,17 @@ onMounted(() => {
 
 <template>
   <PageSection
-    :title="detail ? detail.name : '新建场馆'"
+    :title="detail?.name ?? (venueId ? '场馆详情' : '新建场馆')"
     :description="detail ? `${detail.operatorName} · ${detail.cityName ?? detail.cityCode}` : '先保存场馆资料（草稿），再加项目、场次和设备。'"
     traced
   >
     <template #actions>
       <el-button @click="router.push({ name: 'venues' })">返回列表</el-button>
       <template v-if="detail">
-        <el-button v-if="detail.status !== 'PUBLISHED'" type="primary" :disabled="busy" @click="transition('publish')">
+        <el-button v-if="detail.status !== 'PUBLISHED'" type="primary" :disabled="busy || dirty" @click="transition('publish')">
           上线
         </el-button>
-        <el-button v-else type="danger" plain :disabled="busy" @click="transition('offline')">下线</el-button>
+        <el-button v-else type="danger" plain :disabled="busy || dirty" @click="transition('offline')">下线</el-button>
       </template>
     </template>
 
@@ -298,7 +288,8 @@ onMounted(() => {
       <el-button size="small" @click="load">重新加载</el-button>
     </el-alert>
 
-    <div v-loading="loading" class="venue">
+    <div v-else v-loading="loading || busy" class="venue">
+      <el-alert v-if="dirty" type="info" title="场馆资料有未保存的修改，请先保存再调整上线状态、项目、设备或场次。" :closable="false" />
       <div v-if="detail" class="venue__status">
         <el-tag :type="venueStatus(detail.status).tag">{{ venueStatus(detail.status).label }}</el-tag>
         <span v-if="detail.publishedAt" class="hint">首次上线 {{ formatDateTime(detail.publishedAt) }}</span>
@@ -309,7 +300,7 @@ onMounted(() => {
       </div>
 
       <h2 class="venue__heading">场馆资料</h2>
-      <el-form ref="formRef" :model="form" :rules="venueRules" label-width="120px" class="venue__form">
+      <el-form ref="formRef" :disabled="loading || busy" :model="form" :rules="venueRules" label-width="120px" class="venue__form">
         <el-form-item label="运营机构" prop="operatorId">
           <el-select v-model="form.operatorId" filterable remote :remote-method="searchOperators" placeholder="搜索服务商机构"
                      style="width: 320px">
@@ -403,7 +394,7 @@ onMounted(() => {
       <template v-if="detail">
         <div class="venue__bar">
           <h2 class="venue__heading">项目与场次</h2>
-          <el-button size="small" type="primary" plain @click="projectDialog.project = null; projectDialog.open = true">
+          <el-button size="small" type="primary" plain :disabled="dirty || busy" @click="projectDialog.project = null; projectDialog.open = true">
             新建项目
           </el-button>
         </div>
@@ -434,11 +425,11 @@ onMounted(() => {
           </el-table-column>
           <el-table-column label="操作" min-width="250">
             <template #default="{ row }">
-              <el-button link type="primary" @click="projectDialog.project = row as OpsVenueProject; projectDialog.open = true">编辑</el-button>
-              <el-button link type="primary" @click="generateDialog.project = row as OpsVenueProject; generateDialog.open = true">按周生成场次</el-button>
-              <el-button link type="primary" @click="sessionsDrawer.project = row as OpsVenueProject; sessionsDrawer.open = true">场次</el-button>
+              <el-button link type="primary" :disabled="dirty || busy" @click="projectDialog.project = row as OpsVenueProject; projectDialog.open = true">编辑</el-button>
+              <el-button link type="primary" :disabled="dirty || busy" @click="generateDialog.project = row as OpsVenueProject; generateDialog.open = true">按周生成场次</el-button>
+              <el-button link type="primary" :disabled="dirty || busy" @click="sessionsDrawer.project = row as OpsVenueProject; sessionsDrawer.open = true">场次</el-button>
               <el-button link :type="(row as OpsVenueProject).status === 'ACTIVE' ? 'danger' : 'primary'"
-                         @click="toggleProject(row as OpsVenueProject)">
+                         :disabled="dirty || busy" @click="toggleProject(row as OpsVenueProject)">
                 {{ (row as OpsVenueProject).status === 'ACTIVE' ? '停用' : '启用' }}
               </el-button>
             </template>
@@ -447,7 +438,7 @@ onMounted(() => {
 
         <div class="venue__bar">
           <h2 class="venue__heading">馆内设备</h2>
-          <el-button size="small" type="primary" plain @click="deviceDialog.device = null; deviceDialog.open = true">
+          <el-button size="small" type="primary" plain :disabled="dirty || busy" @click="deviceDialog.device = null; deviceDialog.open = true">
             新增设备
           </el-button>
         </div>
@@ -471,9 +462,9 @@ onMounted(() => {
           </el-table-column>
           <el-table-column label="操作" width="130">
             <template #default="{ row }">
-              <el-button link type="primary" @click="deviceDialog.device = row as OpsVenueDevice; deviceDialog.open = true">编辑</el-button>
+              <el-button link type="primary" :disabled="dirty || busy" @click="deviceDialog.device = row as OpsVenueDevice; deviceDialog.open = true">编辑</el-button>
               <el-button link :type="(row as OpsVenueDevice).status === 'ACTIVE' ? 'danger' : 'primary'"
-                         @click="toggleDevice(row as OpsVenueDevice)">
+                         :disabled="dirty || busy" @click="toggleDevice(row as OpsVenueDevice)">
                 {{ (row as OpsVenueDevice).status === 'ACTIVE' ? '停用' : '启用' }}
               </el-button>
             </template>
@@ -481,7 +472,8 @@ onMounted(() => {
         </el-table>
 
         <h2 class="venue__heading">改动记录</h2>
-        <ChangeLogTable :changes="changes" :loading="changesLoading" :subject-labels="SUBJECT_LABELS"
+        <el-button v-if="changesError" size="small" @click="loadChanges(venueId)">重试改动记录</el-button>
+        <ChangeLogTable :changes="changes" :error="changesError" :loading="changesLoading" :subject-labels="SUBJECT_LABELS"
                         :action-labels="VENUE_ACTION_LABELS" />
       </template>
     </div>

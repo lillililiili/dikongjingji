@@ -67,7 +67,7 @@ async function generate(): Promise<void> {
     title: '确认生成场次',
     message: `给“${project.name}”最多生成 ${slots.value.length} 场（每场 ${project.durationMinutes} 分钟、`
       + `${form.useProjectCapacity ? project.capacity : form.capacity} 人）。同一开始时间已有的、开始时间已过的会跳过。`
-      + '生成后 App 上马上能约。',
+      + '场馆上线、项目启用后，用户可预约有余位的场次。',
     confirmText: '生成',
   })
   if (!confirmed) return

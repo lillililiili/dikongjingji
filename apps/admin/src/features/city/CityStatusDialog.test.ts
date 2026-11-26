@@ -58,6 +58,9 @@ describe('修改开通状态', () => {
     const wrapper = mountDialog({ changeStatus })
     await settle()
 
+    expect(saveButton().disabled).toBe(true)
+    document.body.querySelector<HTMLInputElement>('input[type="radio"][value="OPEN"]')!.click()
+    await settle()
     saveButton().click()
     await settle()
     // 错误提示有 100ms 防抖（Element Plus 表单项）。
@@ -71,7 +74,6 @@ describe('修改开通状态', () => {
     await settle()
 
     expect(confirmAction).toHaveBeenCalledTimes(1)
-    // 默认选中第一个和现在不一样的状态（已开通）。
     expect(changeStatus).toHaveBeenCalledWith('370100', 'OPEN', '首批商家已入驻', 3)
     expect(notifyRecorded).toHaveBeenCalledWith('把济南市改为已开通', '改动记录')
     expect(wrapper.emitted('changed')?.[0]).toEqual([changed])
@@ -84,6 +86,8 @@ describe('修改开通状态', () => {
     const wrapper = mountDialog({ changeStatus })
     await settle()
 
+    document.body.querySelector<HTMLInputElement>('input[type="radio"][value="OPEN"]')!.click()
+    await settle()
     const note = document.body.querySelector<HTMLTextAreaElement>('textarea')!
     note.value = '暂停'
     note.dispatchEvent(new Event('input'))

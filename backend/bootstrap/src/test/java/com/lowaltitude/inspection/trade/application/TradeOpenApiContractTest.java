@@ -162,7 +162,11 @@ class TradeOpenApiContractTest {
         // 0.8.0：S4-3 通用服务订单（来源 PRO_SERVICE）。
         // 0.9.0：S5-5 线上录播课（来源 COURSE）。
         // 0.10.0：S5-7、S5-8 付款主体、企业订单和注销冷静期。
-        assertThat(map(root.get("info")).get("version")).isEqualTo("0.10.0");
+        // 0.10.1：没有应对账商户的历史账期可读取空报告，没有账单导入时间。
+        assertThat(map(root.get("info")).get("version")).isEqualTo("0.10.1");
+        Map<?, ?> report = map(map(map(root.get("components")).get("schemas")).get("Reconciliation"));
+        assertThat(map(map(report.get("properties")).get("importedAt")).get("type"))
+                .isEqualTo(List.of("string", "null"));
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");

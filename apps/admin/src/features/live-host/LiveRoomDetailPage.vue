@@ -42,11 +42,21 @@ const commentsError = ref('')
 const room = computed(() => host.value?.room ?? null)
 const ended = computed(() => room.value?.status === 'ENDED')
 const hidden = computed(() => new Set(comments.value?.hiddenSeqs ?? []))
+const listChanged = computed(() => {
+  const saved = room.value
+  return !!saved && (items.length !== saved.items.length || currentSeq.value !== saved.currentItemSeq
+    || items.some((item, index) => {
+      const old = saved.items[index]
+      return !old || old.title !== item.title || old.refId !== item.ref || old.type !== item.type
+    }))
+})
 
-function apply(next: LiveHostRoom): void {
-  host.value = next
+function loadItems(next: LiveHostRoom): void {
   items.splice(0, items.length, ...next.room.items.map((item) => ({ type: item.type, ref: item.refId, title: item.title })))
   currentSeq.value = next.room.currentItemSeq
+}
+
+function loadReplay(next: LiveHostRoom): void {
   replay.url = next.room.replayUrl ?? ''
   replay.platform = next.room.replayPlatformName ?? ''
 }
@@ -55,7 +65,10 @@ async function load(): Promise<void> {
   loading.value = true
   error.value = ''
   try {
-    apply(await api.get(roomId.value))
+    const next = await api.get(roomId.value)
+    host.value = next
+    loadItems(next)
+    loadReplay(next)
   } catch (failure) {
     error.value = errorMessage(failure)
   } finally {
@@ -73,12 +86,15 @@ async function loadComments(): Promise<void> {
   }
 }
 
-async function run(title: string, message: string, action: () => Promise<LiveHostRoom>, done: string): Promise<void> {
+async function run(title: string, message: string, action: () => Promise<LiveHostRoom>,
+  updateForm: (next: LiveHostRoom) => void, done: string): Promise<void> {
   if (busy.value) return
   if (!(await confirmAction({ title, message, confirmText: '确认' }))) return
   busy.value = true
   try {
-    apply(await action())
+    const next = await action()
+    host.value = next
+    updateForm(next)
     ElMessage.success(done)
   } catch (failure) {
     showError(failure)
@@ -107,12 +123,12 @@ async function saveItems(): Promise<void> {
   }
   const request = items.map((item) => ({ type: item.type, refId: parseItemRef(item.type, item.ref)!, title: item.title.trim() }))
   await run('保存讲解清单', '观众在直播间“讲解”里看到这份清单，点进去是平台内的详情页。', () =>
-    api.setItems(roomId.value, request, currentSeq.value), '已保存讲解清单')
+    api.setItems(roomId.value, request, currentSeq.value), loadItems, '已保存讲解清单')
 }
 
 async function switchCurrent(seq: number | null): Promise<void> {
   await run('换当前讲解项', seq === null ? '直播间不再显示“正在讲解”。' : `直播间显示正在讲解第 ${seq} 项。`,
-    () => api.setCurrentItem(roomId.value, seq), '已换当前讲解项')
+    () => api.setCurrentItem(roomId.value, seq), loadItems, '已换当前讲解项')
 }
 
 async function saveReplay(): Promise<void> {
@@ -124,7 +140,7 @@ async function saveReplay(): Promise<void> {
   const url = replay.url.trim() || null
   const platform = replay.platform.trim() || null
   await run('保存回看链接', url ? '观众在 App 里点“看回放”会离开 App 打开这个链接。' : '去掉回看链接。',
-    () => api.setReplay(roomId.value, url, platform), '已保存回看链接')
+    () => api.setReplay(roomId.value, url, platform), loadReplay, '已保存回看链接')
 }
 
 async function hide(comment: LiveComment): Promise<void> {
@@ -160,7 +176,7 @@ async function copyPushUrl(): Promise<void> {
 
 function edited(next: LiveHostRoom): void {
   editing.value = false
-  apply(next)
+  host.value = next
 }
 
 onMounted(() => {
@@ -231,13 +247,13 @@ onMounted(() => {
           </div>
         </div>
         <div v-if="!ended && room.items.length" class="switch">
-          只换当前讲解项（不改清单）：
+          {{ listChanged ? '请先保存编辑中的清单，再切换当前讲解项。' : '切换当前讲解项' }}
           <el-button v-for="item in room.items" :key="item.seq" size="small"
-                     :type="room.currentItemSeq === item.seq ? 'primary' : 'default'" :disabled="busy"
+                     :type="room.currentItemSeq === item.seq ? 'primary' : 'default'" :disabled="busy || listChanged"
                      @click="switchCurrent(item.seq)">
             {{ item.seq }}. {{ itemTypeLabel(item.type) }} · {{ item.title }}
           </el-button>
-          <el-button size="small" :disabled="busy || room.currentItemSeq === null" @click="switchCurrent(null)">都不讲</el-button>
+          <el-button size="small" :disabled="busy || listChanged || room.currentItemSeq === null" @click="switchCurrent(null)">都不讲</el-button>
         </div>
 
         <h2 class="block-title">回看链接</h2>

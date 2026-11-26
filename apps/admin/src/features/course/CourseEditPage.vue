@@ -13,7 +13,7 @@ import { errorMessage, isApiError } from '@/core/http/api-error'
 import ChangeLogTable from '@/core/ops/ChangeLogTable.vue'
 import MediaField from '@/core/ops/MediaField.vue'
 import MediaListField from '@/core/ops/MediaListField.vue'
-import type { OpsChange } from '@/core/ops/ops-common'
+import { useChangeHistory } from '@/core/ops/use-change-history'
 import RowListEditor from '@/core/ops/RowListEditor.vue'
 import { confirmAction, notifyRecorded, showError } from '@/core/ui/feedback'
 import { formatDateTime } from '@/core/ui/format'
@@ -51,9 +51,7 @@ const api = createCourseApi(http)
 
 const courseId = computed(() => (typeof route.params.courseId === 'string' ? route.params.courseId : ''))
 const course = ref<OpsCourse | null>(null)
-const changes = ref<OpsChange[]>([])
-const changesError = ref('')
-const changesLoading = ref(false)
+const { changes, loading: changesLoading, error: changesError, load: loadChanges } = useChangeHistory(api.changes)
 const loading = ref(false)
 const loadError = ref('')
 const busy = ref(false)
@@ -112,20 +110,6 @@ function show(next: OpsCourse, reset: { info: boolean, outline: boolean }): void
   if (reset.outline) outline.value = outlineFormOf(next.chapters)
 }
 
-async function loadChanges(): Promise<void> {
-  if (!courseId.value) return
-  changesLoading.value = true
-  changesError.value = ''
-  try {
-    changes.value = await api.changes(courseId.value)
-  } catch (failure) {
-    changes.value = []
-    changesError.value = errorMessage(failure)
-  } finally {
-    changesLoading.value = false
-  }
-}
-
 async function load(): Promise<void> {
   if (!courseId.value) return
   loading.value = true
@@ -133,7 +117,7 @@ async function load(): Promise<void> {
   try {
     show(await api.detail(courseId.value), { info: true, outline: true })
     if (course.value?.mode !== 'ONLINE' && tab.value === 'outline') tab.value = 'info'
-    await loadChanges()
+    void loadChanges(courseId.value)
   } catch (failure) {
     loadError.value = errorMessage(failure)
   } finally {
@@ -158,7 +142,7 @@ async function run(action: () => Promise<OpsCourse>, done: string, reset: { info
   try {
     show(await action(), reset)
     notifyRecorded(done, '改动记录')
-    await loadChanges()
+    void loadChanges(courseId.value)
     return true
   } catch (failure) {
     if (isApiError(failure, 'OPS_VERSION_CONFLICT')) {
@@ -424,6 +408,7 @@ onMounted(() => {
         <el-tab-pane label="改动记录" name="changes">
           <ChangeLogTable :changes="changes" :error="changesError" :loading="changesLoading" :subject-labels="CHANGE_SUBJECT_LABELS"
                           :action-labels="CHANGE_ACTION_LABELS" />
+          <el-button v-if="changesError" size="small" @click="loadChanges(courseId)">重试改动记录</el-button>
         </el-tab-pane>
       </el-tabs>
     </div>

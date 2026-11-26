@@ -21,8 +21,10 @@ public interface IdentityOpsStatsMapper {
             WHERE u.status <> 'CLOSED'
               AND u.id <> ALL (CAST(#{excluded.userArray} AS uuid[]))
               AND EXISTS (SELECT 1 FROM identity_user_role ur JOIN identity_role r ON r.id = ur.role_id
-                          WHERE ur.user_id = u.id AND r.role_code = 'CUSTOMER'
-                            AND (ur.valid_until IS NULL OR ur.valid_until > now()))
+                          WHERE ur.user_id = u.id AND r.role_code = 'CUSTOMER' AND r.status = 'ACTIVE'
+                            AND r.scope_type = 'GLOBAL' AND ur.organization_id IS NULL
+                            AND statement_timestamp() >= ur.valid_from
+                            AND (ur.valid_until IS NULL OR ur.valid_until > statement_timestamp()))
             """;
 
     record DayRow(LocalDate day, long count) {

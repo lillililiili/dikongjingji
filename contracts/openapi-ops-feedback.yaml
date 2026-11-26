@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "Ops Feedback API"
-  version: "1.0.0"
+  version: "1.1.0"
   description: |-
     1.0.0（S3-1，docs/redesign/08-后续开发计划.md §2、§5 D11）：Web 运营端“举报与反馈”。
 
@@ -11,7 +11,7 @@ info:
     规则：
     - 反馈来源三种：USER 用户在“帮助与反馈”提交的；VIDEO_COMMENT_REPORT 举报发现页视频评论；LIVE_COMMENT_REPORT 举报直播弹幕。
       举报带被举报的对象 target：视频评论时 id 是评论、parentId 是视频；直播弹幕时 id 是弹幕、parentId 是直播间。
-      S3-1 之前记的举报没有对象，来源算 USER。
+      visibility 根据被举报内容的当前数据库记录给出。S3-1 之前记的举报没有对象，来源算 USER。
     - 隐藏被举报的内容不在这个契约里：页面直接调已有的受权接口（平台客服本来就有权调）——视频评论
       POST /api/v1/content/comments/{target.id}/hide（openapi-content.yaml），直播弹幕
       POST /api/v1/platform/live/rooms/{target.parentId}/comments/{target.id}/hide（openapi-live.yaml）。两者都幂等。
@@ -179,7 +179,7 @@ components:
     SupportReportTarget:
       type: "object"
       additionalProperties: false
-      required: [id, parentId]
+      required: [id, parentId, visibility, text]
       properties:
         id:
           type: "string"
@@ -189,6 +189,13 @@ components:
           type: "string"
           format: "uuid"
           description: "它所在的视频或直播间"
+        visibility:
+          type: "string"
+          enum: [VISIBLE, HIDDEN, MISSING]
+          description: "公开可见、已隐藏、内容已不存在"
+        text:
+          type: ["string", "null"]
+          description: "供客服核查的被举报原文。目标已删除时为 null。"
     SupportFeedbackReporter:
       type: "object"
       additionalProperties: false

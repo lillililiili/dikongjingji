@@ -18,7 +18,7 @@ public interface OpsUserLookupMapper {
     String FILTER = """
             FROM identity_user u
             WHERE 1 = 1
-            <if test="phone != null">AND u.mobile = #{phone}</if>
+            <if test="phone != null">AND (u.mobile = #{phone} OR u.login_name = #{phone})</if>
             <if test="userId != null">AND u.id = #{userId}</if>
             <if test="loginName != null or displayName != null">
               AND (<if test="loginName != null">u.login_name = #{loginName}</if>
@@ -34,8 +34,15 @@ public interface OpsUserLookupMapper {
                    u.registered_via,
                    COALESCE((SELECT string_agg(DISTINCT r.role_code, ',' ORDER BY r.role_code)
                              FROM identity_user_role ur JOIN identity_role r ON r.id = ur.role_id
-                             WHERE ur.user_id = u.id
-                               AND (ur.valid_until IS NULL OR ur.valid_until > now())), '') roles,
+                             WHERE ur.user_id = u.id AND r.status = 'ACTIVE'
+                               AND statement_timestamp() >= ur.valid_from
+                               AND (ur.valid_until IS NULL OR ur.valid_until > statement_timestamp())
+                               AND ((r.scope_type = 'GLOBAL' AND ur.organization_id IS NULL)
+                                 OR (r.scope_type = 'ORGANIZATION' AND ur.organization_id = u.default_organization_id
+                                     AND EXISTS (SELECT 1 FROM identity_organization_member m
+                                                 JOIN identity_organization o ON o.id = m.organization_id
+                                                 WHERE m.organization_id = ur.organization_id AND m.user_id = u.id
+                                                   AND m.member_status = 'ACTIVE' AND o.status = 'ACTIVE')))), '') roles,
                    u.created_at
             """;
 

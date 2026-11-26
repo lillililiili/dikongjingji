@@ -25,6 +25,7 @@ const props = defineProps<{
   cards: readonly HomeChannelCard[]
   kingEntries: readonly HomeKingEntry[]
   carouselSlides: readonly HomeCarouselSlide[]
+  carouselError?: boolean
   carouselActive: boolean
   /**
    * False where the page that hosts this view shows its own blocks under the entries (the
@@ -36,6 +37,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   retry: []
+  retryCarousel: []
   search: []
   selectEntry: [target: HomeEntryTarget]
   selectFeaturedService: [service: PlatformHomeFeaturedService]
@@ -76,6 +78,10 @@ const selectEnterpriseSolution = (availability: PlatformAvailability): void =>
       :active="props.carouselActive"
       @select="emit('selectEntry', $event)"
     />
+    <view v-else-if="props.carouselError" class="platform-home__carousel-error" aria-live="polite">
+      <text>推荐轮播加载失败</text>
+      <button data-testid="carousel-retry" @click="emit('retryCarousel')">重新加载轮播</button>
+    </view>
     <PlatformHeroBanner
       v-else-if="props.showSections && props.state.kind === 'ready' && props.state.content.hero"
       class="platform-home__hero"
@@ -270,6 +276,8 @@ button::after{border:0}
 .platform-home__enterprise-benefit-copy{display:flex;min-width:0;flex-direction:column}
 .platform-home__enterprise-benefit-title{overflow:hidden;font-size:11px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
 .platform-home__enterprise-benefit-description{overflow:hidden;margin-top:2px;color:var(--app-secondary-text);font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+.platform-home__carousel-error{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 12px;border-radius:12px;background:#fff;color:var(--app-secondary-text);font-size:13px}
+.platform-home__carousel-error button{margin:0;padding:0 8px;min-height:48px;color:#975000;background:transparent;font-size:13px;line-height:48px}
 .platform-home__state{display:flex;min-height:240px;flex-direction:column;align-items:center;justify-content:center;padding:40rpx}
 .platform-home__state-title{margin-top:24rpx;color:#4f5966;font-size:28rpx;font-weight:700;text-align:center}
 .platform-home__state-copy{margin-top:10rpx;color:#9198a1;font-size:22rpx}

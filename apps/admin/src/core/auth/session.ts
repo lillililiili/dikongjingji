@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import { http } from '@/core/http'
+import { ApiRequestError, errorMessage } from '@/core/http/api-error'
 
 import { createAuthApi, type AuthApi, type CurrentAccount } from './auth-api'
 import { hasAnyRole, isAdminRole } from './roles'
@@ -23,6 +24,7 @@ export class NoAdminRoleError extends Error {
 export function createSessionStore(api: AuthApi, tokens: TokenStore) {
   return defineStore('session', () => {
     const account = ref<CurrentAccount | null>(null)
+    const restoreError = ref('')
     const roles = computed(() => account.value?.roles ?? [])
     const signedIn = computed(() => account.value !== null && tokens.hasLogin())
 
@@ -34,19 +36,22 @@ export function createSessionStore(api: AuthApi, tokens: TokenStore) {
     async function login(loginName: string, password: string): Promise<CurrentAccount> {
       const issued = await api.login(loginName, password)
       tokens.save(issued)
+      account.value = null
+      restoreError.value = ''
       try {
         const me = await api.me()
         if (!me.roles.some(isAdminRole)) throw new NoAdminRoleError()
         account.value = me
         return me
       } catch (failure) {
-        logout()
+        handleAccountReadFailure(failure)
         throw failure
       }
     }
 
     /** 有令牌但还没读资料（刷新页面后）时读一次；令牌失效或没有运营端角色时清掉登录状态，返回 false。 */
     async function ensureAccount(): Promise<boolean> {
+      restoreError.value = ''
       if (!hasToken()) {
         account.value = null
         return false
@@ -60,14 +65,24 @@ export function createSessionStore(api: AuthApi, tokens: TokenStore) {
         }
         account.value = me
         return true
-      } catch {
-        logout()
+      } catch (failure) {
+        handleAccountReadFailure(failure)
         return false
+      }
+    }
+
+    function handleAccountReadFailure(failure: unknown): void {
+      if (failure instanceof NoAdminRoleError ||
+          (failure instanceof ApiRequestError && [401, 403].includes(failure.status))) {
+        logout()
+      } else {
+        restoreError.value = errorMessage(failure)
       }
     }
 
     /** 退出：本地两个令牌立刻删掉，再请后端撤销这次登录（失败也不留登录，后端那份到期自己作废）。 */
     function logout(): void {
+      restoreError.value = ''
       const refreshToken = tokens.refreshToken()
       tokens.clear()
       account.value = null
@@ -78,7 +93,7 @@ export function createSessionStore(api: AuthApi, tokens: TokenStore) {
       return hasAnyRole(roles.value, required)
     }
 
-    return { account, roles, signedIn, hasToken, login, ensureAccount, logout, can }
+    return { account, roles, signedIn, login, hasToken, ensureAccount, logout, can, restoreError }
   })
 }
 

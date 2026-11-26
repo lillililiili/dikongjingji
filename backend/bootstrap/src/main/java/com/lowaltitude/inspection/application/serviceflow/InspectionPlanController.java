@@ -50,6 +50,15 @@ public final class InspectionPlanController {
                 .body(ServicePlanResponse.from(plan));
     }
 
+    @GetMapping("/api/v1/provider/inspection/reservations/{reservationId}/plans/current")
+    public ResponseEntity<ServicePlanResponse> currentForProvider(
+            @PathVariable UUID reservationId,
+            Authentication authentication
+    ) {
+        ServicePlanView plan = service.currentForProvider(currentSubject(authentication), reservationId);
+        return ResponseEntity.ok().eTag(Integer.toString(plan.version())).body(ServicePlanResponse.from(plan));
+    }
+
     @GetMapping("/api/v1/inspection/plans/{planId}")
     public ResponseEntity<ServicePlanResponse> get(
             @PathVariable UUID planId,

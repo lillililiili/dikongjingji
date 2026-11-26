@@ -45,6 +45,7 @@ async function load(): Promise<void> {
   try {
     order.value = await api.order(orderId.value)
   } catch (failure) {
+    order.value = null
     error.value = errorMessage(failure)
   } finally {
     loading.value = false
@@ -99,6 +100,7 @@ onMounted(() => {
     :description="order ? `合同确认于 ${formatDateTime(order.contract.confirmedAt)}` : undefined"
   >
     <template #actions>
+      <el-button :loading="loading" @click="load">刷新</el-button>
       <el-button @click="router.push({ name: 'workbench-rental-orders' })">返回列表</el-button>
       <template v-if="order">
         <el-button v-if="canCancel(order)" type="danger" plain @click="cancelling = true">取消并退款</el-button>

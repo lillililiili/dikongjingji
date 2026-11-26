@@ -329,7 +329,7 @@ class OrganizationOnboardingServiceTest {
         existing("PROVIDER", "APPROVED");
         when(mapper.insertAccount(eq("hhk-ops"), eq("黄河口操作员"), anyString(), eq(ORG), eq(AT))).thenReturn(ACCOUNT);
         when(mapper.findAccounts(ORG)).thenReturn(List.of(new AccountRow(ACCOUNT, "hhk-ops", "黄河口操作员", "ACTIVE", AT)));
-        when(mapper.findAccountRoles(eq(ORG), eq(List.of(ACCOUNT)), any())).thenReturn(List.of(
+        when(mapper.findAccountRoles(eq(ORG), eq(List.of(ACCOUNT)))).thenReturn(List.of(
                 new AccountRoleRow(ACCOUNT, "LIVE_HOST"), new AccountRoleRow(ACCOUNT, "PROVIDER_OPERATOR")));
 
         OpsAccountCreatedView created = service.createAccount(ORG, "hhk-ops", "黄河口操作员",
@@ -340,8 +340,8 @@ class OrganizationOnboardingServiceTest {
         assertThat(hashed).containsExactly(created.initialPassword());
         assertThat(created.account().roles()).containsExactly("LIVE_HOST", "PROVIDER_OPERATOR");
         verify(mapper).insertMember(ORG, ACCOUNT, AT);
-        verify(mapper).grantRole(ACCOUNT, "PROVIDER_OPERATOR", ORG, AT);
-        verify(mapper).grantRole(ACCOUNT, "LIVE_HOST", ORG, AT);
+        verify(mapper).grantRole(ACCOUNT, "PROVIDER_OPERATOR", ORG);
+        verify(mapper).grantRole(ACCOUNT, "LIVE_HOST", ORG);
         verify(mapper).insertOperation(eq(ORG), eq("ACCOUNT_CREATE"), eq("新建账号 hhk-ops（黄河口操作员），角色：服务商操作员、直播主办"),
                 eq(OPERATOR_ID), anyString(), eq(AT));
 
@@ -365,30 +365,43 @@ class OrganizationOnboardingServiceTest {
 
         service.createAccount(ORG, "corp-buyer", "采购", List.of("CUSTOMER"), OPERATOR);
 
-        verify(mapper).grantRole(eq(ACCOUNT), eq("CUSTOMER"), isNull(), eq(AT));
+        verify(mapper).grantRole(eq(ACCOUNT), eq("CUSTOMER"), isNull());
     }
 
     @Test
     void replacingRolesChangesOnlyTheDifferenceAndInvalidatesOldTokens() {
         existing("PROVIDER", "APPROVED");
         when(mapper.lockAccount(ORG, ACCOUNT)).thenReturn(new AccountRow(ACCOUNT, "hhk-ops", "黄河口操作员", "ACTIVE", AT));
-        when(mapper.findAccountRoles(eq(ORG), eq(List.of(ACCOUNT)), any()))
+        when(mapper.findAccountRoles(eq(ORG), eq(List.of(ACCOUNT))))
                 .thenReturn(List.of(new AccountRoleRow(ACCOUNT, "PROVIDER_OPERATOR")));
+        when(mapper.revokeRole(ACCOUNT, "PROVIDER_OPERATOR", ORG)).thenReturn(1);
+        when(mapper.grantRole(ACCOUNT, "LIVE_HOST", ORG)).thenReturn(1);
 
         service.replaceRoles(ORG, ACCOUNT, List.of("LIVE_HOST"), OPERATOR);
 
-        verify(mapper).grantRole(ACCOUNT, "LIVE_HOST", ORG, AT);
-        verify(mapper).revokeRole(ACCOUNT, "PROVIDER_OPERATOR", ORG, AT);
+        verify(mapper).grantRole(ACCOUNT, "LIVE_HOST", ORG);
+        verify(mapper).revokeRole(ACCOUNT, "PROVIDER_OPERATOR", ORG);
         verify(mapper).bumpTokenVersion(ACCOUNT, AT);
         verify(mapper).insertOperation(ORG, "ROLES_CHANGE", "账号 hhk-ops：授予 直播主办，收回 服务商操作员（需重新登录）",
                 OPERATOR_ID, "平台运营（示例）", AT);
     }
 
     @Test
+    void revocationMustTakeEffectBeforeTheOperatorSeesSuccess() {
+        existing("PROVIDER", "APPROVED");
+        when(mapper.lockAccount(ORG, ACCOUNT)).thenReturn(new AccountRow(ACCOUNT, "hhk-ops", "操作员", "ACTIVE", AT));
+        when(mapper.findAccountRoles(ORG, List.of(ACCOUNT))).thenReturn(List.of(new AccountRoleRow(ACCOUNT, "LIVE_HOST")));
+        when(mapper.revokeRole(ACCOUNT, "LIVE_HOST", ORG)).thenReturn(0);
+
+        assertRejected(() -> service.replaceRoles(ORG, ACCOUNT, List.of(), OPERATOR), Error.VERSION_CONFLICT);
+        verify(mapper, never()).bumpTokenVersion(any(), any());
+    }
+
+    @Test
     void replacingWithTheSameRolesChangesNothing() {
         existing("PROVIDER", "APPROVED");
         when(mapper.lockAccount(ORG, ACCOUNT)).thenReturn(new AccountRow(ACCOUNT, "hhk-ops", "黄河口操作员", "ACTIVE", AT));
-        when(mapper.findAccountRoles(eq(ORG), eq(List.of(ACCOUNT)), any()))
+        when(mapper.findAccountRoles(eq(ORG), eq(List.of(ACCOUNT))))
                 .thenReturn(List.of(new AccountRoleRow(ACCOUNT, "PROVIDER_OPERATOR")));
 
         service.replaceRoles(ORG, ACCOUNT, List.of("PROVIDER_OPERATOR"), OPERATOR);

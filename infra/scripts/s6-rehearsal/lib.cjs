@@ -177,10 +177,8 @@ function residueSql() {
 function purge(extraIds = []) {
   const ids = new Set([...created, ...extraIds]);
   if (ids.size === 0) return { deleted: 0, ids: 0, residue: 'none' };
-  const out = require('node:child_process').execFileSync('docker', [
-    'exec', '-i', process.env.PG_CONTAINER, 'sh', '-c',
-    'psql -v ON_ERROR_STOP=1 -At -U "$POSTGRES_USER" -d "$POSTGRES_DB" 2>&1',
-  ], { input: `BEGIN;\n${purgeSql(ids)}\nSELECT 's6 ids: ' || count(*) FROM s6_ids;\n${residueSql()}\n${process.env.S6_DRY_RUN ? 'ROLLBACK' : 'COMMIT'};\n`, encoding: 'utf8' });
+  const out = psql(`BEGIN;\n${purgeSql(ids)}\nSELECT 's6 ids: ' || count(*) FROM s6_ids;\n${residueSql()}\n${process.env.S6_DRY_RUN ? 'ROLLBACK' : 'COMMIT'};\n`,
+    { includeNotices: true });
   const deleted = Number((/s6 purge: (\d+) rows/.exec(out) || [])[1] || 0);
   const idCount = Number((/s6 ids: (\d+)/.exec(out) || [])[1] || 0);
   const residue = ((/s6 residue: (.*)/.exec(out) || [])[1] || 'unknown').trim();
@@ -219,11 +217,13 @@ function removeLocalFiles(ids) {
 
 /** 清理并把结果记成最后一步（残留必须为 0）。脚本在 finally 里调用。 */
 function purgeAndReport(extraIds = []) {
-  const files = removeLocalFiles(new Set([...created, ...extraIds]));
-  step('清理：本机存储里本次演练上传的文件删除', { req: '按 ID 删本机存储文件', expect: 'remaining 0' }, files.remaining === 0, files);
   const result = purge(extraIds);
   step('清理：本次演练写入的数据全部删除，残留为 0', { req: `闭包清理 ${created.size} 个起点 ID`, expect: 'residue none' },
     result.residue === 'none', result);
+  if (!result.dryRun && result.residue === 'none') {
+    const files = removeLocalFiles(new Set([...created, ...extraIds]));
+    step('清理：本机存储里本次演练上传的文件删除', { req: '按 ID 删本机存储文件', expect: 'remaining 0' }, files.remaining === 0, files);
+  }
   // 再按表行数和脚本开始时比一次：闭包只顺着“引用了演练对象”的行往下找，这一步兜住漏掉的（例如注册时顺带建的上级行）。
   // 冒烟脚本（runSmoke）自己登录留下的登录会话不是本脚本能删的（不知道它们的 sid），单独列出。
   const diff = countDiff(START_COUNTS, tableCounts());

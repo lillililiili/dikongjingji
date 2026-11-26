@@ -165,13 +165,14 @@ const DAY_MS = 86_400_000
 /** 改价用现在这份报价预填；第一次报价有效期默认 7 天。 */
 export function initialQuoteForm(demand: ProviderDemand, now: Date = new Date()): QuoteForm {
   const quote = demand.myQuote && demand.myQuote.status !== 'WITHDRAWN' ? demand.myQuote : null
+  const previousExpiry = quote ? new Date(quote.validUntil) : null
   return {
     amountYuan: quote ? minorToYuanText(quote.amountMinor) : '',
     method: quote?.method ?? '',
     schedule: quote?.schedule ?? '',
     durationDays: quote?.durationDays ?? 1,
     deliverables: quote?.deliverables ?? demand.deliverables.map((item) => item.label).join('、'),
-    validUntil: new Date(now.getTime() + 7 * DAY_MS),
+    validUntil: previousExpiry && previousExpiry > now ? previousExpiry : new Date(now.getTime() + 7 * DAY_MS),
     lines: lineFormsFrom(quote?.lines ?? []),
     team: quote?.team ?? '',
     nightWork: quote?.nightWork ?? '',

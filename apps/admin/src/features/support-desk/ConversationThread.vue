@@ -36,9 +36,10 @@ const error = ref('')
 const draft = ref('')
 const problem = ref('')
 const sending = ref(false)
-let replyKey = newIdempotencyKey()
+let replyAttempt: { text: string; key: string } | undefined
 
 async function load(): Promise<void> {
+  if (loading.value || loadingEarlier.value || sending.value) return
   loading.value = true
   error.value = ''
   try {
@@ -57,7 +58,7 @@ async function load(): Promise<void> {
 }
 
 async function loadEarlier(): Promise<void> {
-  if (nextBefore.value === null || loadingEarlier.value) return
+  if (nextBefore.value === null || loadingEarlier.value || loading.value) return
   loadingEarlier.value = true
   try {
     const page = await props.api.messages(props.conversationId, nextBefore.value)
@@ -71,16 +72,18 @@ async function loadEarlier(): Promise<void> {
 }
 
 async function send(): Promise<void> {
-  if (sending.value) return
+  if (sending.value || loading.value) return
   const message = replyError(draft.value)
   problem.value = message ?? ''
   if (message) return
+  const text = draft.value.trim()
+  if (replyAttempt?.text !== text) replyAttempt = { text, key: newIdempotencyKey() }
   sending.value = true
   try {
-    const sent = await props.api.reply(props.conversationId, draft.value, replyKey)
+    const sent = await props.api.reply(props.conversationId, text, replyAttempt.key)
     messages.value = mergeMessages(messages.value, [sent])
-    draft.value = ''
-    replyKey = newIdempotencyKey()
+    if (draft.value.trim() === text) draft.value = ''
+    replyAttempt = undefined
     ElMessage.success('已回复，客户会在 App 的“消息”里看到')
   } catch (failure) {
     showError(failure)
@@ -107,11 +110,14 @@ defineExpose({ load })
     </el-result>
 
     <template v-if="conversation">
+      <el-alert v-if="error" type="error" :title="error" :closable="false" show-icon>
+        <el-button size="small" @click="load">重新加载</el-button>
+      </el-alert>
       <div class="thread__head">
         <strong>{{ conversation.customer.name }}</strong>
         <el-tag size="small" effect="plain">{{ COUNTERPART_LABELS[conversation.counterpartKind] }}</el-tag>
         <span class="muted">会话开始于 {{ formatDateTime(conversation.createdAt) }}</span>
-        <el-button size="small" @click="load">刷新</el-button>
+        <el-button size="small" :disabled="loading || loadingEarlier || sending" @click="load">刷新</el-button>
       </div>
 
       <div class="thread__messages">
@@ -169,18 +175,22 @@ defineExpose({ load })
   display: flex;
   align-items: center;
   gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: #f8fafc;
 }
 
 .thread__messages {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   max-height: 520px;
-  padding: 12px;
+  padding: 16px;
   overflow-y: auto;
   border: 1px solid var(--admin-border);
-  border-radius: 8px;
-  background: var(--admin-surface-muted);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
 }
 
 .thread__earlier {
@@ -188,19 +198,24 @@ defineExpose({ load })
 }
 
 .message {
-  max-width: 70%;
-  padding: 8px 12px;
-  border-radius: 8px;
+  max-width: 72%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--admin-border);
   background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .message--mine {
   align-self: flex-end;
+  border-color: color-mix(in srgb, var(--el-color-primary) 28%, #e2e8f0);
   background: var(--admin-brand-surface);
+  border-bottom-right-radius: 4px;
 }
 
 .message--customer {
   align-self: flex-start;
+  border-bottom-left-radius: 4px;
 }
 
 .message__meta {

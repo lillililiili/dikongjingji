@@ -133,7 +133,7 @@ public class OrganizationSignupService {
             throw new OnboardingException(Error.LOGIN_NAME_TAKEN);
         }
         mapper.insertMember(organizationId, accountId, at);
-        mapper.grantRole(accountId, OpsGrantableRole.PROVIDER_OPERATOR.name(), organizationId, at);
+        mapper.grantRole(accountId, OpsGrantableRole.PROVIDER_OPERATOR.name(), organizationId);
         mapper.insertQualification(organizationId, subjectName, licenseNumber, scope, null, accountId, at);
         Operator applicant = new Operator(accountId, contactName);
         mapper.insertOperation(organizationId, OpsOrganizationAction.SIGNUP.name(),

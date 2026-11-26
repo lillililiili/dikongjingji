@@ -4,6 +4,8 @@ import { resolve } from 'node:path'
 
 import { expect, test, type Page } from '@playwright/test'
 
+import { adminSignIn } from './support/admin-session'
+import { expectCurrentAgreement } from './support/agreement'
 import { BOARD_DIR, PLANNING } from './support/board-compare'
 import {
   PLATFORM_DESK,
@@ -128,7 +130,12 @@ test.describe('客服会话、设置与公共页', () => {
     // The merchant answers from its desk; the open page picks it up by polling and reads it.
     const merchantList = await (await request.get(`${API}${PROVIDER_DESK}`, { headers: merchant.headers })).json()
     expect(merchantList.items.find((item: { conversationId: string }) => item.conversationId === conversationId).unreadCount).toBe(2)
-    await deskReply(request, merchant, PROVIDER_DESK, conversationId, '今天 10:24 已从东营仓发出')
+    const merchantPage = await page.context().newPage()
+    await adminSignIn(merchantPage, MERCHANT, '/workbench/conversations/' + conversationId)
+    await merchantPage.locator('.thread textarea').fill('今天 10:24 已从东营仓发出')
+    await merchantPage.getByRole('button', {name:'发送', exact:true}).click()
+    await expect(merchantPage.locator('.thread__messages')).toContainText('今天 10:24 已从东营仓发出')
+    await merchantPage.close()
     await expect(page.getByTestId('support-message-3')).toContainText('今天 10:24 已从东营仓发出', { timeout: POLL_WAIT })
     await expect(page.getByTestId('support-message-3')).toHaveAttribute('data-mine', 'false')
     await expect.poll(async () => (await unreadOf(conversationId)).unread).toBe(0)
@@ -244,8 +251,7 @@ test.describe('客服会话、设置与公共页', () => {
     await expect(page.getByTestId('settings-page')).not.toContainText(/1[3-9]\d{9}/)
 
     await page.getByTestId('settings-agreement-user_agreement').click()
-    await expect(page.getByTestId('agreement-title')).toHaveText('用户协议')
-    await expect(page.getByTestId('agreement-unpublished')).toHaveText('协议正文尚未发布')
+    await expectCurrentAgreement(page, 'USER_AGREEMENT', '用户协议')
     await page.getByTestId('agreement-back').click()
     await page.getByTestId('settings-about').click()
     await expect(page.getByTestId('about-version')).toHaveText(/^版本 \d+\.\d+\.\d+$/)
@@ -280,17 +286,16 @@ test.describe('客服会话、设置与公共页', () => {
 
   test('SUP-006 协议与规则：全部协议里换文档；报名和确认订单的协议链接打开同一页', async ({ page }) => {
     await page.goto('/#/pages/mine/agreement?doc=TRADE_AGREEMENT')
-    await expect(page.getByTestId('agreement-title')).toHaveText('平台交易协议')
-    await expect(page.getByTestId('agreement-unpublished')).toBeVisible()
+    await expectCurrentAgreement(page, 'TRADE_AGREEMENT', '平台交易协议')
     await page.getByTestId('agreement-all').click()
     await expect(page.getByTestId('agreement-sheet').locator('.agreement__sheet-name'))
       .toHaveText(['隐私政策', '用户协议', '儿童个人信息保护规则', '平台交易协议', '报名须知与照片使用说明'])
     await page.getByTestId('agreement-pick-enrollment_notice').click()
-    await expect(page.getByTestId('agreement-title')).toHaveText('报名须知与照片使用说明')
+    await expectCurrentAgreement(page, 'ENROLLMENT_NOTICE', '报名须知与照片使用说明')
     await expect(page.getByTestId('agreement-sheet')).toHaveCount(0)
     // An unknown document falls back to the privacy policy.
     await page.goto('/?n=x#/pages/mine/agreement?doc=NOPE')
-    await expect(page.getByTestId('agreement-title')).toHaveText('隐私政策')
+    await expectCurrentAgreement(page, 'PRIVACY_POLICY', '隐私政策')
   })
 
   test('SUP-007 分享只复制链接：链接是这一页的地址，只带稳定 ID 和城市', async ({ page, context }) => {
@@ -383,7 +388,7 @@ test.describe('客服会话、设置与公共页', () => {
       await tallShot(page, shot('messages'))
 
       await page.goto(at('#/pages/mine/agreement?doc=PRIVACY_POLICY'))
-      await expect(page.getByTestId('agreement-title')).toHaveText('隐私政策')
+      await expectCurrentAgreement(page, 'PRIVACY_POLICY', '隐私政策')
       await assertNoHorizontalOverflow(page)
       await tallShot(page, shot('agreement'))
 

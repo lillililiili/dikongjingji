@@ -61,6 +61,7 @@ async function load(): Promise<void> {
     order.value = await api.detail(orderId.value)
     stale.value = false
   } catch (failure) {
+    order.value = null
     error.value = errorMessage(failure)
   } finally {
     loading.value = false

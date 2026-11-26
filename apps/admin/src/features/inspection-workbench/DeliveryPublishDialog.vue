@@ -8,6 +8,7 @@ import { formatBytes } from '@/core/ui/format'
 
 import {
   DELIVERY_FILE_TYPES,
+  type CurrentProviderPlan,
   type DeliveryFileType,
   type InspectionWorkbenchApi,
   type IssueGroupBy,
@@ -25,6 +26,7 @@ import { deliveryMeasuresError, fileMatchesType } from './inspection-rules'
 const props = defineProps<{
   api: InspectionWorkbenchApi
   visit: ServiceVisit
+  plan: CurrentProviderPlan
 }>()
 
 const emit = defineEmits<{
@@ -36,7 +38,6 @@ interface FileSlot {
   type: DeliveryFileType
   label: string
   extension: string
-  included: boolean
   pending: PendingDeliveryFile | null
   /** 已经传好、通过校验的文件 ID（发布失败后重试不再重传）。 */
   fileId: string | null
@@ -44,11 +45,12 @@ interface FileSlot {
   itemCount: number | null
 }
 
-const slots = reactive<FileSlot[]>(DELIVERY_FILE_TYPES.map((type) => ({
+const requiredTypes = new Set(props.plan.deliverables.flatMap(item => item.fileType ? [item.fileType] : []))
+const types = DELIVERY_FILE_TYPES.filter(item => !requiredTypes.size || requiredTypes.has(item.type))
+const slots = reactive<FileSlot[]>(types.map((type) => ({
   type: type.type,
   label: type.label,
   extension: type.extension,
-  included: true,
   pending: null,
   fileId: null,
   pointCount: null,
@@ -88,18 +90,19 @@ function choose(slot: FileSlot, event: Event): void {
   slot.fileId = null
 }
 
+let nextMetricNumber = 1
+let nextGroupNumber = 1
+
 function addMetric(): void {
-  form.metrics.push({ code: `M-${form.metrics.length + 1}`, label: '', value: null, unit: '' })
+  form.metrics.push({ code: `M-${nextMetricNumber++}`, label: '', value: null, unit: '' })
 }
 
 function addIssue(): void {
-  form.issues.push({ groupCode: `G-${form.issues.length + 1}`, groupName: '', count: 0 })
+  form.issues.push({ groupCode: `G-${nextGroupNumber++}`, groupName: '', count: 0 })
 }
 
 function problem(): string | null {
-  const included = slots.filter((slot) => slot.included)
-  if (included.length === 0) return '至少交付一类文件'
-  const missing = included.find((slot) => !slot.pending && !slot.fileId)
+  const missing = slots.find((slot) => !slot.pending && !slot.fileId)
   if (missing) return `还没选${missing.label}`
   const metrics = form.metrics.filter((metric) => metric.label.trim())
   for (const metric of metrics) {
@@ -132,7 +135,7 @@ function request(fileIds: Map<DeliveryFileType, string>): PublishDeliveryRequest
       groupName: issue.groupName.trim(),
       count: issue.count,
     })),
-    files: slots.filter((slot) => slot.included).map((slot) => ({
+    files: slots.map((slot) => ({
       fileId: fileIds.get(slot.type)!,
       type: slot.type,
       displayName: slot.pending?.originalName ?? slot.label,
@@ -158,7 +161,7 @@ async function submit(): Promise<void> {
   busy.value = true
   try {
     const fileIds = new Map<DeliveryFileType, string>()
-    for (const slot of slots.filter((candidate) => candidate.included)) {
+    for (const slot of slots) {
       if (!slot.fileId) {
         step.value = `正在上传${slot.label}…`
         slot.fileId = await props.api.uploadDeliveryFile(props.visit.id, slot.pending!)
@@ -186,16 +189,14 @@ async function submit(): Promise<void> {
       <el-form-item label="交付文件">
         <div class="slots">
           <div v-for="slot in slots" :key="slot.type" class="slot">
-            <el-checkbox v-model="slot.included">{{ slot.label }}</el-checkbox>
-            <template v-if="slot.included">
-              <input type="file" :accept="`.${slot.extension}`" :disabled="busy" @change="choose(slot, $event)">
-              <span v-if="slot.pending" class="muted">{{ formatBytes(slot.pending.file.size) }}</span>
-              <el-tag v-if="slot.fileId" type="success" size="small">已上传</el-tag>
-              <el-input-number v-if="slot.type === 'POINT_KML'" v-model="slot.pointCount" :min="0" size="small"
-                               placeholder="点位数" controls-position="right" />
-              <el-input-number v-else v-model="slot.itemCount" :min="0" size="small" placeholder="条目数"
-                               controls-position="right" />
-            </template>
+            <label :for="`delivery-${slot.type}`">{{ slot.label }}</label>
+            <input :id="`delivery-${slot.type}`" type="file" :accept="`.${slot.extension}`" :disabled="busy" @change="choose(slot, $event)">
+            <span v-if="slot.pending" class="muted">{{ formatBytes(slot.pending.file.size) }}</span>
+            <el-tag v-if="slot.fileId" type="success" size="small">已上传</el-tag>
+            <el-input-number v-if="slot.type === 'POINT_KML'" v-model="slot.pointCount" :min="0" size="small"
+                             placeholder="点位数" controls-position="right" />
+            <el-input-number v-else v-model="slot.itemCount" :min="0" size="small" placeholder="条目数"
+                             controls-position="right" />
           </div>
           <div class="hint">按方案约定的文件类型各传一份（方案没写类型时四类都要）；单个文件不超过 1 GB。</div>
         </div>

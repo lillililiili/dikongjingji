@@ -52,7 +52,12 @@ export function adminRoutes(modules: readonly AdminModule[]): RouteRecordRaw[] {
 }
 
 export function createAdminRouter(modules: readonly AdminModule[], session: () => GuardSession): Router {
-  const router = createRouter({ history: createWebHistory(), routes: adminRoutes(modules) })
+  const isJsdom = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)
+  const router = createRouter({
+    history: createWebHistory(),
+    routes: adminRoutes(modules),
+    ...(isJsdom ? {} : { scrollBehavior: () => ({ top: 0 }) }),
+  })
   router.beforeEach((to) => createAuthGuard(session())(to))
   router.afterEach((to) => {
     document.title = to.meta.title ? `${to.meta.title} · 低空平台运营端` : '低空平台运营端'

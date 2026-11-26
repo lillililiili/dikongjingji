@@ -36,8 +36,8 @@ import { useContentEditor } from './use-content-editor'
 const route = useRoute()
 const router = useRouter()
 const api = createContentOpsApi(http)
-const editor = useContentEditor<OpsVideo>(api.video, api.videoChanges)
 const form = reactive<VideoForm>(videoForm())
+const editor = useContentEditor<OpsVideo>(api.video, api.videoChanges, form)
 const publishing = ref(false)
 
 const videoId = computed(() => (route.params.videoId ? String(route.params.videoId) : null))
@@ -46,10 +46,13 @@ const problems = computed(() => videoProblems(form, editor.entity.value))
 const tags = computed(() => tagsFromText(form.tagsText))
 
 watch(video, (current) => {
-  if (current) Object.assign(form, videoForm(current))
+  if (!current) return
+  Object.assign(form, videoForm(current))
+  editor.markSaved()
 })
 
 async function save(): Promise<void> {
+  if (editor.busy.value || (videoId.value && !video.value)) return
   if (!form.title.trim()) {
     showError(new Error('请填写标题'))
     return
@@ -81,7 +84,7 @@ async function save(): Promise<void> {
 
 async function publish(publishAt: string | null): Promise<void> {
   const current = video.value
-  if (!current) return
+  if (!current || editor.dirty.value) return
   const done = await editor.run(() => api.publishVideo(current.videoId, current.version, publishAt), '上线',
     (entity) => entity.videoId)
   if (done) publishing.value = false
@@ -89,7 +92,7 @@ async function publish(publishAt: string | null): Promise<void> {
 
 async function offline(): Promise<void> {
   const current = video.value
-  if (!current) return
+  if (!current || editor.dirty.value) return
   const confirmed = await confirmAction({
     title: '确认下线',
     message: `下线后 App 发现页和视频流里都不再显示“${current.title}”，点赞和评论保留，可以再上线。`,
@@ -107,21 +110,24 @@ onMounted(() => {
 
 <template>
   <PageSection
-    :title="video ? video.title : '新建视频'"
+    :title="video?.title ?? (videoId ? '视频详情' : '新建视频')"
     :description="video ? `${ORIENTATION_LABELS[video.orientation]} · ${formatDuration(video.durationSeconds)} · ${video.author.name}${video.sponsored ? ' · 广告' : ''}` : '视频要有城市；上线前要有封面和播放地址。'"
     traced
   >
     <template #actions>
       <el-button @click="router.push({ name: 'content', query: { tab: 'videos' } })">返回列表</el-button>
       <template v-if="video">
-        <el-button v-if="video.status !== 'PUBLISHED'" type="success" :disabled="editor.busy.value" @click="publishing = true">上线</el-button>
-        <el-button v-else type="danger" plain :disabled="editor.busy.value" @click="offline">下线</el-button>
+        <el-button v-if="video.status !== 'PUBLISHED'" type="success" :disabled="editor.busy.value || editor.dirty.value" @click="publishing = true">上线</el-button>
+        <el-button v-else type="danger" plain :disabled="editor.busy.value || editor.dirty.value" @click="offline">下线</el-button>
       </template>
-      <el-button type="primary" :loading="editor.busy.value" @click="save">保存</el-button>
+      <el-button v-if="!videoId || video" type="primary" :loading="editor.busy.value" @click="save">保存</el-button>
     </template>
 
-    <el-alert v-if="editor.error.value" type="error" :title="editor.error.value" :closable="false" show-icon />
-    <div v-loading="editor.loading.value" class="video-edit">
+    <el-alert v-if="editor.error.value" type="error" :title="editor.error.value" :closable="false" show-icon>
+      <el-button v-if="videoId" size="small" @click="editor.load(videoId)">重新加载</el-button>
+    </el-alert>
+    <div v-else v-loading="editor.loading.value || editor.busy.value" class="video-edit">
+      <el-alert v-if="editor.dirty.value" title="内容有未保存的修改，请先保存再调整上线状态。" type="info" :closable="false" />
       <div v-if="video" class="video-edit__status">
         <el-tag :type="publishStatusTag(video.status)">{{ publishStatusLabel(video.status) }}</el-tag>
         <span>发布时间 {{ formatDateTime(video.publishedAt) }}</span>
@@ -131,7 +137,7 @@ onMounted(() => {
         </span>
       </div>
 
-      <el-form label-width="96px" @submit.prevent>
+      <el-form :disabled="editor.loading.value || editor.busy.value" label-width="96px" @submit.prevent>
         <el-form-item label="标题" required>
           <el-input v-model="form.title" :maxlength="LIMITS.title" show-word-limit placeholder="比如“4K 航拍黄河口”" />
         </el-form-item>

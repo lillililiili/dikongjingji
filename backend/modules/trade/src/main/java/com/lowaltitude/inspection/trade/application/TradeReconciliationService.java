@@ -275,6 +275,9 @@ public class TradeReconciliationService {
             Map<String, ReconciliationRow> bySub = rows.stream()
                     .collect(Collectors.toMap(ReconciliationRow::subMchid, Function.identity()));
             List<String> expected = mapper.findSubMchidsToReconcile(from, to);
+            if (rows.isEmpty() && expected.isEmpty() && billDate.isBefore(today())) {
+                return new ReconciliationView(billDate, null, 0, List.of());
+            }
             boolean complete = !rows.isEmpty()
                     && rows.stream().allMatch(row -> "IMPORTED".equals(row.status()))
                     && bySub.keySet().containsAll(expected);

@@ -284,7 +284,7 @@ export const QUOTE_LIMITS = {
   reason: 80,
   recordNote: 200,
   validDays: 7,
-  maxDailyRentMinor: 10_000_000_000,
+  maxAmountMinor: 10_000_000_000,
 } as const
 
 export interface FeeForm {
@@ -310,6 +310,7 @@ const DAY_MS = 86_400_000
 /** 改价时用最新一版预填；第一次报价用询价的天数、台数，有效期默认 3 天。 */
 export function initialQuoteForm(inquiry: RentalInquiry, now: Date = new Date()): QuoteForm {
   const quote = inquiry.quote
+  const previousExpiry = quote ? new Date(quote.validUntil) : null
   let key = 0
   return {
     dailyRentYuan: quote ? minorToYuanText(quote.dailyRentMinor) : '',
@@ -322,7 +323,7 @@ export function initialQuoteForm(inquiry: RentalInquiry, now: Date = new Date())
       amountYuan: minorToYuanText(fee.amountMinor),
     })),
     scheduleAvailable: quote?.scheduleAvailable ?? true,
-    validUntil: new Date(now.getTime() + 3 * DAY_MS),
+    validUntil: previousExpiry && previousExpiry > now ? previousExpiry : new Date(now.getTime() + 3 * DAY_MS),
     terms: quote?.terms ?? '',
   }
 }
@@ -355,7 +356,7 @@ export type BuildResult<T> = { ok: true, request: T } | { ok: false, message: st
 export function buildQuoteRequest(form: QuoteForm, now: Date = new Date()): BuildResult<RentalQuoteRequest> {
   const daily = yuanToMinor(form.dailyRentYuan)
   if (daily === null || daily < 1) return fail('日租金要填大于 0 的金额，最多两位小数')
-  if (daily > QUOTE_LIMITS.maxDailyRentMinor) return fail('日租金超过上限')
+  if (daily > QUOTE_LIMITS.maxAmountMinor) return fail('日租金不能超过 1 亿元')
   if (!Number.isInteger(form.days) || form.days < 1 || form.days > QUOTE_LIMITS.days) {
     return fail(`天数要在 1–${QUOTE_LIMITS.days} 天`)
   }
@@ -376,8 +377,11 @@ export function buildQuoteRequest(form: QuoteForm, now: Date = new Date()): Buil
     if (charCount(note) > QUOTE_LIMITS.feeNote) return fail(`费用说明最多 ${QUOTE_LIMITS.feeNote} 个字`)
     const amount = yuanToMinor(fee.amountYuan)
     if (amount === null) return fail(`“${name}”的金额格式不对（可以填 0）`)
+    if (amount > QUOTE_LIMITS.maxAmountMinor) return fail(`“${name}”的金额不能超过 1 亿元`)
     fees.push({ name, note: note || null, amountMinor: amount })
   }
+  const totalMinor = daily * form.days * form.quantity + fees.reduce((sum, fee) => sum + fee.amountMinor, 0)
+  if (totalMinor > QUOTE_LIMITS.maxAmountMinor) return fail('租金与其他费用合计不能超过 1 亿元')
   if (!form.validUntil || Number.isNaN(form.validUntil.getTime())) return fail('请选报价有效期')
   if (form.validUntil.getTime() <= now.getTime()) return fail('报价有效期要晚于现在')
   if (form.validUntil.getTime() > now.getTime() + QUOTE_LIMITS.validDays * DAY_MS) {

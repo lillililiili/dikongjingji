@@ -82,7 +82,7 @@ public class PlatformOperatorBootstrapService {
             return Outcome.ALREADY_EXISTS;
         }
         accounts.insertMember(organizationId, accountId, at);
-        if (accounts.grantRole(accountId, ROLE, null, at) != 1) {
+        if (accounts.grantRole(accountId, ROLE, null) != 1) {
             throw new IllegalStateException("role " + ROLE + " is missing or inactive; identity migrations did not run");
         }
         mapper.recordBootstrap(accountId, organizationId, at);

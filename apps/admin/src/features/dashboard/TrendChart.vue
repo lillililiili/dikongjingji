@@ -22,8 +22,8 @@ const METRICS: Array<{ key: Metric, label: string }> = [
 const metric = ref<Metric>('netPaidMinor')
 const host = ref<HTMLElement | null>(null)
 const width = ref(720)
-const height = 240
-const padding = { top: 16, right: 16, bottom: 28, left: 64 }
+const height = 248
+const padding = { top: 18, right: 16, bottom: 30, left: 64 }
 const hover = ref<number | null>(null)
 let observer: ResizeObserver | null = null
 
@@ -57,8 +57,9 @@ function y(value: number): number {
   return padding.top + plotHeight - (value / top.value) * plotHeight
 }
 
-const linePath = computed(() => values.value.map((value, index) =>
-  `${index === 0 ? 'M' : 'L'}${x(index).toFixed(1)},${y(value).toFixed(1)}`).join(' '))
+const linePath = computed(() =>
+  values.value.map((value, index) => `${index === 0 ? 'M' : 'L'}${x(index).toFixed(1)},${y(value).toFixed(1)}`).join(' '),
+)
 
 const areaPath = computed(() => {
   if (values.value.length === 0) return ''
@@ -66,10 +67,12 @@ const areaPath = computed(() => {
   return `${linePath.value} L${x(values.value.length - 1).toFixed(1)},${baseline} L${x(0).toFixed(1)},${baseline} Z`
 })
 
-const ticks = computed(() => [0, 0.25, 0.5, 0.75, 1].map((share) => ({
-  value: top.value * share,
-  y: y(top.value * share),
-})))
+const ticks = computed(() =>
+  [0, 0.25, 0.5, 0.75, 1].map((share) => ({
+    value: top.value * share,
+    y: y(top.value * share),
+  })),
+)
 
 /** 横轴只标头、中、尾三天，避免挤在一起。 */
 const dateLabels = computed(() => {
@@ -89,11 +92,11 @@ function onPointer(event: PointerEvent): void {
   hover.value = Math.min(count - 1, Math.max(0, Math.round(ratio * (count - 1))))
 }
 
-const hovered = computed(() => (hover.value === null ? null : props.daily[hover.value] ?? null))
+const hovered = computed(() => (hover.value === null ? null : (props.daily[hover.value] ?? null)))
 const tooltipLeft = computed(() => {
   if (hover.value === null) return 0
   const position = x(hover.value)
-  return Math.min(Math.max(position, 90), width.value - 90)
+  return Math.min(Math.max(position, 96), width.value - 96)
 })
 </script>
 
@@ -114,6 +117,12 @@ const tooltipLeft = computed(() => {
         @pointermove="onPointer"
         @pointerleave="hover = null"
       >
+        <defs>
+          <linearGradient id="trend-area-gradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="var(--el-color-primary)" stop-opacity="0.24" />
+            <stop offset="100%" stop-color="var(--el-color-primary)" stop-opacity="0.01" />
+          </linearGradient>
+        </defs>
         <g class="trend__grid">
           <template v-for="tick in ticks" :key="tick.value">
             <line :x1="padding.left" :x2="width - padding.right" :y1="tick.y" :y2="tick.y" />
@@ -129,6 +138,7 @@ const tooltipLeft = computed(() => {
         </g>
         <template v-if="hover !== null && hovered">
           <line class="trend__cross" :x1="x(hover)" :x2="x(hover)" :y1="padding.top" :y2="padding.top + plotHeight" />
+          <circle class="trend__halo" :cx="x(hover)" :cy="y(hovered[metric])" r="9" />
           <circle class="trend__dot" :cx="x(hover)" :cy="y(hovered[metric])" r="5" />
         </template>
       </svg>
@@ -161,56 +171,67 @@ const tooltipLeft = computed(() => {
 }
 
 .trend__grid line {
-  stroke: var(--admin-border);
+  stroke: #e8eef6;
   stroke-width: 1;
+  stroke-dasharray: 3 3;
 }
 
 .trend__grid text,
 .trend__axis text {
   fill: var(--admin-text-secondary);
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .trend__area {
-  fill: var(--el-color-primary);
-  opacity: 0.1;
+  fill: url(#trend-area-gradient);
 }
 
 .trend__line {
   fill: none;
   stroke: var(--el-color-primary);
-  stroke-width: 2;
+  stroke-width: 2.5;
   stroke-linejoin: round;
   stroke-linecap: round;
 }
 
 .trend__cross {
-  stroke: var(--admin-text-secondary);
+  stroke: #94a3b8;
   stroke-width: 1;
-  stroke-dasharray: 3 3;
+  stroke-dasharray: 4 3;
+}
+
+.trend__halo {
+  fill: var(--el-color-primary);
+  opacity: 0.18;
 }
 
 .trend__dot {
   fill: var(--el-color-primary);
   stroke: #fff;
-  stroke-width: 2;
+  stroke-width: 2.5;
 }
 
 .trend__tooltip {
   position: absolute;
-  top: 0;
+  top: 4px;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   padding: 8px 10px;
   border: 1px solid var(--admin-border);
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 4px 12px rgb(32 44 66 / 10%);
+  border-radius: 4px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   font-size: 12px;
   color: var(--admin-text);
   pointer-events: none;
   white-space: nowrap;
+}
+
+.trend__tooltip strong {
+  color: #1f2329;
+  margin-bottom: 1px;
 }
 </style>

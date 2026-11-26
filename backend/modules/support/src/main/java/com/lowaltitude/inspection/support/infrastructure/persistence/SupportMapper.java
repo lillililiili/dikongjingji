@@ -351,8 +351,16 @@ public interface SupportMapper {
 
     String OPS_FEEDBACK_COLUMNS = """
             SELECT f.id, f.account_id, f.feedback_type, f.body, f.source, f.target_id, f.target_parent_id,
+                   CASE WHEN video.hidden_at IS NOT NULL OR live.hidden_at IS NOT NULL THEN 'HIDDEN'
+                        WHEN video.id IS NOT NULL OR live.id IS NOT NULL THEN 'VISIBLE'
+                        ELSE 'MISSING' END target_visibility,
+                   CASE WHEN video.id IS NOT NULL THEN video.body ELSE live.body END target_text,
                    f.handle_status, f.handle_note, f.handled_at, f.handled_by_name, f.version, f.created_at
             FROM support_feedback f
+            LEFT JOIN content_video_comment video ON f.source = 'VIDEO_COMMENT_REPORT'
+              AND video.id = f.target_id AND video.video_id = f.target_parent_id
+            LEFT JOIN live_comment live ON f.source = 'LIVE_COMMENT_REPORT'
+              AND live.id = f.target_id AND live.room_id = f.target_parent_id
             """;
 
     @Select("SELECT count(*) FROM support_feedback f " + OPS_FEEDBACK_FILTER)
@@ -406,6 +414,8 @@ public interface SupportMapper {
             String source,
             UUID targetId,
             UUID targetParentId,
+            String targetVisibility,
+            String targetText,
             String handleStatus,
             String handleNote,
             OffsetDateTime handledAt,

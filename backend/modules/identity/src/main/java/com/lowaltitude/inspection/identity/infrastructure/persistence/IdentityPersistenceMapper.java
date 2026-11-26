@@ -106,7 +106,8 @@ public interface IdentityPersistenceMapper
                    ur.organization_id,
                    ur.valid_from,
                    ur.valid_until,
-                   p.permission_code
+                   p.permission_code,
+                   statement_timestamp() AS evaluated_at
               FROM identity_user_role ur
               JOIN identity_user u
                 ON u.id = ur.user_id
@@ -118,8 +119,8 @@ public interface IdentityPersistenceMapper
                 ON p.id = rp.permission_id
              WHERE ur.user_id = #{subjectId}
                AND r.status = 'ACTIVE'
-               AND ur.valid_from <= CURRENT_TIMESTAMP
-               AND (ur.valid_until IS NULL OR ur.valid_until > CURRENT_TIMESTAMP)
+               AND ur.valid_from <= statement_timestamp()
+               AND (ur.valid_until IS NULL OR ur.valid_until > statement_timestamp())
                AND (
                     (r.scope_type = 'GLOBAL' AND ur.organization_id IS NULL)
                     OR

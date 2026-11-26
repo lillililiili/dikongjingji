@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { http } from '@/core/http'
@@ -7,6 +7,7 @@ import { formatDateTime, formatMoney } from '@/core/ui/format'
 import PagedTable from '@/core/ui/PagedTable.vue'
 import PageSection from '@/core/ui/PageSection.vue'
 import { usePagedList } from '@/core/ui/use-paged-list'
+import { useLookupPosition } from './lookup-return'
 
 import {
   createLookupApi,
@@ -28,34 +29,51 @@ const route = useRoute()
 const router = useRouter()
 
 /** 从用户详情点“查看订单”过来时带 buyerId。 */
-const buyerId = typeof route.query.buyerId === 'string' ? route.query.buyerId : ''
-const buyerName = typeof route.query.buyerName === 'string' ? route.query.buyerName : ''
-
-/** 首页“待处理”里的“退款异常的订单”带 status 过来。 */
-const initialStatus = typeof route.query.status === 'string' && route.query.status in STATUS_LABELS
-  ? route.query.status as OrderStatus
-  : ''
+const buyerName = computed(() => typeof route.query.buyerName === 'string' ? route.query.buyerName : '')
 
 const list = usePagedList<OrderSummary, OrderFilters>((filters, page, size) => api.orders(filters, page, size),
-  { q: typeof route.query.q === 'string' ? route.query.q : '', buyerId, source: '', status: initialStatus,
-    dates: null })
+  { q: '', buyerId: '', source: '', status: '', dates: null })
+const restoring = useLookupPosition(list, 'ops-order-detail')
 
 const sourceOptions = Object.entries(SOURCE_LABELS) as Array<[keyof typeof SOURCE_LABELS, string]>
 const statusOptions = Object.entries(STATUS_LABELS) as Array<[keyof typeof STATUS_LABELS, string]>
 
-function clearBuyer(): void {
-  list.filters.buyerId = ''
-  void router.replace({ name: 'ops-orders' })
-  void list.search()
+let clearingBuyerAt: string | undefined
+
+async function clearBuyer(): Promise<void> {
+  const query = { ...route.query }
+  delete query.buyerId
+  delete query.buyerName
+  const target = { name: 'ops-orders', query }
+  clearingBuyerAt = router.resolve(target).fullPath
+  try {
+    await router.replace(target)
+  } finally {
+    clearingBuyerAt = undefined
+  }
 }
 
 function open(order: OrderSummary): void {
   void router.push({ name: 'ops-order-detail', params: { orderId: order.id } })
 }
 
-onMounted(() => {
-  void list.load()
-})
+watch(() => route.query, (query, previous) => {
+  if (route.name !== 'ops-orders') return
+  if (!previous && restoring) {
+    void list.load()
+    return
+  }
+  list.filters.buyerId = typeof query.buyerId === 'string' ? query.buyerId : ''
+  if (route.fullPath !== clearingBuyerAt) {
+    list.filters.q = typeof query.q === 'string' ? query.q : ''
+    list.filters.status = typeof query.status === 'string' && Object.hasOwn(STATUS_LABELS, query.status)
+      ? query.status as OrderStatus : ''
+    list.filters.source = ''
+    list.filters.dates = null
+    list.size.value = 20
+  }
+  void list.search()
+}, { immediate: true })
 </script>
 
 <template>

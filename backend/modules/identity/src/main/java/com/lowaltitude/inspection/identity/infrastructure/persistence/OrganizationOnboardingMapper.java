@@ -319,15 +319,15 @@ public interface OrganizationOnboardingMapper {
              WHERE ur.user_id IN
             <foreach collection="accountIds" item="id" open="(" separator="," close=")">#{id}</foreach>
                AND r.status = 'ACTIVE'
-               AND ur.valid_from &lt;= #{at}
-               AND (ur.valid_until IS NULL OR ur.valid_until &gt; #{at})
-               AND (ur.organization_id IS NULL OR ur.organization_id = #{organizationId})
+               AND ur.valid_from &lt;= statement_timestamp()
+               AND (ur.valid_until IS NULL OR ur.valid_until &gt; statement_timestamp())
+               AND ((r.scope_type = 'GLOBAL' AND ur.organization_id IS NULL)
+                    OR (r.scope_type = 'ORGANIZATION' AND ur.organization_id = #{organizationId}))
              ORDER BY r.role_code
             </script>
             """)
     List<AccountRoleRow> findAccountRoles(@Param("organizationId") UUID organizationId,
-                                          @Param("accountIds") List<UUID> accountIds,
-                                          @Param("at") OffsetDateTime at);
+                                          @Param("accountIds") List<UUID> accountIds);
 
     /** 新账号；登录名已被占用时什么都不写，返回 null。 */
     @Select("""
@@ -378,32 +378,34 @@ public interface OrganizationOnboardingMapper {
      */
     @Insert("""
             INSERT INTO identity_user_role (user_id, role_id, organization_id, valid_from)
-            SELECT #{accountId}, r.id, #{organizationId}, #{at}
+            SELECT #{accountId}, r.id, #{organizationId}, statement_timestamp()
               FROM identity_role r
              WHERE r.role_code = #{roleCode}
                AND r.status = 'ACTIVE'
+               AND ((r.scope_type = 'GLOBAL' AND CAST(#{organizationId} AS uuid) IS NULL)
+                    OR (r.scope_type = 'ORGANIZATION' AND CAST(#{organizationId} AS uuid) IS NOT NULL))
             ON CONFLICT (user_id, role_id, COALESCE(organization_id, '00000000-0000-0000-0000-000000000000'::uuid))
             DO UPDATE SET valid_from = EXCLUDED.valid_from, valid_until = NULL
              WHERE identity_user_role.valid_until IS NOT NULL
                AND identity_user_role.valid_until <= EXCLUDED.valid_from
             """)
     int grantRole(@Param("accountId") UUID accountId, @Param("roleCode") String roleCode,
-                  @Param("organizationId") UUID organizationId, @Param("at") OffsetDateTime at);
+                  @Param("organizationId") UUID organizationId);
 
     /** 收回一个角色：只标结束时间，记录保留。 */
     @Update("""
             UPDATE identity_user_role ur
-            SET valid_until = #{at}
+            SET valid_until = statement_timestamp()
             FROM identity_role r
             WHERE r.id = ur.role_id
               AND r.role_code = #{roleCode}
               AND ur.user_id = #{accountId}
               AND ur.organization_id IS NOT DISTINCT FROM CAST(#{organizationId} AS uuid)
-              AND ur.valid_from < #{at}
-              AND (ur.valid_until IS NULL OR ur.valid_until > #{at})
+              AND ur.valid_from < statement_timestamp()
+              AND (ur.valid_until IS NULL OR ur.valid_until > statement_timestamp())
             """)
     int revokeRole(@Param("accountId") UUID accountId, @Param("roleCode") String roleCode,
-                   @Param("organizationId") UUID organizationId, @Param("at") OffsetDateTime at);
+                   @Param("organizationId") UUID organizationId);
 
     /** 角色变了：令牌版本加一，这个账号手上的旧令牌立刻失效，重新登录才拿到新角色。 */
     @Update("""
@@ -448,17 +450,18 @@ public interface OrganizationOnboardingMapper {
               FROM identity_organization o
               JOIN identity_user u ON u.default_organization_id = o.id AND u.status = 'ACTIVE'
               JOIN identity_user_role ur ON ur.user_id = u.id
-                   AND (ur.organization_id IS NULL OR ur.organization_id = o.id)
-                   AND ur.valid_from <= #{at}
-                   AND (ur.valid_until IS NULL OR ur.valid_until > #{at})
-              JOIN identity_role r ON r.id = ur.role_id AND r.status = 'ACTIVE' AND r.role_code = #{roleCode}
+                   AND ur.organization_id = o.id
+                   AND ur.valid_from <= statement_timestamp()
+                   AND (ur.valid_until IS NULL OR ur.valid_until > statement_timestamp())
+              JOIN identity_role r ON r.id = ur.role_id AND r.scope_type = 'ORGANIZATION'
+                   AND r.status = 'ACTIVE' AND r.role_code = #{roleCode}
              WHERE o.organization_type = 'PROVIDER'
                AND o.status = 'ACTIVE'
              GROUP BY o.id, o.organization_name, o.city_code
              ORDER BY o.organization_name, o.id
              LIMIT #{limit}
             """)
-    List<RoleHolderRow> findRoleHolderOrganizations(@Param("roleCode") String roleCode, @Param("at") OffsetDateTime at,
+    List<RoleHolderRow> findRoleHolderOrganizations(@Param("roleCode") String roleCode,
                                                     @Param("limit") int limit);
 
     record RoleHolderRow(UUID organizationId, String organizationName, String cityCode, long accountCount) {

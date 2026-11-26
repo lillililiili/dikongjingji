@@ -70,10 +70,15 @@ class OrganizationOnboardingMapperSqlTest {
     @Test
     void rolesAreGrantedOrEndedAndAccountsNeverExposeSecrets() {
         assertThat(normalized(sql("grantRole")))
+                .contains("SELECT #{accountId}, r.id, #{organizationId}, statement_timestamp()")
                 .contains("ON CONFLICT (user_id, role_id, COALESCE(organization_id, '00000000-0000-0000-0000-000000000000'::uuid))")
                 .contains("DO UPDATE SET valid_from = EXCLUDED.valid_from, valid_until = NULL");
-        assertThat(normalized(sql("revokeRole"))).contains("SET valid_until = #{at}")
+        assertThat(normalized(sql("revokeRole"))).contains("SET valid_until = statement_timestamp()")
                 .contains("ur.organization_id IS NOT DISTINCT FROM CAST(#{organizationId} AS uuid)");
+        assertThat(normalized(sql("findAccountRoles")))
+                .contains("ur.valid_from &lt;= statement_timestamp()", "ur.valid_until &gt; statement_timestamp()",
+                        "r.scope_type = 'GLOBAL' AND ur.organization_id IS NULL",
+                        "r.scope_type = 'ORGANIZATION' AND ur.organization_id = #{organizationId}");
         assertThat(normalized(sql("bumpTokenVersion"))).contains("SET token_version = token_version + 1");
         for (String method : List.of("findAccounts", "lockAccount", "findAccountRoles")) {
             assertThat(sql(method)).as(method).doesNotContain("password").doesNotContain("mobile");
@@ -91,8 +96,9 @@ class OrganizationOnboardingMapperSqlTest {
     void roleHoldersAreActiveProvidersWithCurrentlyValidRoles() {
         assertThat(normalized(sql("findRoleHolderOrganizations")))
                 .contains("JOIN identity_user u ON u.default_organization_id = o.id AND u.status = 'ACTIVE'")
-                .contains("AND (ur.organization_id IS NULL OR ur.organization_id = o.id)")
-                .contains("AND ur.valid_from <= #{at} AND (ur.valid_until IS NULL OR ur.valid_until > #{at})")
+                .contains("AND ur.organization_id = o.id")
+                .contains("AND ur.valid_from <= statement_timestamp() AND (ur.valid_until IS NULL OR ur.valid_until > statement_timestamp())")
+                .contains("r.scope_type = 'ORGANIZATION'")
                 .contains("r.status = 'ACTIVE' AND r.role_code = #{roleCode}")
                 .contains("WHERE o.organization_type = 'PROVIDER' AND o.status = 'ACTIVE'")
                 .endsWith("LIMIT #{limit}");

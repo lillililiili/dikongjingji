@@ -47,6 +47,7 @@ async function load(): Promise<void> {
   try {
     show(await api.get())
   } catch (failure) {
+    review.value = null
     noProfile.value = isNoProviderProfile(failure)
     error.value = errorMessage(failure)
   } finally {

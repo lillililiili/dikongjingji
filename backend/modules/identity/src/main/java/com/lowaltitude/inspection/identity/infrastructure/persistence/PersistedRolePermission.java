@@ -10,6 +10,7 @@ public record PersistedRolePermission(
         UUID organizationId,
         Instant validFrom,
         Instant validUntil,
-        String permissionCode
+        String permissionCode,
+        Instant evaluatedAt
 ) {
 }

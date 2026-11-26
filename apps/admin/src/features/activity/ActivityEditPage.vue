@@ -13,7 +13,8 @@ import { http } from '@/core/http'
 import ChangeLogTable from '@/core/ops/ChangeLogTable.vue'
 import MediaField from '@/core/ops/MediaField.vue'
 import MediaListField from '@/core/ops/MediaListField.vue'
-import { describeMissing, type OpsChange } from '@/core/ops/ops-common'
+import { describeMissing } from '@/core/ops/ops-common'
+import { useChangeHistory } from '@/core/ops/use-change-history'
 import { errorMessage } from '@/core/http/api-error'
 import { confirmAction, notifyRecorded, showError } from '@/core/ui/feedback'
 import { formatDateTime } from '@/core/ui/format'
@@ -49,8 +50,7 @@ const organizationApi = createOrganizationApi(http)
 
 const activityId = computed(() => (typeof route.params.activityId === 'string' ? route.params.activityId : ''))
 const activity = ref<OpsActivity | null>(null)
-const changes = ref<OpsChange[]>([])
-const changesError = ref('')
+const { changes, loading: changesLoading, error: changesError, load: loadChanges } = useChangeHistory(api.changes)
 const rejectedMissing = ref('')
 const loading = ref(false)
 const loadError = ref('')
@@ -65,6 +65,7 @@ const searchingOrganizers = ref(false)
 const sessionDialog = reactive<{ open: boolean, session: OpsActivitySession | null }>({ open: false, session: null })
 
 const creating = computed(() => activityId.value === '')
+const dirty = computed(() => activity.value !== null && JSON.stringify(form) !== JSON.stringify(activityFormOf(activity.value)))
 const locked = computed(() => activity.value?.hasEnrollments ?? false)
 const switchesAvailable = computed(() => enrollmentSwitchesAvailable(form.priceMode))
 const missingText = computed(() => (activity.value?.publishMissing ?? [])
@@ -84,17 +85,6 @@ function show(next: OpsActivity): void {
   formRef.value?.clearValidate()
 }
 
-async function loadChanges(): Promise<void> {
-  if (!activityId.value) return
-  changesError.value = ''
-  try {
-    changes.value = await api.changes(activityId.value)
-  } catch (failure) {
-    changes.value = []
-    changesError.value = errorMessage(failure)
-  }
-}
-
 async function load(): Promise<void> {
   if (creating.value) {
     activity.value = null
@@ -105,7 +95,7 @@ async function load(): Promise<void> {
   loadError.value = ''
   try {
     show(await api.detail(activityId.value))
-    await loadChanges()
+    void loadChanges(activityId.value)
   } catch (failure) {
     loadError.value = errorMessage(failure)
   } finally {
@@ -133,7 +123,7 @@ async function run(action: () => Promise<OpsActivity>, done: string): Promise<bo
   try {
     show(await action())
     notifyRecorded(done, '改动记录')
-    await loadChanges()
+    void loadChanges(activityId.value)
     return true
   } catch (failure) {
     const missing = describeMissing(failure, PUBLISH_FIELD_LABELS)
@@ -146,7 +136,7 @@ async function run(action: () => Promise<OpsActivity>, done: string): Promise<bo
 }
 
 async function save(): Promise<void> {
-  if (!formRef.value || busy.value) return
+  if (!formRef.value || busy.value || (!creating.value && !activity.value)) return
   if (!(await formRef.value.validate().catch(() => false))) return
   const current = activity.value
   if (!current) {
@@ -221,7 +211,7 @@ function editSession(session: OpsActivitySession | null): void {
 async function sessionSaved(next: OpsActivity): Promise<void> {
   sessionDialog.open = false
   show(next)
-  await loadChanges()
+  void loadChanges(next.activityId)
 }
 
 async function toggleSale(session: OpsActivitySession): Promise<void> {
@@ -273,9 +263,9 @@ onMounted(async () => {
     <template #actions>
       <el-button @click="router.push({ name: 'activities' })">返回列表</el-button>
       <template v-if="activity">
-        <el-button v-if="activity.status !== 'PUBLISHED'" type="success" :loading="busy" @click="publish">上线</el-button>
-        <el-button v-else type="warning" :loading="busy" @click="offline">下线</el-button>
-        <el-button v-if="activity.deletable" type="danger" plain :loading="busy" @click="remove">删除草稿</el-button>
+        <el-button v-if="activity.status !== 'PUBLISHED'" type="success" :disabled="dirty" :loading="busy" @click="publish">上线</el-button>
+        <el-button v-else type="warning" :disabled="dirty" :loading="busy" @click="offline">下线</el-button>
+        <el-button v-if="activity.deletable" type="danger" plain :disabled="dirty" :loading="busy" @click="remove">删除草稿</el-button>
       </template>
     </template>
 
@@ -283,7 +273,8 @@ onMounted(async () => {
       <el-button size="small" @click="load">重新加载</el-button>
     </el-alert>
 
-    <div v-loading="loading" class="activity-edit">
+    <div v-else v-loading="loading || busy" class="activity-edit">
+      <el-alert v-if="dirty" type="info" title="活动信息有未保存的修改，请先保存再调整上线状态或场次。" :closable="false" />
       <div v-if="activity" class="activity-edit__status">
         <el-tag :type="statusTag(activity.status)">{{ labelOf(ACTIVITY_STATUS_OPTIONS, activity.status) }}</el-tag>
         <span>第一次上线：{{ formatDateTime(activity.firstPublishedAt) }}</span>
@@ -295,7 +286,7 @@ onMounted(async () => {
       </div>
 
       <h2 class="activity-edit__heading">活动信息</h2>
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="110px" class="activity-edit__form">
+      <el-form ref="formRef" :disabled="loading || busy" :model="form" :rules="rules" label-width="110px" class="activity-edit__form">
         <el-form-item label="类型" prop="type">
           <el-radio-group v-model="form.type">
             <el-radio-button v-for="option in ACTIVITY_TYPE_OPTIONS" :key="option.value" :value="option.value">
@@ -401,7 +392,7 @@ onMounted(async () => {
       <template v-if="activity">
         <div class="activity-edit__row">
           <h2 class="activity-edit__heading">场次</h2>
-          <el-button type="primary" plain size="small" @click="editSession(null)">新增场次</el-button>
+          <el-button type="primary" plain size="small" :disabled="dirty" @click="editSession(null)">新增场次</el-button>
         </div>
         <el-table :data="activity.sessions" row-key="sessionId" border size="small" empty-text="还没有场次">
           <el-table-column label="开始" width="140">
@@ -425,17 +416,17 @@ onMounted(async () => {
           </el-table-column>
           <el-table-column label="操作" min-width="220">
             <template #default="{ row }">
-              <el-button link type="primary" :disabled="(row as OpsActivitySession).started || (row as OpsActivitySession).cancelled"
+              <el-button link type="primary" :disabled="dirty || (row as OpsActivitySession).started || (row as OpsActivitySession).cancelled"
                          @click="editSession(row as OpsActivitySession)">修改</el-button>
               <el-button v-if="!(row as OpsActivitySession).cancelled" link
                          :type="(row as OpsActivitySession).saleStatus === 'ON_SALE' ? 'danger' : 'success'"
-                         :disabled="(row as OpsActivitySession).saleStatus === 'STOPPED' && (row as OpsActivitySession).started"
+                         :disabled="dirty || (row as OpsActivitySession).saleStatus === 'STOPPED' && (row as OpsActivitySession).started"
                          @click="toggleSale(row as OpsActivitySession)">
                 {{ (row as OpsActivitySession).saleStatus === 'ON_SALE' ? '停售' : '恢复售卖' }}
               </el-button>
               <el-tooltip :disabled="!(row as OpsActivitySession).hasEnrollments" content="有过报名单的场次不能删，只能停售">
                 <span>
-                  <el-button link type="danger" :disabled="(row as OpsActivitySession).hasEnrollments"
+                  <el-button link type="danger" :disabled="dirty || (row as OpsActivitySession).hasEnrollments"
                              @click="removeSession(row as OpsActivitySession)">删除</el-button>
                 </span>
               </el-tooltip>
@@ -444,7 +435,8 @@ onMounted(async () => {
         </el-table>
 
         <h2 class="activity-edit__heading">改动记录</h2>
-        <ChangeLogTable :changes="changes" :error="changesError" :subject-labels="CHANGE_SUBJECT_LABELS" />
+        <ChangeLogTable :changes="changes" :loading="changesLoading" :error="changesError" :subject-labels="CHANGE_SUBJECT_LABELS" />
+        <el-button v-if="changesError" size="small" @click="loadChanges(activityId)">重试改动记录</el-button>
       </template>
     </div>
   </PageSection>

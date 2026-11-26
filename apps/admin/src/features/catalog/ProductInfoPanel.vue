@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { FormInstance } from 'element-plus'
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 
 import { confirmAction, notifyRecorded, showError } from '@/core/ui/feedback'
 import { displayMediaUrl } from '@/core/ui/media-url'
@@ -24,6 +24,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   changed: [detail: OpsProductDetail]
+  dirty: [value: boolean]
 }>()
 
 const formRef = ref<FormInstance>()
@@ -44,7 +45,10 @@ const newPoint = ref('')
 const galleryUrl = ref('')
 const saving = ref(false)
 
-watch(() => props.detail, (detail) => {
+const baseline = ref('')
+const dirty = computed(() => JSON.stringify(form) !== baseline.value || !!newPoint.value.trim() || !!galleryUrl.value.trim())
+
+function fill(detail: OpsProductDetail): void {
   const product = detail.product
   form.category = product.category
   form.name = product.name
@@ -57,8 +61,20 @@ watch(() => props.detail, (detail) => {
   form.packItems = detail.packItems.map((item) => ({ ...item }))
   form.gallery = [...detail.gallery]
   form.introBlocks = detail.introBlocks.map((block) => ({ ...block }))
+  newPoint.value = ''
+  galleryUrl.value = ''
+  baseline.value = JSON.stringify(form)
   formRef.value?.clearValidate()
-}, { immediate: true })
+}
+
+watch(() => props.detail, fill, { immediate: true })
+watch(dirty, value => emit('dirty', value), { flush: 'sync' })
+
+async function discard(): Promise<void> {
+  if (await confirmAction({ title: '放弃商品资料的修改', message: '恢复为当前已保存的商品资料。', confirmText: '放弃修改', danger: true })) {
+    fill(props.detail)
+  }
+}
 
 function addPoint(): void {
   const problem = sellingPointProblem(form.sellingPoints, newPoint.value)
@@ -129,6 +145,10 @@ function rowsProblem(): string | null {
 async function save(): Promise<void> {
   if (!formRef.value || saving.value) return
   if (!(await formRef.value.validate().catch(() => false))) return
+  if (newPoint.value.trim() || galleryUrl.value.trim()) {
+    showError(new Error('还有未添加的卖点或图集地址，请先添加或清空输入。'))
+    return
+  }
   const problem = rowsProblem()
   if (problem) {
     showError(new Error(problem))
@@ -292,6 +312,7 @@ async function save(): Promise<void> {
 
     <el-form-item>
       <el-button type="primary" :loading="saving" @click="save">保存资料</el-button>
+      <el-button v-if="dirty" :disabled="saving" @click="discard">放弃修改</el-button>
     </el-form-item>
   </el-form>
 </template>
@@ -376,5 +397,40 @@ async function save(): Promise<void> {
 .intro__head {
   display: flex;
   justify-content: space-between;
+}
+
+@media (max-width: 640px) {
+  .product-form :deep(.el-form-item) {
+    display: block;
+  }
+
+  .product-form :deep(.el-form-item__label) {
+    justify-content: flex-start;
+    width: auto !important;
+    height: auto;
+    line-height: 24px;
+  }
+
+  .product-form :deep(.el-form-item__content) {
+    min-width: 0;
+    margin-left: 0 !important;
+  }
+
+  .product-form :deep(.el-input:has(.el-input__count)) {
+    margin-bottom: 16px;
+  }
+
+  .product-form :deep(.el-input .el-input__count) {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    line-height: 16px;
+  }
+
+  .row,
+  .media,
+  .media__actions {
+    flex-wrap: wrap;
+  }
 }
 </style>

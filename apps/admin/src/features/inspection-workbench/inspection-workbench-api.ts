@@ -4,7 +4,7 @@ import type { Page } from '@/core/ui/use-paged-list'
 
 // 服务商巡检工作台（契约 contracts/openapi-inspection-service-flow.yaml 2.3.0）。
 // 只用现有接口：本机构预约列表（2.3.0 新加的 listProviderInspectionReservations）、预约详情和服务单（服务商能读已分配的）、
-// 出方案、安排团队设备、排期、履约进度、交付文件上传（三步）和发布交付。方案详情和交付详情只有客户和平台能读，这里不读。
+// 服务商在受理的预约中读取现行方案、修订报价、安排团队设备、排期、登记进度并按约定上传交付文件。
 
 export type ReservationStage =
   | 'AWAITING_PLAN'
@@ -281,6 +281,12 @@ export interface PublishedPlan {
   totalAmountMinor: number
 }
 
+export interface CurrentProviderPlan extends PublishedPlan, Pick<PublishPlanRequest, 'validUntil' | 'visits'
+  | 'summary' | 'scopeSummary' | 'serviceMethods' | 'deliveryTerms' | 'planItems'> {
+  serviceDate: string
+  deliverables: Array<{ code: string, label: string, fileType: DeliveryFileType | null }>
+}
+
 export interface AssignmentInput {
   type: AssignmentType
   resourceId: string
@@ -396,6 +402,9 @@ export function createInspectionWorkbenchApi(http: ApiClient, deps: InspectionWo
     },
     reservation(reservationId: string): Promise<Reservation> {
       return http.get<Reservation>(`${ROOT}/inspection/reservations/${encodeURIComponent(reservationId)}`)
+    },
+    currentPlan(reservationId: string): Promise<CurrentProviderPlan> {
+      return http.get<CurrentProviderPlan>(`${ROOT}/provider/inspection/reservations/${encodeURIComponent(reservationId)}/plans/current`)
     },
     serviceOrder(serviceOrderId: string): Promise<ServiceOrder> {
       return http.get<ServiceOrder>(`${ROOT}/inspection/service-orders/${encodeURIComponent(serviceOrderId)}`)

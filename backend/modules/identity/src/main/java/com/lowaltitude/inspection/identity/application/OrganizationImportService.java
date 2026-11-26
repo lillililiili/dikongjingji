@@ -152,7 +152,7 @@ public class OrganizationImportService {
                 }
                 onboarding.insertMember(organizationId, accountId, at);
                 for (OpsGrantableRole role : wanted) {
-                    onboarding.grantRole(accountId, role.name(), organizationId, at);
+                    onboarding.grantRole(accountId, role.name(), organizationId);
                 }
                 written.add(new Written(WrittenKind.OPERATOR, input.loginName(), accountId, true));
                 created.add(new CreatedAccount(input.organizationCode(), input.loginName(), password));
@@ -164,11 +164,11 @@ public class OrganizationImportService {
                 throw new OnboardingException(Error.LOGIN_NAME_TAKEN);
             }
             imports.updateDisplayName(login.accountId(), input.displayName(), at);
-            Set<String> current = Set.copyOf(imports.findRoles(login.accountId(), organizationId, at));
+            Set<String> current = Set.copyOf(imports.findRoles(login.accountId(), organizationId));
             List<OpsGrantableRole> granted = new ArrayList<>();
             for (OpsGrantableRole role : wanted) {
                 if (!current.contains(role.name())) {
-                    onboarding.grantRole(login.accountId(), role.name(), organizationId, at);
+                    onboarding.grantRole(login.accountId(), role.name(), organizationId);
                     granted.add(role);
                 }
             }

@@ -26,8 +26,8 @@ public class IdentityPersistenceConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(IdentityAccountPort.class)
-    IdentityAccountPort postgresIdentityAccountPort(IdentityPersistenceMapper mapper, Clock clock) {
-        return new PostgresIdentityAccountAdapter(mapper, clock);
+    IdentityAccountPort postgresIdentityAccountPort(IdentityPersistenceMapper mapper) {
+        return new PostgresIdentityAccountAdapter(mapper);
     }
 
     @Bean

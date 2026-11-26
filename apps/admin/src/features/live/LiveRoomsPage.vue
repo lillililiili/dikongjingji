@@ -7,7 +7,7 @@ import { onMounted, reactive, ref } from 'vue'
 
 import { http } from '@/core/http'
 import ChangeLogTable from '@/core/ops/ChangeLogTable.vue'
-import type { OpsChange } from '@/core/ops/ops-common'
+import { useChangeHistory } from '@/core/ops/use-change-history'
 import { confirmAction, notifyRecorded, showError } from '@/core/ui/feedback'
 import { charCount, formatDateTime } from '@/core/ui/format'
 import PagedTable from '@/core/ui/PagedTable.vue'
@@ -38,7 +38,8 @@ const ending = reactive({ open: false, room: null as OpsLiveRoom | null, note: '
 const replayForm = reactive({
   open: false, room: null as OpsLiveRoom | null, replayUrl: '', replayPlatformName: '', error: '', busy: false,
 })
-const changeLog = reactive({ open: false, room: null as OpsLiveRoom | null, changes: [] as OpsChange[], loading: false })
+const changeLog = reactive({ open: false, room: null as OpsLiveRoom | null })
+const { changes, loading: changesLoading, error: changesError, load: loadChanges } = useChangeHistory(api.changes)
 
 function openEnd(room: OpsLiveRoom): void {
   Object.assign(ending, { open: true, room, note: '', error: '', busy: false })
@@ -117,15 +118,10 @@ async function submitReplay(): Promise<void> {
   }
 }
 
-async function openHistory(room: OpsLiveRoom): Promise<void> {
-  Object.assign(changeLog, { open: true, room, changes: [], loading: true })
-  try {
-    changeLog.changes = await api.changes(room.roomId)
-  } catch (failure) {
-    showError(failure)
-  } finally {
-    changeLog.loading = false
-  }
+function openHistory(room: OpsLiveRoom): void {
+  changeLog.room = room
+  changeLog.open = true
+  void loadChanges(room.roomId)
 }
 
 /** 从主办机构标签页点“看直播间”：按这家机构筛。 */
@@ -277,9 +273,11 @@ onMounted(() => {
     </el-dialog>
 
     <el-drawer v-model="changeLog.open" :title="`改动记录 · ${changeLog.room?.title ?? ''}`" size="640px">
+      <el-button v-if="changesError && changeLog.room" size="small" @click="loadChanges(changeLog.room.roomId)">重试改动记录</el-button>
       <ChangeLogTable
-        :changes="changeLog.changes"
-        :loading="changeLog.loading"
+        :changes="changes"
+        :error="changesError"
+        :loading="changesLoading"
         :subject-labels="LIVE_SUBJECT_LABELS"
         :action-labels="LIVE_ACTION_LABELS"
       />

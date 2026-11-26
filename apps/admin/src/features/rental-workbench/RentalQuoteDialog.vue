@@ -69,14 +69,15 @@ async function submit(): Promise<void> {
   const confirmed = await confirmAction({
     title: revising.value ? '确认改价' : '确认报价',
     message: `合计 ${formatMoney(totals.value.totalMinor)}（租金 ${formatMoney(totals.value.rentMinor)}`
-      + ` + 其他费用 ${formatMoney(totals.value.feesMinor)}）。提交后客户在 App 里看到这一版，确认合同后按合计付款。`,
+      + ` + 其他费用 ${formatMoney(totals.value.feesMinor)}）。`
+      + (built.request.scheduleAvailable ? '客户可在 App 确认合同后付款。' : '档期不可用，客户只能查看报价。'),
     confirmText: revising.value ? '提交改价' : '提交报价',
   })
   if (!confirmed) return
   busy.value = true
   try {
     const next = await props.api.quote(inquiry.inquiryId, built.request)
-    ElMessage.success(`已提交第 ${next.quote?.version ?? 1} 版报价，等客户确认`)
+    ElMessage.success(`已提交第 ${next.quote?.version ?? 1} 版报价，${next.quote?.scheduleAvailable ? '等客户确认' : '已告知客户档期不可用'}`)
     emit('changed', next)
   } catch (failure) {
     showError(failure)

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Inspection Service Flow API
-  version: 2.7.0
+  version: 2.8.0
   description: >-
     巡检预约、方案确认、多次巡检履约、按次交付和验收的正式契约。
     2.2.0（R6-4）：方案和服务单里的服务商（ProviderSummary）加 qualificationReviewed，页面据此显示“资质已审核”。
@@ -31,6 +31,7 @@ info:
     （打码手机号，没有绑定时 null）和 identity（当前身份：个人或企业）；LoginRequest 加可选的 device（登录设备说明）。
     每次登录记一个登录会话，会话 ID 就是这次登录的刷新令牌 family：访问令牌带 sid（会话 ID）和 identity（当前企业，个人时没有）；
     续期沿用同一个会话，会话被退出（登录设备里退出、换号、注销）后访问令牌立刻失效、刷新令牌也不能再续期；logout 同时结束会话。
+    2.8.0：服务商工作台可以读取本机构受理预约的当前方案。修订基于已发布的报价、日期和交付约定。
 servers:
   - url: https://api.example.com
     description: Production placeholder
@@ -860,6 +861,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CustomerReservationSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/provider/inspection/reservations/{reservationId}/plans/current:
+    get:
+      tags: [ProviderInspectionFlow]
+      operationId: getCurrentProviderInspectionPlan
+      summary: 服务商读取本机构受理的预约当前方案以修订
+      x-required-permission: inspection.plan.publish.assigned
+      parameters:
+        - $ref: "#/components/parameters/ReservationId"
+      responses:
+        "200":
+          description: 当前方案的完整报价、巡检日期与交付约定
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServicePlan"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":

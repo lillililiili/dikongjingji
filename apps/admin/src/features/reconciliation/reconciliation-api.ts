@@ -25,7 +25,7 @@ export interface ReconciliationDifference {
 export interface Reconciliation {
   /** yyyy-MM-dd，北京时间的那一天。 */
   date: string
-  importedAt: string
+  importedAt: string | null
   /** 逐笔核对一致的笔数。 */
   matchedCount: number
   differences: ReconciliationDifference[]

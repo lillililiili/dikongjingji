@@ -99,7 +99,7 @@ record SupportCardDraft(String type, UUID refId, String title, String subtitle) 
  * 举报的对象：VIDEO_COMMENT_REPORT 时 id 是评论、parentId 是视频；LIVE_COMMENT_REPORT 时 id 是弹幕、parentId 是直播间。
  * 运营端拿它调内容、直播模块已有的受权隐藏接口。
  */
-record SupportReportTargetView(UUID id, UUID parentId) {
+record SupportReportTargetView(UUID id, UUID parentId, String visibility, String text) {
 }
 
 /** 提交人：只给显示名（账号停用了为 null），不给登录名、手机号。 */

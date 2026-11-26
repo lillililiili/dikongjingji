@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { http } from '@/core/http'
@@ -30,43 +30,48 @@ const createdAccounts = shallowRef<OpsImportCreatedAccount[]>([])
 
 const batchId = computed(() => String(route.params.batchId ?? ''))
 const writable = computed(() => kinds.value.find((spec) => spec.kind === batch.value?.kind)?.writable ?? false)
+let revision = 0
 
 async function load(): Promise<void> {
-  loading.value = true
+  const id = batchId.value
+  const request = ++revision
+  batch.value = null
+  createdAccounts.value = []
+  running.value = false
+  loading.value = !!id
   error.value = ''
+  if (!id) return
   try {
-    const [loaded, specs] = await Promise.all([api.batch(batchId.value), kinds.value.length ? kinds.value : api.kinds()])
+    const [loaded, specs] = await Promise.all([api.batch(id), kinds.value.length ? kinds.value : api.kinds()])
+    if (request !== revision) return
+    if (loaded.batchId !== id) throw new Error('读取的批次号与当前页面不一致，请重新加载。')
     batch.value = loaded
     kinds.value = specs
   } catch (failure) {
-    error.value = errorMessage(failure)
+    if (request === revision) error.value = errorMessage(failure)
   } finally {
-    loading.value = false
+    if (request === revision) loading.value = false
   }
 }
 
 async function run(): Promise<void> {
-  if (!batch.value || running.value) return
+  const selected = batch.value
+  if (!selected || selected.batchId !== batchId.value || running.value || !canRun(selected, writable.value)) return
+  const request = revision
   running.value = true
   try {
-    const imported = await runImport(api, batch.value)
-    if (imported) {
+    const imported = await runImport(api, selected)
+    if (request === revision && imported?.batchId === selected.batchId) {
       batch.value = imported
       createdAccounts.value = imported.createdAccounts
     }
   } finally {
-    running.value = false
+    if (request === revision) running.value = false
   }
 }
 
-// 从“内容相同的批次”链接跳到另一个批次时，同一个页面组件要重新读。
-watch(batchId, () => {
-  void load()
-})
-
-onMounted(() => {
-  void load()
-})
+watch(batchId, load, { immediate: true, flush: 'sync' })
+onBeforeUnmount(() => { revision++ })
 </script>
 
 <template>
@@ -79,7 +84,7 @@ onMounted(() => {
       <el-button @click="router.push({ name: 'imports' })">返回批量导入</el-button>
     </template>
     <div v-loading="loading">
-      <el-result v-if="error && !batch" icon="error" :title="error">
+      <el-result v-if="error" icon="error" :title="error">
         <template #extra>
           <el-button type="primary" @click="load">重新加载</el-button>
         </template>
