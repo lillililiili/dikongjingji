@@ -286,18 +286,18 @@ class NotificationServiceTest {
         }
 
         @Override
-        public long count(UUID recipientId) {
-            return of(recipientId).size();
+        public long count(UUID recipientId, boolean systemNotices) {
+            return visible(recipientId, systemNotices).size();
         }
 
         @Override
-        public long countUnread(UUID recipientId) {
-            return of(recipientId).stream().filter(stored -> stored.readAt == null).count();
+        public long countUnread(UUID recipientId, boolean systemNotices) {
+            return visible(recipientId, systemNotices).stream().filter(stored -> stored.readAt == null).count();
         }
 
         @Override
-        public List<MessageRow> findPage(UUID recipientId, int limit, int offset) {
-            return of(recipientId).stream()
+        public List<MessageRow> findPage(UUID recipientId, int limit, int offset, boolean systemNotices) {
+            return visible(recipientId, systemNotices).stream()
                     .sorted((left, right) -> Integer.compare(right.order, left.order))
                     .skip(offset)
                     .limit(limit)
@@ -333,15 +333,21 @@ class NotificationServiceTest {
         }
 
         @Override
-        public int markAllRead(UUID recipientId, Instant at) {
+        public int markAllRead(UUID recipientId, Instant at, boolean systemNotices) {
             int updated = 0;
-            for (Stored stored : of(recipientId)) {
+            for (Stored stored : visible(recipientId, systemNotices)) {
                 if (stored.readAt == null) {
                     stored.readAt = at;
                     updated++;
                 }
             }
             return updated;
+        }
+
+        private List<Stored> visible(UUID recipientId, boolean systemNotices) {
+            return of(recipientId).stream()
+                    .filter(row -> systemNotices || row.notification.category() != NotificationCategory.SYSTEM_NOTICE)
+                    .toList();
         }
 
         private List<Stored> of(UUID recipientId) {

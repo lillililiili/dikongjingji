@@ -13,7 +13,7 @@ import {
   type MallInquiryTarget,
 } from '@/features/mall/navigation/mall-routes'
 import MallInquiryQuotesPage from '@/features/mall/presentation/inquiry/MallInquiryQuotesPage.vue'
-import MallInquiryUnavailable from '@/features/mall/presentation/inquiry/MallInquiryUnavailable.vue'
+import MallUnavailable from '@/features/mall/presentation/shared/MallUnavailable.vue'
 import { GOODS_ORDER_PATH, buildGoodsOrderUrl } from '@/features/trade/navigation/trade-routes'
 
 const inquiryId = ref<string | null>(null)
@@ -83,5 +83,5 @@ onShow(() => {
     @view-order="openOrder"
     @reinquire="reinquire"
   />
-  <MallInquiryUnavailable v-else-if="!MALL_PREVIEW_ENABLED" />
+  <MallUnavailable v-else-if="!MALL_PREVIEW_ENABLED" test-id="mall-inquiry-unavailable" message="询价功能尚未开通" />
 </template>

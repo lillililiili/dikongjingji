@@ -24,6 +24,8 @@ export interface MessageCenterOptions {
   setState(state: MessageCenterState): void
   /** Told every time the unread count is known, so the tab badge can follow. */
   onUnreadCount?(count: number): void
+  getAccountKey?(): string | null
+  onReadError?(): void
   /** 系统通知 (S5-9): whether this build shows them, and the App's current city. */
   getInboxScope?(): InboxScope
 }
@@ -33,12 +35,23 @@ const isRejectedLogin = (error: unknown): boolean =>
 
 /**
  * The message tab's behaviour: load the first page, load more, mark one or all as read.
- * A newer load makes the answers of an older one be dropped. Marking as read shows at once and
- * is then sent to the server; if sending fails the next load shows the server's truth again.
+ * Unread indicators follow confirmed writes. A read that overlaps a confirmed write is fetched again.
  */
 export function createMessageCenter(options: MessageCenterOptions) {
   let revision = 0
   let nextPage = 2
+  let readVersion = 0
+  let displayedInbox: string | null = null
+  let refreshing: number | null = null
+  const pending = new Set<string>()
+  const accountKey = () => options.getAccountKey?.() ?? options.getAccessToken()
+  function inbox() {
+    const account = accountKey()
+    const scope = options.getInboxScope?.()
+    // Changing cities can deliver new announcements into the same account's inbox.
+    const key = JSON.stringify([account, scope?.systemNotices, scope?.cityCode])
+    return { account, scope, key }
+  }
 
   const ready = () => {
     const state = options.getState()
@@ -51,19 +64,73 @@ export function createMessageCenter(options: MessageCenterOptions) {
     if (state.kind === 'guest' || state.kind === 'expired') options.onUnreadCount?.(0)
   }
 
-  return {
+  async function mark(messageId: string | null): Promise<void> {
+    const current = ready()
+    const token = options.getAccessToken()
+    const source = inbox()
+    if (!current || !token || !source.account || current.unreadCount === 0) return
+    if (displayedInbox !== source.key) return center.load()
+    if (messageId !== null && !current.items.some(item => item.id === messageId && !item.read)) return
+    const all = source.key + ':*'
+    const key = messageId === null ? all : source.key + ':' + messageId
+    const requested = revision
+    if (pending.has(key) || pending.has(all)) return
+    pending.add(key)
+    try {
+      if (messageId === null) await options.api.markAllRead(token, source.scope)
+      else await options.api.markRead(token, messageId)
+      if (source.account !== accountKey()) {
+        if (displayedInbox === source.key) await center.load()
+        return
+      }
+      readVersion += 1
+      // The bulk receipt only counts affected rows. Messages delivered after that write can still
+      // be unread, including announcements delivered by the next read in a different city.
+      if (messageId === null || source.key !== inbox().key || requested !== revision) {
+        await center.load()
+        return
+      }
+      const latest = ready()
+      if (!latest) return
+      if (!latest.items.some(item => item.id === messageId && !item.read)) return
+      publish({
+        ...latest,
+        items: latest.items.map(item => item.id === messageId ? { ...item, read: true } : item),
+        unreadCount: Math.max(0, latest.unreadCount - 1),
+      })
+    } catch (error) {
+      if (source.key !== inbox().key) {
+        if (displayedInbox === source.key) await center.load()
+        return
+      }
+      if (isRejectedLogin(error)) publish({ kind: 'expired' })
+      else options.onReadError?.()
+    } finally {
+      pending.delete(key)
+    }
+  }
+
+  const center = {
     async load(): Promise<void> {
       const requested = ++revision
+      const readsAtStart = readVersion
       const token = options.getAccessToken()
+      const source = inbox()
+      const changed = source.key !== displayedInbox
+      displayedInbox = source.key
       if (!token) {
         publish({ kind: 'guest' })
         return
       }
       // Coming back to the tab keeps the list on screen while it is read again.
-      if (!ready()) publish({ kind: 'loading' })
+      if (changed || !ready()) publish({ kind: 'loading' })
+      if (changed) options.onUnreadCount?.(0)
+      refreshing = requested
       try {
-        const page = await options.api.loadPage(token, 1, MESSAGE_PAGE_SIZE, options.getInboxScope?.())
+        const page = await options.api.loadPage(token, 1, MESSAGE_PAGE_SIZE, source.scope)
         if (requested !== revision) return
+        if (source.key !== inbox().key) return center.load()
+        if (readsAtStart !== readVersion) return center.load()
         nextPage = 2
         publish({
           kind: 'ready',
@@ -75,20 +142,31 @@ export function createMessageCenter(options: MessageCenterOptions) {
         })
       } catch (error) {
         if (requested !== revision) return
+        if (source.key !== inbox().key) return center.load()
         publish({ kind: isRejectedLogin(error) ? 'expired' : 'error' })
+      } finally {
+        if (refreshing === requested) refreshing = null
       }
     },
 
     async loadMore(): Promise<void> {
       const current = ready()
       const token = options.getAccessToken()
-      if (!current || !token || !current.hasMore || current.loadingMore) return
+      if (!current || !token || !current.hasMore || current.loadingMore || refreshing === revision) return
+      const source = inbox()
+      if (displayedInbox !== source.key) return center.load()
       const requested = revision
+      const readsAtStart = readVersion
       publish({ ...current, loadingMore: true, loadMoreFailed: false })
       try {
-        const page = await options.api.loadPage(token, nextPage, MESSAGE_PAGE_SIZE, options.getInboxScope?.())
+        const page = await options.api.loadPage(token, nextPage, MESSAGE_PAGE_SIZE, source.scope)
         const latest = ready()
         if (requested !== revision || !latest) return
+        if (source.key !== inbox().key) return center.load()
+        if (readsAtStart !== readVersion) {
+          publish({ ...latest, loadingMore: false })
+          return center.loadMore()
+        }
         nextPage += 1
         const known = new Set(latest.items.map((item) => item.id))
         publish({
@@ -102,43 +180,15 @@ export function createMessageCenter(options: MessageCenterOptions) {
       } catch (error) {
         const latest = ready()
         if (requested !== revision || !latest) return
+        if (source.key !== inbox().key) return center.load()
         publish(isRejectedLogin(error)
           ? { kind: 'expired' }
           : { ...latest, loadingMore: false, loadMoreFailed: true })
       }
     },
 
-    async markRead(messageId: string): Promise<void> {
-      const current = ready()
-      const token = options.getAccessToken()
-      const target = current?.items.find((item) => item.id === messageId)
-      if (!current || !token || !target || target.read) return
-      publish({
-        ...current,
-        items: current.items.map((item) => (item.id === messageId ? { ...item, read: true } : item)),
-        unreadCount: Math.max(0, current.unreadCount - 1),
-      })
-      try {
-        await options.api.markRead(token, messageId)
-      } catch {
-        // The next load shows what the server holds.
-      }
-    },
-
-    async markAllRead(): Promise<void> {
-      const current = ready()
-      const token = options.getAccessToken()
-      if (!current || !token || current.unreadCount === 0) return
-      publish({
-        ...current,
-        items: current.items.map((item) => ({ ...item, read: true })),
-        unreadCount: 0,
-      })
-      try {
-        await options.api.markAllRead(token)
-      } catch {
-        // The next load shows what the server holds.
-      }
-    },
+    markRead: (messageId: string) => mark(messageId),
+    markAllRead: () => mark(null),
   }
+  return center
 }

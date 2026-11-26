@@ -52,11 +52,29 @@ describe('push id report (S5-9)', () => {
     const { api, registration } = setup(ANDROID)
     await registration.report()
 
-    await registration.revoke()
+    await registration.revoke('token')
     expect(api.unregisterPushDevice).toHaveBeenCalledWith('token', ANDROID)
     expect(await registration.report()).toBe(true)
 
     api.unregisterPushDevice.mockRejectedValueOnce(new Error('offline'))
-    await expect(registration.revoke()).resolves.toBeUndefined()
+    await expect(registration.revoke('token')).resolves.toBeUndefined()
+  })
+
+  it('drops an old registration and unregisters only its captured owner when the device id arrives late', async () => {
+    let token = 'a'
+    let finish!: (device: PushDevice) => void
+    const device = new Promise<PushDevice>(resolve => { finish = resolve })
+    const api = { registerPushDevice: vi.fn(), unregisterPushDevice: vi.fn() }
+    const registration = createPushRegistration({
+      api, getAccessToken: () => token, getCityCode: () => null, readDevice: () => device,
+    })
+    const reporting = registration.report()
+    const revoking = registration.revoke(token)
+    token = 'b'
+    finish(ANDROID)
+    await expect(reporting).resolves.toBe(false)
+    await revoking
+    expect(api.registerPushDevice).not.toHaveBeenCalled()
+    expect(api.unregisterPushDevice).toHaveBeenCalledWith('a', ANDROID)
   })
 })

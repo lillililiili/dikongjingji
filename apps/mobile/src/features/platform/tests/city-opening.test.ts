@@ -7,6 +7,7 @@ import {
   isCityClosed,
   openCityToSwitchTo,
   resolveCityOpening,
+  restoreHomeCity,
 } from '../application/city-opening'
 
 function city(code: string, name: string, serviceStatus?: CityServiceStatus): PlatformCity {
@@ -30,6 +31,16 @@ const SHANDONG = directory([
 ])
 
 describe('city opening (board CityClosed, openapi-platform-city 1.1.0)', () => {
+  it('restores the manual city from the current directory before the configured fallback', async () => {
+    const configured = { code: '370500', name: '东营市' }
+    await expect(restoreHomeCity('370700', configured, async () => SHANDONG)).resolves.toMatchObject({ code: '370700', name: '潍坊市' })
+    await expect(restoreHomeCity('removed-city', configured, async () => SHANDONG)).resolves.toEqual(configured)
+    await expect(restoreHomeCity(undefined, null, async () => SHANDONG)).resolves.toEqual({ code: '370100', name: '济南市' })
+    const unavailable = async (): Promise<CityDirectory> => { throw new Error('city directory offline') }
+    await expect(restoreHomeCity('370700', configured, unavailable)).resolves.toEqual(configured)
+    await expect(restoreHomeCity('370700', null, unavailable)).rejects.toThrow('city directory offline')
+  })
+
   it('reads the status the operators keep in the city directory', () => {
     expect(resolveCityOpening(SHANDONG, '370500')).toBe('OPEN')
     expect(resolveCityOpening(SHANDONG, '370700')).toBe('PREPARING')

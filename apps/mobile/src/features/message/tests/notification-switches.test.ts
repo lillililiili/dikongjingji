@@ -24,6 +24,14 @@ function setup(token: string | null = 'token') {
 }
 
 describe('通知 switches (S5-9)', () => {
+  it('restores the last confirmed value after two quick taps both fail', async () => {
+    const { api, switches, state } = setup()
+    await switches.load()
+    api.updatePreferences.mockRejectedValue(new Error('offline'))
+    await Promise.all([switches.toggle('activityPush'), switches.toggle('activityPush')])
+    expect(state()?.activityPush).toBe(DEFAULT_NOTIFICATION_PREFERENCES.activityPush)
+  })
+
   it('reads the switches and sends only the tapped one', async () => {
     const { api, switches, state } = setup()
     await switches.load()
@@ -65,5 +73,51 @@ describe('通知 switches (S5-9)', () => {
     const unread = setup()
     await unread.switches.toggle('activityPush')
     expect(unread.api.updatePreferences).not.toHaveBeenCalled()
+  })
+
+  it('loads a different account immediately and discards the previous session even after switching back', async () => {
+    let owner = 'A'
+    let displayed: NotificationPreferences | null = null
+    let finish!: (value: NotificationPreferences) => void
+    const oldSave = new Promise<NotificationPreferences>(resolve => { finish = resolve })
+    const updatePreferences = vi.fn(() => oldSave)
+    const switches = createNotificationSwitches({
+      getAccessToken: () => owner + '-token',
+      getAccountKey: () => owner,
+      get: () => displayed,
+      set: v => { displayed = v },
+      api: { readPreferences: async () => ({ ...DEFAULT_NOTIFICATION_PREFERENCES }), updatePreferences },
+    })
+    await switches.load()
+    const old = switches.toggle('discoverDot')
+    const queued = switches.toggle('orderServicePush')
+    await Promise.resolve()
+    expect(updatePreferences).toHaveBeenCalledTimes(1)
+    owner = 'B'
+    const read = switches.load()
+    expect(displayed).toBeNull()
+    await read
+    owner = 'A'
+    await switches.load()
+    finish({ ...DEFAULT_NOTIFICATION_PREFERENCES, discoverDot: false })
+    await Promise.all([old, queued])
+    expect(updatePreferences).toHaveBeenCalledTimes(1)
+    expect(displayed).toEqual(DEFAULT_NOTIFICATION_PREFERENCES)
+  })
+
+  it('uses the renewed token for a queued save of the same account', async () => {
+    let token = 'first'
+    let displayed: NotificationPreferences | null = null
+    const api = setup().api
+    const switches = createNotificationSwitches({
+      api, getAccessToken: () => token, getAccountKey: () => 'same-account',
+      get: () => displayed, set: v => { displayed = v },
+    })
+    await switches.load()
+    const saving = switches.toggle('activityPush')
+    token = 'renewed'
+    await saving
+    expect(api.updatePreferences).toHaveBeenCalledWith('renewed', { activityPush: false })
+    expect(displayed).toEqual({ ...DEFAULT_NOTIFICATION_PREFERENCES, activityPush: false })
   })
 })

@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { locateWithUni } from '@/features/place/data/device-location'
 import type { MapPoint } from '@/features/place/domain/map-place'
+import PlaceUnavailable from '@/features/place/presentation/PlaceUnavailable.vue'
 import DestinationMap from '@/shared/map/DestinationMap.vue'
 import { markerUrl, positionOf, readDestination, type Destination } from '@/shared/map/destination'
 import { chooseNavigation, copyDestination } from '@/shared/map/destination-actions'
@@ -77,7 +78,7 @@ async function locate() {
       </view>
     </view>
   </view>
-  <view v-else class="destination__missing">地点信息缺失，请返回详情重新打开。</view>
+  <PlaceUnavailable v-else message="地点信息缺失，请从详情页重新打开。" data-testid="destination-missing" />
 </template>
 
 <style scoped>
@@ -86,7 +87,7 @@ async function locate() {
 .destination__map > :first-child { position: absolute; inset: 0; }
 .destination__status { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20rpx; background: #f2f5f9; }
 .destination__loading { position: absolute; left: 24rpx; top: 24rpx; padding: 8rpx 16rpx; border-radius: 8rpx; background: #fff; pointer-events: none; }
-.destination__details, .destination__missing { padding: 24rpx 30rpx; padding-bottom: calc(24rpx + env(safe-area-inset-bottom)); }
+.destination__details { padding: 24rpx 30rpx; padding-bottom: calc(24rpx + env(safe-area-inset-bottom)); }
 .destination__name, .destination__address { display: block; }
 .destination__name { font-size: 34rpx; font-weight: 600; }
 .destination__address { margin-top: 8rpx; color: #526275; font-size: 27rpx; }

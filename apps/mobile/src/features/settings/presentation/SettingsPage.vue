@@ -16,6 +16,8 @@ withDefaults(defineProps<{
   // The signed-in account; null while it is read (or could not be).
   account: { displayName: string; organizationName: string | null; maskedPhone?: string | null } | null
   addressCount: number | null
+  addressesEnabled: boolean
+  helpEnabled: boolean
   accountPages?: boolean
   passwordStatus?: PersonalPasswordStatus | null
   passwordLoadFailed?: boolean
@@ -186,7 +188,7 @@ const RULES = SETTINGS_RULE_DOCS.map((doc) => ({ doc, d: AGREEMENT_ICONS[doc] })
         </view>
       </view>
 
-      <button class="settings__card settings__row" data-testid="settings-addresses" @click="emit('addresses')">
+      <button v-if="addressesEnabled" class="settings__card settings__row" data-testid="settings-addresses" @click="emit('addresses')">
         <LineIcon :d="ICONS.address" :size="20" color="#536178" />
         <text class="settings__row-title">地址管理</text>
         <text v-if="addressCount !== null" class="settings__row-value">{{ addressCount }} 个</text>
@@ -230,7 +232,7 @@ const RULES = SETTINGS_RULE_DOCS.map((doc) => ({ doc, d: AGREEMENT_ICONS[doc] })
       </view>
 
       <view class="settings__card">
-        <button class="settings__row" data-testid="settings-help" @click="emit('help')">
+        <button v-if="helpEnabled" class="settings__row" data-testid="settings-help" @click="emit('help')">
           <LineIcon :d="ICONS.help" :size="20" color="#536178" />
           <text class="settings__row-title">帮助与反馈</text>
           <LineIcon :d="ICONS.chevron" :size="14" color="#91a0b4" :stroke-width="2" />

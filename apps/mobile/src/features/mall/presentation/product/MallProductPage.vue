@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onLoad } from '@dcloudio/uni-app'
+import { onHide, onLoad, onShow } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
@@ -17,6 +17,7 @@ import {
 } from '@/features/experience/application/product-experience'
 import { experienceApi } from '@/features/experience/data/experience-api-client'
 import ProductTryFirst from '@/features/experience/presentation/product/ProductTryFirst.vue'
+import { RENTAL_PREVIEW_ENABLED } from '@/features/rental/application/rental-preview'
 import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { buildSupportHelpUrl } from '@/features/support/navigation/support-routes'
@@ -33,6 +34,7 @@ import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import { loadInquiryCityName } from '../../application/inquiry-city'
+import { CART_PREVIEW_ENABLED } from '../../application/cart-preview'
 import {
   resolveMallIntent,
   resolveMallPrimaryAction,
@@ -44,7 +46,7 @@ import { CART_TAB_PATH, buildMallMerchantUrl, buildMallProductUrl } from '../../
 import type { DeliveryMode } from '../../domain/cart'
 import type { MallOffer, MallProductDetail } from '../../domain/mall'
 import type { MallBuyDeliveryLoader } from './buy-delivery'
-import { hasSkuChoice, initialBuyOffer, merchantCount, merchantRowOffers } from './buy-skus'
+import { clampBuyQuantity, hasSkuChoice, initialBuyOffer, merchantCount, merchantRowOffers } from './buy-skus'
 import MallBuySheet from './MallBuySheet.vue'
 import MallProductMoreSheet from './MallProductMoreSheet.vue'
 import {
@@ -119,6 +121,7 @@ const pageCity = ref('')
 let productId = ''
 let cityCode = ''
 let requestVersion = 0
+let refreshOnReturn = false
 
 const product = computed(() => (state.value.kind === 'ready' ? state.value.product : null))
 const saleMode = computed(() => product.value?.saleMode ?? 'BUY')
@@ -142,11 +145,15 @@ const chosenQuantity = ref(1)
 // need a chosen merchant that takes payment online.
 const primaryAction = computed(() => {
   if (!product.value || !shownOffer.value) return null
+  if ((product.value.saleMode === 'BUY' && !CART_PREVIEW_ENABLED)
+    || (product.value.saleMode === 'RENT' && !RENTAL_PREVIEW_ENABLED)) return null
   if (product.value.saleMode !== 'INQUIRY' && !selectedOffer.value) return null
   return resolveMallPrimaryAction(product.value.saleMode, shownOffer.value.amountMinor)
 })
 const noPayableOffer = computed(() =>
-  Boolean(product.value && product.value.saleMode !== 'INQUIRY' && product.value.offers.length > 0 && !selectedOffer.value),
+  Boolean(product.value && product.value.offers.length > 0 && !selectedOffer.value
+    && ((product.value.saleMode === 'BUY' && CART_PREVIEW_ENABLED)
+      || (product.value.saleMode === 'RENT' && RENTAL_PREVIEW_ENABLED))),
 )
 // The price card shows the lowest listed price of all the merchants (PdRentalAerial "¥260/天 起");
 // the chosen merchant's own price stays on its card below.
@@ -252,8 +259,10 @@ async function loadProduct(): Promise<void> {
     // Offers arrive with the lowest listed price first; the first one whose merchant takes payment
     // online, and is not sold out (catalog 1.3.0), starts selected (catalog 1.2.0). A merchant without
     // online payment is shown, greyed, never chosen.
-    const stillThere = loaded.offers.some((offer) => offer.offerId === selectedOfferId.value && offer.onlinePayment)
-    if (!stillThere) {
+    const previous = loaded.offers.find((offer) => offer.offerId === selectedOfferId.value && offer.onlinePayment)
+    if (previous && previous.stockQuantity !== 0) {
+      chosenQuantity.value = clampBuyQuantity(chosenQuantity.value, previous)
+    } else {
       selectedOfferId.value = initialBuyOffer(loaded.offers)?.offerId ?? null
       chosenQuantity.value = 1
     }
@@ -468,6 +477,14 @@ onLoad((query) => {
   pageCity.value = cityCode
   void loadProduct()
 })
+
+onHide(() => { refreshOnReturn = true })
+onShow(() => {
+  if (refreshOnReturn) {
+    refreshOnReturn = false
+    void loadProduct()
+  }
+})
 </script>
 
 <template>
@@ -551,7 +568,7 @@ onLoad((query) => {
               </view>
             </button>
             <button
-              v-if="MALL_PREVIEW_ENABLED"
+              v-if="CART_PREVIEW_ENABLED"
               class="mall-product__float"
               data-testid="mall-product-to-cart"
               aria-label="购物车"
@@ -608,6 +625,7 @@ onLoad((query) => {
           <button
             v-if="shownOffer?.shippingNote && product.saleMode === 'BUY'"
             class="mall-product__delivery"
+            :disabled="!primaryAction?.cartAvailable"
             data-testid="mall-product-delivery"
             @click="openBuySheet"
           >
@@ -892,7 +910,7 @@ onLoad((query) => {
         <ContentRelatedBlock v-if="relatedRows.length" :rows="relatedRows" :city-code="pageCity" />
       </view>
 
-      <view v-if="MALL_PREVIEW_ENABLED && (primaryAction || noPayableOffer)" class="mall-product__actions">
+      <view v-if="MALL_PREVIEW_ENABLED && (primaryAction || noPayableOffer || merchantPageUrl || tryFirst || SUPPORT_PREVIEW_ENABLED)" class="mall-product__actions">
         <button
           v-if="merchantPageUrl"
           class="mall-product__consult"

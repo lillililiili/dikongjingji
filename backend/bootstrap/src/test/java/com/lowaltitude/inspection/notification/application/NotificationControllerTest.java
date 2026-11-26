@@ -73,7 +73,7 @@ class NotificationControllerTest {
     @Test
     void unreadCountAndMarkingReadUseTheSubjectOfTheToken() throws Exception {
         when(service.unreadCount(SUBJECT, false, null)).thenReturn(new UnreadCountView(4));
-        when(service.markAllRead(SUBJECT)).thenReturn(new MarkedReadView(4));
+        when(service.markAllRead(SUBJECT, true)).thenReturn(new MarkedReadView(4));
         when(service.markRead(SUBJECT, NOTIFICATION)).thenReturn(true);
 
         mockMvc.perform(get("/api/v1/notifications/unread-count").principal(customer))
@@ -195,7 +195,7 @@ class NotificationControllerTest {
                 .isEqualTo(java.util.Arrays.stream(NotificationTargetType.values()).map(Enum::name).toList());
         // 1.6.0：活动候补、改期、结果的站内信（S5-3）。
         org.assertj.core.api.Assertions.assertThat(((java.util.Map<String, Object>) root.get("info")).get("version"))
-                .isEqualTo("1.6.0");
+                .isEqualTo("1.7.0");
     }
 
     @Test

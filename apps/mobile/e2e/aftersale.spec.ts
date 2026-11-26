@@ -230,12 +230,46 @@ test.describe('商品售后', () => {
     await expect(page.getByTestId('aftersale-waybill-line')).toHaveText('圆通速递 · 运单号 2026112300012')
 
     // 商家确认收货并退款；退款到账只由模拟微信的回调推进。
-    await desk.getByRole('button', {name:'刷新', exact:true}).click()
-    await desk.getByRole('button', {name:'确认收货并退款', exact:true}).click()
+    const receive = desk.getByRole('button', {name:'确认收货并退款', exact:true})
     const receipt = desk.getByRole('dialog', {name:/^确认收货并退款：/})
-    await receipt.getByRole('button', {name:'确认收货并退款', exact:true}).click()
-    await desk.locator('.el-message-box').getByRole('button', {name:'确认退款', exact:true}).click()
+    const confirmReceipt = async () => {
+      await receive.click()
+      await receipt.getByRole('button', {name:'确认收货并退款', exact:true}).click()
+      const reply = desk.waitForResponse(r => r.url().endsWith('/' + aftersaleId + '/receipt') && r.request().method() === 'POST')
+      await desk.locator('.el-message-box').getByRole('button', {name:'确认退款', exact:true}).click()
+      return reply
+    }
+    // The buyer has changed the waybill since the merchant approved the return. The stale visible
+    // action must show the version conflict and leave the refund unissued.
+    const stale = await confirmReceipt()
+    expect(stale.status()).toBe(412)
+    expect((await stale.json()).code).toBe('TRADE_AFTERSALE_VERSION_CONFLICT')
+    await expect(desk.getByText('售后单刚刚有变化，请刷新后重试', { exact: false })).toBeVisible()
+    await expect(desk.getByRole('button', {name:'验货不通过', exact:true})).toBeEnabled()
+    expect((await buyerAftersale(request, buyer, aftersaleId)).status).toBe('RETURN_SHIPPED')
+    let release!: () => void
+    const waiting = new Promise<void>(resolve => { release = resolve })
+    await desk.route('**/api/v1/provider/trade/aftersales/' + aftersaleId, async route => {
+      await waiting
+      await route.continue()
+    }, {times: 1})
+    try {
+      await desk.getByRole('button', {name:'刷新', exact:true}).click()
+      await expect(receive).toBeDisabled()
+    } finally {
+      release()
+    }
+    const confirmed = await confirmReceipt()
+    expect(confirmed.status()).toBe(200)
+    const accepted = await confirmed.json()
+    expect(accepted.status).toBe('REFUNDING')
     await expect(receipt).toBeHidden()
+    await expect(receive).toHaveCount(0)
+    const duplicate = await request.post(`${MERCHANT_DESK}/${aftersaleId}/receipt`, {
+      headers: { ...merchant.headers, 'If-Match': `"${accepted.version}"` }, data: {},
+    })
+    expect(duplicate.status()).toBe(409)
+    expect((await duplicate.json()).code).toBe('TRADE_AFTERSALE_STATE_INVALID')
     await page.getByTestId('aftersale-refresh').click()
     await expectTwoStatuses(page, '退款中', '退款中')
     await expect(page.getByTestId('aftersale-step-refund')).toHaveAttribute('data-kind', 'cur')

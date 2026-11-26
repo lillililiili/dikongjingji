@@ -10,11 +10,13 @@ import { SETTINGS_PREVIEW_ENABLED } from '@/features/settings/application/settin
 import type { AgreementDoc } from '@/features/settings/domain/agreement'
 import { parseAgreementDoc } from '@/features/settings/navigation/settings-routes'
 import AgreementPage from '@/features/settings/presentation/AgreementPage.vue'
+import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { buildSupportOpenUrl } from '@/features/support/navigation/support-routes'
 import SupportUnavailable from '@/features/support/presentation/shared/SupportUnavailable.vue'
 
 // Readable without signing in: the agreements are shown before an account exists.
-const doc = ref<AgreementDoc>('PRIVACY_POLICY')
+const doc = ref<AgreementDoc | null>(null)
+const loginDocument = ref(false)
 
 // 有更新 · 查看本次更新摘要 (S5-9, preview builds): the latest 系统通知 about the document on screen,
 // read once per document. A failed read shows no entry.
@@ -37,6 +39,7 @@ function openUpdate(noticeId: string): void {
 }
 
 onLoad((query) => {
+  loginDocument.value = ['USER_AGREEMENT', 'PRIVACY_POLICY', 'CHILD_PRIVACY_RULES'].includes(String(query?.doc))
   doc.value = parseAgreementDoc(query?.doc)
 })
 
@@ -53,13 +56,15 @@ function contactPlatform(): void {
 
 <template>
   <AgreementPage
-    v-if="SETTINGS_PREVIEW_ENABLED"
+    v-if="doc && (SETTINGS_PREVIEW_ENABLED || loginDocument)"
     :selected="doc"
     :updates="updates"
+    :show-directory="SETTINGS_PREVIEW_ENABLED"
+    :can-contact="SUPPORT_PREVIEW_ENABLED"
     @back="goBack"
     @contact-platform="contactPlatform"
     @shown="readUpdate"
     @open-update="openUpdate"
   />
-  <SupportUnavailable v-else text="协议正文待提供" />
+  <SupportUnavailable v-else-if="doc" text="协议中心尚未开通" />
 </template>

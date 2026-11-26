@@ -140,6 +140,9 @@ test.describe('免费活动报名', () => {
     await page.getByTestId('home-channel-activity').click()
     await page.getByTestId(`activity-card-${OPEN_DAY_ID}`).click()
     await expect(page.getByTestId('activity-detail-title')).toHaveText('无人机开放体验日')
+    const seats = page.getByTestId(`activity-session-${OPEN_DAY_SESSION}`).locator('.activity-detail__session-seats')
+    const initialSeats = Number((await seats.innerText()).replace('余 ', ''))
+    expect(initialSeats).toBeGreaterThan(1)
     await page.getByTestId(`activity-session-${OPEN_DAY_SESSION}`).click()
     await page.locator('[data-testid="activity-detail-primary"]:not([disabled])').click()
 
@@ -184,6 +187,7 @@ test.describe('免费活动报名', () => {
     // 凭证替换了报名表，返回落到活动详情。
     await page.getByTestId('ticket-back').click()
     await expect(page.getByTestId('activity-detail-title')).toHaveText('无人机开放体验日')
+    await expect(seats).toHaveText(`余 ${initialSeats - 1}`)
 
     // 我的 → 活动报名 → 待参加里有这一张。
     await page.goto('/#/pages/mine/index')

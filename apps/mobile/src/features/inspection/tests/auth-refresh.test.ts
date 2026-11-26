@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as authContext from '../application/service-flow/booking-auth-context'
 import * as bookingHttp from '../data/service-flow/uni-booking-http-client'
+import { createNotificationExtrasApi } from '../../message/data/notification-extras-api'
 
 // 登录续期：访问令牌 900 秒，过期后公共请求层用刷新令牌静默续期一次再重试；续期失败才回到登录。
 interface SentRequest {
@@ -79,6 +80,87 @@ describe('silent login renewal', () => {
   })
   const isRefresh = (request: SentRequest) => request.url.endsWith('/api/v1/auth/refresh')
   const bearer = (request: SentRequest) => request.header.Authorization
+  const jwt = (account: number, version = 1) => 'header.' + btoa(JSON.stringify({
+    sub: '30000000-0000-4000-8000-' + String(account).padStart(12, '0'), version,
+  })).replace(/=+$/, '') + '.signature'
+
+  for (const client of ['public', 'inspection']) {
+    for (const change of ['switch', 'logout']) {
+      it(`does not replay or redirect a pending ${client} request after ${change}`, async () => {
+        signIn(jwt(1))
+        reply = () => {
+          if (change === 'switch') signIn(jwt(2), 'refresh-2')
+          else authContext.clearBookingAuthSession()
+          return unauthorized
+        }
+        const pending = client === 'public'
+          ? bookingHttp.publicRequest({ url: '/write', method: 'PUT', headers: { Authorization: 'Bearer ' + jwt(1) } })
+          : bookingHttp.inspectionOrderApi.list({ stage: 'ALL' as never, page: 1, size: 20 })
+        await expect(pending).rejects.toMatchObject({ code: 'AUTH_SESSION_CHANGED' })
+        expect(sent.map(bearer)).toEqual(['Bearer ' + jwt(1)])
+        expect(authContext.getBookingAuthContext().getAccessToken()).toBe(change === 'switch' ? jwt(2) : null)
+        expect(redirects).toEqual([])
+      })
+    }
+  }
+
+  it('rejects a stale write before the first send if another account is active', async () => {
+    signIn(jwt(2), 'refresh-2')
+    await expect(bookingHttp.publicRequest({ url: '/write', method: 'PUT', headers: { Authorization: 'Bearer ' + jwt(1) } }))
+      .rejects.toMatchObject({ code: 'AUTH_SESSION_CHANGED' })
+    expect(sent).toHaveLength(0)
+  })
+
+  it('preserves the current account after a late second 401 on a protected call', async () => {
+    signIn(jwt(1))
+    reply = request => {
+      if (isRefresh(request)) return { statusCode: 200, data: { accessToken: jwt(1, 2), refreshToken: 'refresh-rotated', expiresInSeconds: 900 } }
+      if (bearer(request) === 'Bearer ' + jwt(1, 2)) signIn(jwt(2), 'refresh-b')
+      return unauthorized
+    }
+    await expect(bookingHttp.inspectionOrderApi.list({ stage: 'ALL' as never, page: 1, size: 20 }))
+      .rejects.toMatchObject({ code: 'AUTH_SESSION_CHANGED' })
+    expect(authContext.readBookingRefreshToken()).toBe('refresh-b')
+    expect(redirects).toEqual([])
+  })
+
+  it('keeps separate refreshes in flight when another account signs in', async () => {
+    signIn(jwt(1), 'refresh-a')
+    let pendingB!: Promise<string | null>
+    reply = request => {
+      const first = (request.data as { refreshToken: string }).refreshToken === 'refresh-a'
+      if (first) {
+        signIn(jwt(2), 'refresh-b')
+        pendingB = bookingHttp.accessTokenAfterUnauthorized(jwt(2))
+      }
+      return { statusCode: 200, data: { accessToken: jwt(first ? 1 : 2, 2), refreshToken: 'rotated', expiresInSeconds: 900 } }
+    }
+    expect(await bookingHttp.accessTokenAfterUnauthorized(jwt(1))).toBeNull()
+    expect(await pendingB).toBe(jwt(2, 2))
+    expect(sent.filter(isRefresh).map(r => r.data)).toEqual([{ refreshToken: 'refresh-a' }, { refreshToken: 'refresh-b' }])
+    expect(authContext.getBookingAuthContext().getPrincipalId()).toBe(authContext.bookingTokenPrincipal(jwt(2)))
+  })
+
+  it('preserves the other tab login when this tab holds the previous account refresh token', async () => {
+    signIn(jwt(1), 'refresh-a')
+    storage.set('inspection.accessToken', jwt(2))
+    reply = () => unauthorized
+    await expect(bookingHttp.inspectionOrderApi.list({ stage: 'ALL' as never, page: 1, size: 20 }))
+      .rejects.toMatchObject({ code: 'AUTH_SESSION_CHANGED' })
+    expect(sent.filter(isRefresh)).toHaveLength(0)
+    expect(storage.get('inspection.accessToken')).toBe(jwt(2))
+    expect(redirects).toEqual([])
+  })
+
+  it('revokes only the captured push registration even when it gets a 401 after a switch', async () => {
+    signIn(jwt(2), 'refresh-b')
+    reply = () => unauthorized
+    const api = createNotificationExtrasApi(bookingHttp.publicRequest)
+    await expect(api.unregisterPushDevice(jwt(1), { platform: 'ANDROID', pushClientId: 'device' }))
+      .rejects.toMatchObject({ status: 401 })
+    expect(sent.map(bearer)).toEqual(['Bearer ' + jwt(1)])
+    expect(authContext.readBookingRefreshToken()).toBe('refresh-b')
+  })
 
   it('keeps the refresh token out of persistent storage on H5', () => {
     signIn()
@@ -97,6 +179,21 @@ describe('silent login renewal', () => {
     authContext.saveBookingAuthSession({ accessToken: 'access-2', expiresInSeconds: 900 })
     vi.advanceTimersByTime(901_000)
     expect(authContext.getBookingAuthContext().getAccessToken()).toBeNull()
+  })
+
+  it('recognizes the same account after renewal and a different account after sign-in', () => {
+    const a = '30000000-0000-4000-8000-000000000001'
+    const b = '30000000-0000-4000-8000-000000000002'
+    const token = (sub: string, exp: number) => 'header.' + btoa(JSON.stringify({ sub, exp })).replace(/=+$/, '') + '.signature'
+    const auth = authContext.getBookingAuthContext()
+    for (const [sub, exp] of [[a, 1], [a, 2], [b, 3]] as const) {
+      authContext.saveBookingAuthSession({ accessToken: token(sub, exp), expiresInSeconds: 900 })
+      expect(auth.getPrincipalId()).toBe(sub)
+    }
+    authContext.saveBookingAuthSession({ accessToken: 'legacy-token', expiresInSeconds: 900 })
+    expect(auth.getPrincipalId()).toBeNull()
+    authContext.clearBookingAuthSession()
+    expect(auth.getPrincipalId()).toBeNull()
   })
 
   it('renews once on a 401 and sends the call again with the new token', async () => {
@@ -167,16 +264,16 @@ describe('silent login renewal', () => {
   })
 
   it('sends later calls with the renewed token even when the page still holds the old one', async () => {
-    signIn('access-2', 'refresh-2')
+    signIn(jwt(1, 2), 'refresh-2')
     reply = (request) => ({ statusCode: 200, data: bearer(request) })
 
     const used = await bookingHttp.publicRequest<string>({
       url: '/api/v1/auth/me',
       method: 'GET',
-      headers: { Authorization: 'Bearer access-1' },
+      headers: { Authorization: 'Bearer ' + jwt(1) },
     })
 
-    expect(used).toBe('Bearer access-2')
+    expect(used).toBe('Bearer ' + jwt(1, 2))
     expect(sent.filter(isRefresh)).toHaveLength(0)
   })
 
@@ -211,9 +308,30 @@ describe('silent login renewal', () => {
       url: '/api/v1/trade/orders',
       method: 'GET',
       headers: { Authorization: 'Bearer access-1' },
-    })).rejects.toMatchObject({ status: 401 })
+    })).rejects.toMatchObject({ code: 'NETWORK_ERROR' })
 
     expect(authContext.readBookingRefreshToken()).toBe('refresh-1')
+    expect(sent.filter(isRefresh)).toHaveLength(1)
+  })
+
+  it.each([429, 503])('preserves and successfully renews both clients after a temporary refresh %i', async status => {
+    for (const client of ['public', 'inspection']) {
+      signIn()
+      let retry = false
+      reply = request => {
+        if (isRefresh(request)) return retry ? renewedReply(2) : { statusCode: status, data: {} }
+        return bearer(request) === 'Bearer access-2' ? { statusCode: 200, data: {} } : unauthorized
+      }
+      const read = () => client === 'public'
+        ? bookingHttp.publicRequest({ url: '/me', method: 'GET', headers: { Authorization: 'Bearer access-1' } })
+        : bookingHttp.inspectionOrderApi.list({ stage: 'ALL' as never, page: 1, size: 20 })
+      await expect(read()).rejects.toMatchObject({ status })
+      expect(authContext.readBookingRefreshToken()).toBe('refresh-1')
+      expect(redirects).toEqual([])
+      retry = true
+      await expect(read()).resolves.toEqual({})
+      expect(authContext.readBookingRefreshToken()).toBe('refresh-2')
+    }
   })
 
   it('does not renew anonymous calls', async () => {
@@ -263,5 +381,24 @@ describe('silent login renewal', () => {
     expect(bearer(sent[0])).toBeUndefined()
     expect(storage.has('inspection.accessToken')).toBe(false)
     expect(authContext.readBookingRefreshToken()).toBeNull()
+  })
+
+  it.each([false, true])('withdraws only the signing-out session after device release or timeout (%s)', async timeout => {
+    signIn(jwt(1), 'refresh-a')
+    let finish!: () => void
+    const device = new Promise<void>(resolve => { finish = resolve })
+    reply = () => ({ statusCode: 204, data: null })
+    bookingHttp.signOutBookingSession(() => device)
+    expect(authContext.getBookingAuthContext().getAccessToken()).toBeNull()
+    expect(sent).toHaveLength(0)
+    signIn(jwt(2), 'refresh-b')
+    if (timeout) await vi.advanceTimersByTimeAsync(3000)
+    else finish()
+    await vi.waitFor(() => expect(sent).toHaveLength(1))
+    finish()
+    await vi.advanceTimersByTimeAsync(4000)
+    expect(sent).toHaveLength(1)
+    expect(sent[0].data).toEqual({ refreshToken: 'refresh-a' })
+    expect(authContext.readBookingRefreshToken()).toBe('refresh-b')
   })
 })

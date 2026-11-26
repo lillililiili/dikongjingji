@@ -2,6 +2,7 @@
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 
+import { ACTIVITY_PREVIEW_ENABLED } from '@/features/activity/application/activity-preview'
 import {
   ACTIVITY_PARTICIPANTS_PATH,
   buildActivityDetailUrl,
@@ -10,6 +11,7 @@ import {
   buildActivityWaitlistUrl,
 } from '@/features/activity/navigation/activity-routes'
 import ActivityEnrollPage from '@/features/activity/presentation/enroll/ActivityEnrollPage.vue'
+import ActivityUnavailable from '@/features/activity/presentation/shared/ActivityUnavailable.vue'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 import { buildCashierUrl } from '@/features/trade/navigation/trade-routes'
@@ -82,7 +84,7 @@ onShow(() => {
 
 <template>
   <ActivityEnrollPage
-    v-if="shown"
+    v-if="ACTIVITY_PREVIEW_ENABLED && shown"
     :activity-id="activityId"
     :session-id="sessionId"
     :city-code="cityCode"
@@ -96,4 +98,5 @@ onShow(() => {
     @pay="openCashier"
     @waitlisted="openWaitlist"
   />
+  <ActivityUnavailable v-else-if="!ACTIVITY_PREVIEW_ENABLED" />
 </template>

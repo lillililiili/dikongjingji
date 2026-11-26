@@ -51,6 +51,7 @@ describe('favorite routes', () => {
     expect(parseMallCompareQuery({ ids: encodeURIComponent(`${A},${B}`), cityCode: CITY }, MAX_COMPARE_ITEMS))
       .toEqual({ productIds: [A, B], cityCode: CITY })
     expect(parseMallCompareQuery({ ids: `${A},${A}`, cityCode: CITY }, MAX_COMPARE_ITEMS)).toBeNull()
+    expect(parseMallCompareQuery({ ids: '%', cityCode: CITY }, MAX_COMPARE_ITEMS)).toBeNull()
     expect(parseMallCompareQuery({ ids: `${A},${B}`, cityCode: 'dongying' }, MAX_COMPARE_ITEMS)).toBeNull()
   })
 

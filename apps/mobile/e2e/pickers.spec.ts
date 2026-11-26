@@ -39,6 +39,44 @@ async function dragMap(page: Page, dx: number, dy: number): Promise<void> {
 }
 
 test.describe('地图选点（MapPick）', () => {
+  test('单独打开缺少参数的选点链接可返回首页', async ({ page }) => {
+    await page.goto('/#/pages/place/map-pick')
+    const missing = page.getByTestId('map-pick-missing')
+    await expect(missing).toContainText('地图选点暂不可用')
+    await expect(missing.getByTestId('place-unavailable-back')).toHaveText('返回首页')
+    await missing.getByTestId('place-unavailable-back').click()
+    await expect(page.getByTestId('home-city')).toBeVisible()
+    await page.goto('/#/pages/place/destination')
+    await page.getByTestId('destination-missing').getByTestId('place-unavailable-back').click()
+    await expect(page.getByTestId('home-city')).toBeVisible()
+  })
+
+  test('定位较慢时可先选本城地点，定位返回后保留已选地址', async ({ page }) => {
+    await page.goto(BOOKING_URL)
+    await expect(page.getByTestId('booking-location')).toBeVisible()
+    await page.evaluate(() => {
+      const runtime = window as unknown as {
+        uni: { getAppBaseInfo(): object; getLocation(options: { success(point: { latitude: number; longitude: number }): void }): void }
+        finishPickerLocation?: () => void
+      }
+      const base = runtime.uni.getAppBaseInfo()
+      runtime.uni.getAppBaseInfo = () => ({ ...base, uniPlatform: 'app' })
+      runtime.uni.getLocation = ({ success }) => {
+        runtime.finishPickerLocation = () => success({ latitude: 37.43, longitude: 118.67 })
+      }
+    })
+    await page.getByTestId('booking-location').click()
+    await expect.poll(() => page.evaluate(() => 'finishPickerLocation' in window)).toBe(true)
+    await page.getByTestId('map-pick-search').locator('input').fill('产业园')
+    const place = page.getByTestId('map-pick-place-park-gate-3')
+    await place.click()
+    await page.evaluate(() => (window as unknown as { finishPickerLocation(): void }).finishPickerLocation())
+    await expect(page.getByTestId('map-pick')).toHaveAttribute('data-located', 'true')
+    await expect(page.getByTestId('map-pick-chosen')).toContainText('产业园')
+    await page.getByTestId('map-pick-confirm').click()
+    await expect(page.getByTestId('booking-location')).toContainText('东营市示例路 96 号')
+  })
+
   test('PICK-001 巡检预约的“巡检地点”进地图选点：选示例地点、拖图钉手填地址、搜不到时用输入的文字', async ({ page }) => {
     await page.goto(BOOKING_URL)
     await expect(page.locator('.inspection-booking__content')).toBeVisible()
@@ -154,6 +192,34 @@ test.describe('图片查看器（PhotoViewer）', () => {
 })
 
 test.describe('扫一扫（Scan）', () => {
+  test('原生扫码权限被拒后可以继续输入，外部链接拦截、平台商品正常打开', async ({ page }) => {
+    await page.goto('/#/pages/home/index')
+    await expect(page.getByTestId('home-scan')).toBeVisible()
+    await page.evaluate(() => {
+      const runtime = (window as unknown as { uni: {
+        getAppBaseInfo(): object
+        getAppAuthorizeSetting(): { cameraAuthorized: string }
+        scanCode(options: { fail(error: { errMsg: string }): void; complete(): void }): void
+      } }).uni
+      const base = runtime.getAppBaseInfo()
+      runtime.getAppBaseInfo = () => ({ ...base, uniPlatform: 'app' })
+      runtime.getAppAuthorizeSetting = () => ({ cameraAuthorized: 'not determined' })
+      runtime.scanCode = ({ fail, complete }) => { fail({ errMsg: 'permission denied' }); complete() }
+    })
+    await page.getByTestId('home-scan').click()
+    await page.getByTestId('scan-start').click()
+    await expect(page.getByTestId('scan-sheet-denied')).toContainText('需要相机权限')
+    await page.getByTestId('scan-not-now').click()
+    const input = page.getByTestId('scan-input').locator('input')
+    await input.fill('https://outside.example.test/not-a-platform-code')
+    await page.getByTestId('scan-submit').click()
+    await expect(page.getByTestId('scan-sheet-unknown')).toContainText('不会打开外部链接')
+    await page.getByTestId('scan-again').click()
+    await input.fill(`/pages/mall/product?productId=${KIT_ID}&cityCode=370500`)
+    await page.getByTestId('scan-submit').click()
+    await expect(page.getByTestId('mall-product')).toBeVisible()
+  })
+
   test('PICK-006 浏览器里手动输入：平台链接打开对象页，核销码和外部码说明不打开', async ({ page }) => {
     await page.goto('/#/pages/home/index')
     await expect(page.getByTestId('home-city')).toContainText('东营')

@@ -9,10 +9,12 @@ import {
   type SimulationResultTarget,
 } from '@/features/experience/navigation/experience-routes'
 import OnlineExperienceUnavailable from '@/features/experience/presentation/shared/OnlineExperienceUnavailable.vue'
+import ExperienceLinkMissing from '@/features/experience/presentation/shared/ExperienceLinkMissing.vue'
 import SimulationPage from '@/features/experience/presentation/simulation/SimulationPage.vue'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 
 const experienceId = ref('')
+const loaded = ref(false)
 const accessToken = ref<string | null>(null)
 const page = ref<InstanceType<typeof SimulationPage> | null>(null)
 let leaving = false
@@ -34,6 +36,7 @@ function openResult(target: SimulationResultTarget): void {
 
 onLoad((query) => {
   experienceId.value = typeof query?.experienceId === 'string' ? query.experienceId : ''
+  loaded.value = true
 })
 
 onShow(() => {
@@ -58,4 +61,5 @@ onBackPress((options) => {
     @finished="openResult"
   />
   <OnlineExperienceUnavailable v-else-if="!EXPERIENCE_PREVIEW_ENABLED" />
+  <ExperienceLinkMissing v-else-if="loaded" />
 </template>

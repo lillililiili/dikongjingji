@@ -171,10 +171,18 @@ test.describe('登录续期', () => {
     await expect(page.getByTestId('mine-login')).toHaveCount(0)
     await expect(page.locator('.platform-mine__name')).not.toBeEmpty()
 
-    // 模拟 15 分钟后：访问令牌作废（换成签名不对的串）、本地过期时间已过。
-    await page.evaluate(() => {
-      localStorage.setItem('inspection.accessToken', 'expired-access-token')
+    // Simulate expiry of the signed-in account's access token. The real refresh endpoint
+    // issues the next token, and the retried requests go through to the test server.
+    const expired = await page.evaluate(() => {
       localStorage.setItem('inspection.accessTokenExpiresAt', String(Date.now() - 1000))
+      return localStorage.getItem('inspection.accessToken')
+    })
+    expect(expired).toBeTruthy()
+    let rejected = 0
+    await page.route('**/api/v1/**', async route => {
+      if (route.request().headers().authorization !== 'Bearer ' + expired) return route.continue()
+      rejected++
+      await route.fulfill({ status: 401, json: { code: 'COMMON_UNAUTHORIZED', message: '请重新登录' } })
     })
     const refreshes: number[] = []
     page.on('response', (response) => {
@@ -186,6 +194,7 @@ test.describe('登录续期', () => {
     await expect.poll(() => refreshes).toEqual([200])
     await expect(page.locator('.platform-mine__name')).not.toHaveText(/^(已登录)?$/)
     await expect(page.getByTestId('mine-login')).toHaveCount(0)
+    expect(rejected).toBeGreaterThan(0)
     expect(refreshes).toEqual([200])
     expect(page.url()).not.toContain('inspection/login')
   })

@@ -61,7 +61,7 @@ describe('platform home presentation state', () => {
   })
 
   it('keeps the home usable when native location lookup fails', () => {
-    expect(homeRouteSource).toContain('openCityToSwitchTo(await platformCityApi.load(), null, null)')
+    expect(homeRouteSource).toContain('restoreHomeCity(previousCode, defaultCity(), () => platformCityApi.load())')
     expect(homeRouteSource).not.toContain('isNativeAppRuntime')
     expect(homeRouteSource).not.toContain('无法获取当前位置，请开启定位权限后重试')
     expect(homeRouteSource).toContain('首页内容加载失败，请稍后重试')

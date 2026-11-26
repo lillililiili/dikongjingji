@@ -6,6 +6,8 @@ import { useRootTabBadgeStore } from '@/app-shell/state/root-tab-badges'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 import { cartApi } from '@/features/mall/data/cart-api-client'
+import { MALL_PREVIEW_ENABLED } from '@/features/mall/application/mall-preview'
+import MallUnavailable from '@/features/mall/presentation/shared/MallUnavailable.vue'
 import {
   buildBuyNowCheckoutUrl,
   buildMallInquiryUrl,
@@ -104,6 +106,7 @@ onLoad((query) => {
 
 <template>
   <MallProductPage
+    v-if="MALL_PREVIEW_ENABLED"
     :busy="busy"
     :scroll-top="scrollTop"
     :load-delivery="loadDelivery"
@@ -112,4 +115,5 @@ onLoad((query) => {
     @rent="rent"
     @inquire="inquire"
   />
+  <MallUnavailable v-else test-id="mall-product-unavailable" message="商品详情尚未开通" />
 </template>

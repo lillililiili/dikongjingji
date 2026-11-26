@@ -55,6 +55,22 @@ async function assertNoHorizontalOverflow(page: Page): Promise<void> {
 }
 
 test.describe('商城频道', () => {
+  test('MALL-000 商城旧链接打开首页商城频道', async ({ page }) => {
+    await page.goto('/#/pages/mall/index')
+    await expect(page.getByTestId('home-channel-mall')).toHaveClass(/home-header__channel--active/)
+    await expect(page.locator('.mall-card').first()).toBeVisible()
+  })
+
+  test('MALL-007 商品对比收到损坏的分享参数时仍能回到商城', async ({ page }) => {
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    await page.goto('/#/pages/mall/compare?ids=%25&cityCode=370500')
+    await expect(page.getByTestId('mall-compare-too-few')).toContainText('可对比的商品不足 2 件')
+    await page.getByTestId('mall-compare-too-few').getByText('返回').click()
+    await expect(page.getByTestId('mall-channel')).toBeVisible()
+    expect(errors).toEqual([])
+  })
+
   test('MALL-001 首页频道“商城”列出本城在售商品，滚到底加载下一页', async ({ page }) => {
     await openMallChannel(page)
 
@@ -325,6 +341,18 @@ test.describe('商城搜索与筛选', () => {
 })
 
 test.describe('商品详情', () => {
+  test('MALL-105 从商家主页返回时，商品已经下架则不能继续购买', async ({ page }) => {
+    await openProduct(page, KIT_ID)
+    await page.getByTestId('mall-product-merchant').click()
+    await expect(page.getByTestId('mall-merchant-name')).toBeVisible()
+    await page.route(`**/api/v1/mall/products/${KIT_ID}?**`, (route) =>
+      route.fulfill({ status: 404, json: { code: 'MALL_PRODUCT_NOT_FOUND', message: '商品已下架' } }))
+    await page.getByTestId('mall-merchant-back').click()
+    await expect(page.getByTestId('mall-product-missing')).toBeVisible()
+    await expect(page.getByTestId('mall-product-cart')).toHaveCount(0)
+    await expect(page.getByTestId('mall-product-primary')).toHaveCount(0)
+  })
+
   test('MALL-101 列表 → 详情 → 换商家 → 价格和销售方跟着变；购买入口打开规格与数量', async ({ page }) => {
     await openMallChannel(page)
     await page.getByTestId('mall-category-robot').click()

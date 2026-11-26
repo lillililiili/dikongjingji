@@ -252,8 +252,25 @@ test.describe('购物车与确认订单', () => {
     await expect(page.getByTestId('checkout-mode-pickup')).toHaveAttribute('aria-checked', 'true')
     await expect(page.getByTestId('checkout-pickup')).toContainText('东营低空与机器人体验馆 自提点')
     await expect(page.getByTestId('checkout-address')).toHaveCount(0)
+    // While the server recalculates the delivery/address, the previous payable is still on screen.
+    const expressPreview = '**/mall/checkout-preview?*deliveryMode=EXPRESS*'
+    let resume!: () => void
+    const delayed = new Promise<void>((resolve) => { resume = resolve })
+    await page.route(expressPreview, async (route) => {
+      await delayed
+      await route.continue()
+    })
+    const previewRequest = page.waitForRequest(expressPreview)
+    await page.getByTestId('checkout-agree').click()
     await page.getByTestId('checkout-mode-express').click()
+    await previewRequest
+    try {
+      await expect(page.locator('[data-testid="checkout-submit"][disabled]')).toHaveCount(1)
+    } finally {
+      resume()
+    }
     await expect(page.getByTestId('checkout-address')).toBeVisible()
+    await expect(page.locator('[data-testid="checkout-submit"][disabled]')).toHaveCount(0)
   })
 
   test('CART-005 管理：跨商家勾选删除，删除前确认', async ({ page, request }) => {
@@ -312,13 +329,37 @@ test.describe('购物车与确认订单', () => {
   })
 
   test('CART-009 没登录打开确认订单和地址，都先到登录页', async ({ page }) => {
-    for (const url of [
-      `/#/pages/cart/checkout?offerId=${KIT_FACTORY}&quantity=1&cityCode=${CITY}`,
-      '/#/pages/mine/addresses',
-    ]) {
-      await page.goto(url)
-      await expect(page.locator('.inspection-login__form')).toBeVisible()
-    }
+    await page.goto('/#/pages/mine/addresses')
+    await expect(page.locator('.inspection-login__form')).toBeVisible()
+    await page.goto(`/#/pages/cart/checkout?offerId=${KIT_FACTORY}&quantity=1&cityCode=${CITY}&delivery=PICKUP`)
+    await page.getByTestId('login-switch-mode').click()
+    await page.locator('.inspection-login__input input').nth(0).fill('dev-customer')
+    await page.locator('.inspection-login__input input').nth(1).fill(devPassword())
+    await page.getByTestId('login-agreement').click()
+    await page.locator('.inspection-login__submit').click()
+    await expect(page.getByTestId('checkout-mode-pickup')).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByTestId('checkout-pickup')).toBeVisible()
+  })
+
+  test('CART-012 地址簿更改收件人并切换默认地址，刷新后只保留一个默认地址', async ({ page, request }) => {
+    const first = await addAddressByApi(request, session)
+    const second = await request.post(`${API}/api/v1/account/addresses`, {
+      headers: session.headers,
+      data: { recipientName: '张工', phone: '13900000817', cityCode: CITY, detail: '开发测试路 6 号', isDefault: false },
+    })
+    expect(second.status()).toBe(201)
+    const secondId = (await second.json()).addressId
+    await signIn(page, session)
+    await page.goto('/#/pages/mine/addresses')
+    await page.getByTestId(`address-edit-${secondId}`).click()
+    await page.getByTestId('address-name').locator('input').fill('李老师')
+    await page.getByTestId('address-default').click()
+    await page.getByTestId('address-save').click()
+    await expect(page.getByTestId(`address-${secondId}`)).toContainText('李老师')
+    await page.reload()
+    await expect(page.getByTestId(`address-${secondId}`)).toContainText('默认')
+    await expect(page.getByTestId(`address-${first}`)).not.toContainText('默认')
+    await expect(page.locator('.addresses__default')).toHaveCount(1)
   })
 
   test('CART-011 在确认订单换地址；换上的地址被删掉后退回默认地址', async ({ page, request }) => {

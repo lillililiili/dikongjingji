@@ -10,13 +10,14 @@ export interface BookingAuthContext extends AccessTokenPort {
 
 let context: BookingAuthContext = {
   getAccessToken: readAccessToken,
-  getPrincipalId: () => readStorage('inspection.principalId'),
+  getPrincipalId: () => bookingTokenPrincipal(readAccessToken()),
 }
 let authenticationRecoveryInProgress = false
 
 const ACCESS_TOKEN_KEY = 'inspection.accessToken'
 const ACCESS_TOKEN_EXPIRES_AT_KEY = 'inspection.accessTokenExpiresAt'
 const REFRESH_TOKEN_KEY = 'inspection.refreshToken'
+const REFRESH_OWNER_KEY = 'inspection.refreshTokenOwner'
 
 export interface BookingAuthSession {
   accessToken: string
@@ -30,29 +31,37 @@ export interface BookingAuthSession {
 // memory where that is not available, so closing the tab ends the login once the access token runs out.
 interface RefreshTokenStore {
   read(): string | null
-  write(token: string): void
+  write(token: string, owner: string | null): void
+  owner(): string | null
   remove(): void
 }
 
 let memoryRefreshToken: string | null = null
+let memoryRefreshOwner: string | null = null
 
 const sessionRefreshTokenStore: RefreshTokenStore = {
   read() {
     const stored = browserSessionStorage()?.getItem(REFRESH_TOKEN_KEY)
     return stored?.trim() ? stored.trim() : memoryRefreshToken
   },
-  write(token) {
+  owner: () => browserSessionStorage()?.getItem(REFRESH_OWNER_KEY) ?? memoryRefreshOwner,
+  write(token, owner) {
     memoryRefreshToken = token
+    memoryRefreshOwner = owner
     try {
       browserSessionStorage()?.setItem(REFRESH_TOKEN_KEY, token)
+      if (owner) browserSessionStorage()?.setItem(REFRESH_OWNER_KEY, owner)
+      else browserSessionStorage()?.removeItem(REFRESH_OWNER_KEY)
     } catch {
       // Private mode or storage blocked: memory only.
     }
   },
   remove() {
     memoryRefreshToken = null
+    memoryRefreshOwner = null
     try {
       browserSessionStorage()?.removeItem(REFRESH_TOKEN_KEY)
+      browserSessionStorage()?.removeItem(REFRESH_OWNER_KEY)
     } catch {
       // Nothing stored.
     }
@@ -60,6 +69,7 @@ const sessionRefreshTokenStore: RefreshTokenStore = {
 }
 
 const uniRefreshTokenStore: RefreshTokenStore = {
+  owner: () => null,
   read: () => readStorage(REFRESH_TOKEN_KEY),
   write: (token) => uni.setStorageSync(REFRESH_TOKEN_KEY, token),
   remove: () => uni.removeStorageSync?.(REFRESH_TOKEN_KEY),
@@ -82,7 +92,13 @@ function browserSessionStorage(): Storage | null {
 
 /** The refresh token of the current login, or null when there is none to renew it with. */
 export function readBookingRefreshToken(): string | null {
-  return refreshTokenStore().read()
+  return hasForeignTabRefreshToken() ? null : refreshTokenStore().read()
+}
+
+/** H5 shares its access token across tabs, while each tab owns its own refresh token. */
+export function hasForeignTabRefreshToken(): boolean {
+  const owner = refreshTokenStore().owner()
+  return owner !== null && owner !== bookingTokenPrincipal(readStorage(ACCESS_TOKEN_KEY))
 }
 
 export function configureBookingAuthContext(next: BookingAuthContext): void {
@@ -104,7 +120,7 @@ export function saveBookingAuthSession(session: BookingAuthSession): void {
     Date.now() + session.expiresInSeconds * 1000,
   )
   const refreshToken = session.refreshToken?.trim()
-  if (refreshToken) refreshTokenStore().write(refreshToken)
+  if (refreshToken) refreshTokenStore().write(refreshToken, bookingTokenPrincipal(token))
   else refreshTokenStore().remove()
 }
 
@@ -152,6 +168,30 @@ function readStorage(key: string): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
+// Used to scope client work to the initiating account. API authorization stays on the server.
+export function bookingTokenPrincipal(token: string | null): string | null {
+  const parts = token?.split('.')
+  if (!parts || parts.length !== 3 || !parts[1]) return null
+  try {
+    const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const padded = payload.padEnd(Math.ceil(payload.length / 4) * 4, '=')
+    const json = typeof atob === 'function'
+      ? atob(padded)
+      : String.fromCharCode(...new Uint8Array(uni.base64ToArrayBuffer(padded)))
+    const { sub } = JSON.parse(json)
+    return typeof sub === 'string' && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(sub) ? sub : null
+  } catch {
+    return null
+  }
+}
+
+export function sameBookingAccountToken(first: string | null, second: string | null): boolean {
+  if (!first || !second) return false
+  if (first === second) return true
+  const principal = bookingTokenPrincipal(first)
+  return principal !== null && principal === bookingTokenPrincipal(second)
+}
+
 function readAccessToken(): string | null {
   const token = readStorage(ACCESS_TOKEN_KEY)
   if (!token) return null
@@ -161,7 +201,7 @@ function readAccessToken(): string | null {
     // A login that can be renewed is still a login: the request goes out with the old token, gets a
     // 401 and the HTTP client renews it once (uni-booking-http-client). Without a refresh token the
     // login is over.
-    if (readBookingRefreshToken()) return token
+    if (hasForeignTabRefreshToken() || readBookingRefreshToken()) return token
     clearBookingAuthSession()
     return null
   }

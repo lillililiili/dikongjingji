@@ -2,6 +2,8 @@
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 
+import { ACTIVITY_PREVIEW_ENABLED } from '@/features/activity/application/activity-preview'
+import ActivityUnavailable from '@/features/activity/presentation/shared/ActivityUnavailable.vue'
 import {
   buildActivityChangeUrl,
   buildActivityDetailUrl,
@@ -79,7 +81,7 @@ onShow(() => {
 
 <template>
   <ActivityTicketPage
-    v-if="shown"
+    v-if="ACTIVITY_PREVIEW_ENABLED && shown"
     :enrollment-id="enrollmentId"
     :access-token="accessToken"
     :refresh-key="refreshKey"
@@ -93,4 +95,5 @@ onShow(() => {
     @open-result="openResult"
     @open-change="openChange"
   />
+  <ActivityUnavailable v-else-if="!ACTIVITY_PREVIEW_ENABLED" />
 </template>

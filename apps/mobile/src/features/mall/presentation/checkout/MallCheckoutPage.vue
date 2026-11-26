@@ -69,6 +69,7 @@ const deliveryMode = ref<DeliveryMode | null>(props.initialDelivery)
 const note = ref('')
 const agreed = ref(false)
 const agreeTip = ref(false)
+const refreshing = ref(false)
 const submitting = ref(false)
 // Learned from the server on submit: this merchant has no payment account, so nothing can be paid.
 const paymentUnavailable = ref(false)
@@ -94,8 +95,10 @@ function coverOf(line: CheckoutLine): string | null {
 }
 
 async function load(): Promise<void> {
+  const requested = ++requestVersion
   const token = props.accessToken
   if (!token) {
+    state.value = { kind: 'loading' }
     emit('login')
     return
   }
@@ -103,7 +106,7 @@ async function load(): Promise<void> {
     state.value = { kind: 'missing' }
     return
   }
-  const requested = ++requestVersion
+  refreshing.value = true
   if (state.value.kind !== 'ready') state.value = { kind: 'loading' }
   try {
     const loaded = await cartApi.preview(token, {
@@ -135,11 +138,13 @@ async function load(): Promise<void> {
     }
     const missing = error instanceof ApiRequestError && (error.status === 404 || error.status === 400)
     state.value = { kind: missing ? 'missing' : 'error' }
+  } finally {
+    if (requested === requestVersion) refreshing.value = false
   }
 }
 
 function chooseDelivery(mode: DeliveryMode): void {
-  if (mode === deliveryMode.value) return
+  if (submitting.value || mode === deliveryMode.value) return
   deliveryMode.value = mode
   void load()
 }
@@ -189,6 +194,7 @@ function submitInput(current: CheckoutPreview, mode: DeliveryMode, source: Check
 // The button checks what the page can check, then the server makes the order (trade module).
 // Public builds never show this page; there the gate keeps the old notice-free behaviour.
 async function submit(): Promise<void> {
+  if (refreshing.value || submitting.value) return
   if (!agreed.value) {
     agreeTip.value = true
     return
@@ -203,8 +209,8 @@ async function submit(): Promise<void> {
   }
   const token = props.accessToken
   const current = preview.value
-  const mode = deliveryMode.value
-  if (!token || !current || !mode || !props.source || submitting.value || paymentUnavailable.value) return
+  const mode = current?.deliveryMode
+  if (!token || !current || !mode || !props.source || paymentUnavailable.value) return
   const input = submitInput(current, mode, props.source)
   submitting.value = true
   try {
@@ -345,6 +351,7 @@ watch(
                 :class="['checkout__mode', { 'checkout__mode--on': option.mode === deliveryMode }]"
                 :data-testid="`checkout-mode-${option.mode.toLowerCase()}`"
                 role="radio"
+                :disabled="submitting"
                 :aria-checked="option.mode === deliveryMode"
                 @click="chooseDelivery(option.mode)"
               >
@@ -448,10 +455,10 @@ watch(
         <button
           :class="['checkout__submit', { 'checkout__submit--off': !deliveryMode || paymentUnavailable }]"
           data-testid="checkout-submit"
-          :disabled="!deliveryMode || paymentUnavailable || submitting"
+          :disabled="!deliveryMode || paymentUnavailable || refreshing || submitting"
           @click="submit"
         >
-          {{ submitting ? '正在提交…' : '提交订单' }}
+          {{ submitting ? '正在提交…' : refreshing ? '正在核对订单…' : '提交订单' }}
         </button>
       </view>
     </view>

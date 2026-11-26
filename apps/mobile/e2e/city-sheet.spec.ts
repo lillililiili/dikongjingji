@@ -10,6 +10,28 @@ import { expect, test } from '@playwright/test'
 const visualOutput = resolve(__dirname, '../../../.planning/style-compare')
 
 test.describe('城市面板（CitySheet）', () => {
+  test('新手引导选择手动选城后直接选城市，重开保留城市和定位选择', async ({ page }) => {
+    let locationRequests = 0
+    await page.exposeFunction('recordLocationAttempt', () => { locationRequests++ })
+    await page.addInitScript(() => {
+      navigator.geolocation.getCurrentPosition = (_, fail) => {
+        void (window as unknown as { recordLocationAttempt(): void }).recordLocationAttempt()
+        fail?.({ code: 1, message: 'denied', PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 })
+      }
+    })
+    await page.goto('/#/pages/onboarding/index')
+    await page.getByTestId('onboarding-agree').click()
+    await page.getByTestId('onboarding-manual-city').click()
+    const sheet = page.locator('.city-sheet')
+    await expect(sheet).toBeVisible()
+    await sheet.locator('.city-sheet__preparing .city-sheet__city').filter({ hasText: '济南' }).click()
+    await expect(page.getByTestId('home-city')).toContainText('济南')
+    await page.reload()
+    await expect(page.getByTestId('home-city')).toContainText('济南')
+    await expect(sheet).toBeHidden()
+    expect(locationRequests).toBe(0)
+  })
+
   test('CITY-301 分已开通、筹备中两组，未开通的只能搜索到', async ({ page }) => {
     await page.goto('/#/pages/home/index')
     await expect(page.getByTestId('home-city')).toContainText('东营')

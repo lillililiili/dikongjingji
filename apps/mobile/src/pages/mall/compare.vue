@@ -9,6 +9,8 @@ import { FAVORITE_PREVIEW_ENABLED } from '@/features/favorite/application/favori
 import { parseMallCompareQuery, type MallCompareQuery } from '@/features/favorite/navigation/favorite-routes'
 import MallComparePage from '@/features/favorite/presentation/MallComparePage.vue'
 import { mallApi } from '@/features/mall/data/mall-api-client'
+import { MALL_PREVIEW_ENABLED } from '@/features/mall/application/mall-preview'
+import MallUnavailable from '@/features/mall/presentation/shared/MallUnavailable.vue'
 import type { MallProductDetail } from '@/features/mall/domain/mall'
 import { buildMallProductUrl } from '@/features/mall/navigation/mall-routes'
 
@@ -51,11 +53,16 @@ function open(productId: string): void {
 }
 
 onLoad((options) => {
-  query.value = FAVORITE_PREVIEW_ENABLED ? parseMallCompareQuery(options ?? {}, MAX_COMPARE_ITEMS) : null
+  if (!FAVORITE_PREVIEW_ENABLED || !MALL_PREVIEW_ENABLED) return
+  query.value = parseMallCompareQuery(options ?? {}, MAX_COMPARE_ITEMS)
   void load()
 })
 </script>
 
 <template>
-  <MallComparePage :status="status" :products="products" @back="goBack" @retry="load" @open="open" />
+  <MallComparePage
+    v-if="FAVORITE_PREVIEW_ENABLED && MALL_PREVIEW_ENABLED"
+    :status="status" :products="products" @back="goBack" @retry="load" @open="open"
+  />
+  <MallUnavailable v-else test-id="mall-compare-unavailable" message="商品对比尚未开通" />
 </template>

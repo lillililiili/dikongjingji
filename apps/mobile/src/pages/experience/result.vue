@@ -14,6 +14,7 @@ import {
 } from '@/features/experience/navigation/experience-routes'
 import SimulationResultPage from '@/features/experience/presentation/result/SimulationResultPage.vue'
 import OnlineExperienceUnavailable from '@/features/experience/presentation/shared/OnlineExperienceUnavailable.vue'
+import ExperienceLinkMissing from '@/features/experience/presentation/shared/ExperienceLinkMissing.vue'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 import { buildMallProductUrl } from '@/features/mall/navigation/mall-routes'
@@ -91,4 +92,5 @@ onShow(() => {
     @consult="consult"
   />
   <OnlineExperienceUnavailable v-else-if="!EXPERIENCE_PREVIEW_ENABLED" />
+  <ExperienceLinkMissing v-else-if="shown" />
 </template>

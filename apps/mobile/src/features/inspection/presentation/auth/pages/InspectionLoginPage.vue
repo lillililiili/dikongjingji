@@ -10,7 +10,6 @@ import PersonalPasswordForm from '@/features/account/presentation/security/Perso
 import { codeButtonText, digitsOnly, inputValue, isPhoneNumber, isSmsCode } from '@/features/account/domain/identity-account'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 
-import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import type { AgreementDoc } from '@/features/settings/domain/agreement'
 import { buildAgreementUrl } from '@/features/settings/navigation/settings-routes'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
@@ -242,12 +241,7 @@ function continueToProtectedPage(): void {
   })
 }
 
-// The agreement pages are part of 设置与公共页 (M18, preview builds); public builds name them only.
 function openAgreement(doc: AgreementDoc): void {
-  if (!SUPPORT_PREVIEW_ENABLED) {
-    uni.showToast({ title: '协议正文待提供', icon: 'none' })
-    return
-  }
   uni.navigateTo({ url: buildAgreementUrl(doc) })
 }
 

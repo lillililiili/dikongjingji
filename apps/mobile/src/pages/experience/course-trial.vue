@@ -10,6 +10,7 @@ import {
   buildExperienceRecordsUrl,
 } from '@/features/experience/navigation/experience-routes'
 import OnlineExperienceUnavailable from '@/features/experience/presentation/shared/OnlineExperienceUnavailable.vue'
+import ExperienceLinkMissing from '@/features/experience/presentation/shared/ExperienceLinkMissing.vue'
 import TrialPage from '@/features/experience/presentation/trial/TrialPage.vue'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
@@ -58,6 +59,7 @@ onShow(() => {
 <template>
   <TrialPage
     v-if="EXPERIENCE_PREVIEW_ENABLED && shown && experienceId"
+    trial-type="COURSE_TRIAL"
     :experience-id="experienceId"
     :record-id="recordId"
     :access-token="accessToken"
@@ -69,4 +71,5 @@ onShow(() => {
     @open-channel="openHomeChannel('EXPERIENCE')"
   />
   <OnlineExperienceUnavailable v-else-if="!EXPERIENCE_PREVIEW_ENABLED" />
+  <ExperienceLinkMissing v-else-if="shown" />
 </template>

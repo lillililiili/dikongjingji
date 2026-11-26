@@ -49,6 +49,8 @@ const center = createMessageCenter({
   getState: () => state.value,
   setState: (next) => { state.value = next },
   onUnreadCount: (count) => badgeStore.setMessageUnread(count),
+  getAccountKey: currentAccount,
+  onReadError: () => uni.showToast({ title: '标记已读失败，请重试', icon: 'none' }),
   // Only a build that shows 系统通知 asks for them, with the App's current city.
   getInboxScope: () => ({
     systemNotices: SYSTEM_NOTICE_PREVIEW_ENABLED,

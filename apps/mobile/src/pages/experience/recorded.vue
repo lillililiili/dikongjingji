@@ -37,7 +37,7 @@ onShow(load)
   <view v-else class="recorded" data-testid="recorded-page">
     <text v-if="state==='loading'">正在加载录播…</text>
     <text v-else-if="state==='unavailable'">该录播项目暂不可用</text>
-    <view v-else-if="state==='error'"><text>录播内容加载失败</text><button size="mini" @tap="load">重新加载</button></view>
+    <view v-else-if="state==='error'"><text>录播内容加载失败</text><button role="button" size="mini" @tap="load">重新加载</button></view>
     <view v-else-if="item">
       <video v-if="item.videoUrl && !playbackError" class="player" controls :src="item.videoUrl" :poster="item.coverImage?.url" @error="playbackError=true" />
       <view v-else class="empty"><text>{{playbackError?'视频播放失败':'该项目尚未配置录播视频'}}</text><button v-if="playbackError" size="mini" @tap="load">重试播放</button></view>

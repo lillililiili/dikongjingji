@@ -65,18 +65,18 @@ final class PostgresNotificationStore implements NotificationStore {
     }
 
     @Override
-    public long count(UUID recipientId) {
-        return mapper.count(recipientId);
+    public long count(UUID recipientId, boolean systemNotices) {
+        return mapper.count(recipientId, systemNotices);
     }
 
     @Override
-    public long countUnread(UUID recipientId) {
-        return mapper.countUnread(recipientId);
+    public long countUnread(UUID recipientId, boolean systemNotices) {
+        return mapper.countUnread(recipientId, systemNotices);
     }
 
     @Override
-    public List<MessageRow> findPage(UUID recipientId, int limit, int offset) {
-        return mapper.findPage(recipientId, limit, offset);
+    public List<MessageRow> findPage(UUID recipientId, int limit, int offset, boolean systemNotices) {
+        return mapper.findPage(recipientId, limit, offset, systemNotices);
     }
 
     @Override
@@ -90,8 +90,8 @@ final class PostgresNotificationStore implements NotificationStore {
     }
 
     @Override
-    public int markAllRead(UUID recipientId, Instant at) {
-        return mapper.markAllRead(recipientId, at);
+    public int markAllRead(UUID recipientId, Instant at, boolean systemNotices) {
+        return mapper.markAllRead(recipientId, at, systemNotices);
     }
 
     @Override

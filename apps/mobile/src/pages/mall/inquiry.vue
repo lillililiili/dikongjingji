@@ -14,7 +14,7 @@ import {
   type MallInquiryTarget,
 } from '@/features/mall/navigation/mall-routes'
 import MallInquiryPage from '@/features/mall/presentation/inquiry/MallInquiryPage.vue'
-import MallInquiryUnavailable from '@/features/mall/presentation/inquiry/MallInquiryUnavailable.vue'
+import MallUnavailable from '@/features/mall/presentation/shared/MallUnavailable.vue'
 
 const target = ref<MallInquiryTarget | null>(null)
 const accessToken = ref<string | null>(null)
@@ -63,5 +63,5 @@ onShow(() => {
     @submitted="openQuotes"
     @browse="openHomeChannel('MALL')"
   />
-  <MallInquiryUnavailable v-else-if="!MALL_PREVIEW_ENABLED" />
+  <MallUnavailable v-else-if="!MALL_PREVIEW_ENABLED" test-id="mall-inquiry-unavailable" message="询价功能尚未开通" />
 </template>

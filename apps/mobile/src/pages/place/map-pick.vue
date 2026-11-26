@@ -4,8 +4,9 @@ import { ref } from 'vue'
 
 import { mapPlaceProvider } from '@/features/place/data/map-place-provider-client'
 import type { PickedPlace } from '@/features/place/domain/map-place'
-import { parseMapPickTarget, type MapPickTarget } from '@/features/place/navigation/place-routes'
+import { leavePlacePage, parseMapPickTarget, type MapPickTarget } from '@/features/place/navigation/place-routes'
 import MapPickPage from '@/features/place/presentation/MapPickPage.vue'
+import PlaceUnavailable from '@/features/place/presentation/PlaceUnavailable.vue'
 import { useMapPickResultStore } from '@/features/place/state/map-pick-result'
 import { PLACE_PREVIEW_ENABLED } from '@/features/place/application/place-preview'
 
@@ -18,14 +19,10 @@ onLoad((query) => {
   loaded.value = true
 })
 
-function goBack(): void {
-  uni.navigateBack()
-}
-
 // The opening form takes the place when it is shown again (board MapPick: 确认地址 → back).
 function confirm(place: PickedPlace): void {
   if (target.value) results.put(target.value.requestId, place)
-  uni.navigateBack()
+  leavePlacePage()
 }
 </script>
 
@@ -35,22 +32,8 @@ function confirm(place: PickedPlace): void {
     :provider="mapPlaceProvider"
     :purpose="target.purpose"
     :city="{ code: target.cityCode, name: target.cityName }"
-    @back="goBack"
+    @back="leavePlacePage"
     @confirm="confirm"
   />
-  <view v-else-if="loaded" class="map-pick-missing" data-testid="map-pick-missing">
-    <text>地图选点暂不可用，请返回手动填写地址</text>
-  </view>
+  <PlaceUnavailable v-else-if="loaded" message="地图选点暂不可用，可在表单中手动填写地址" data-testid="map-pick-missing" />
 </template>
-
-<style scoped>
-.map-pick-missing {
-  display: flex;
-  min-height: 100vh;
-  align-items: center;
-  justify-content: center;
-  color: #738096;
-  background: #f5f7fc;
-  font-size: 14px;
-}
-</style>

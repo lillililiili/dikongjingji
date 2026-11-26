@@ -10,6 +10,8 @@ import {
   buildInspectionLoginUrl,
 } from '@/features/inspection/navigation/inspection-routes'
 import { buildAddressBookUrl } from '@/features/mall/navigation/mall-routes'
+import { CART_PREVIEW_ENABLED } from '@/features/mall/application/cart-preview'
+import MallUnavailable from '@/features/mall/presentation/shared/MallUnavailable.vue'
 
 const addressChoice = useAddressChoiceStore()
 const selecting = ref(false)
@@ -40,6 +42,7 @@ onLoad((query) => {
 })
 
 onShow(() => {
+  if (!CART_PREVIEW_ENABLED) return
   accessToken.value = getBookingAuthContext().getAccessToken()
   refreshKey.value += 1
   shown.value = true
@@ -48,7 +51,7 @@ onShow(() => {
 
 <template>
   <AddressBookPage
-    v-if="shown"
+    v-if="CART_PREVIEW_ENABLED && shown"
     :access-token="accessToken"
     :refresh-key="refreshKey"
     :selecting="selecting"
@@ -57,4 +60,5 @@ onShow(() => {
     @login="openLogin"
     @choose="choose"
   />
+  <MallUnavailable v-else-if="!CART_PREVIEW_ENABLED" test-id="address-book-unavailable" message="收货地址尚未开通" />
 </template>

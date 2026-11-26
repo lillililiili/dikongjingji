@@ -44,8 +44,7 @@ const INSPECTION_SEARCH_PLACEHOLDER = '搜索巡检服务、场景或关键词'
 
 export const PLAY_GAMES_PATH = '/pages/play/index'
 
-// The two games work without a server, but the entry stays out of public builds until the user accepts them
-// (release switch PLAY, src/app-shell/release/release-features.json).
+// Both this entry and the direct game routes follow the PLAY release switch.
 export const PLAY_GAMES_TARGET: HomeEntryTarget = {
   type: 'PAGE',
   url: PLAY_GAMES_PATH,

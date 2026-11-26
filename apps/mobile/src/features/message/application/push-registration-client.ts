@@ -26,6 +26,6 @@ export function reportPushDevice(): void {
   if (SYSTEM_NOTICE_PREVIEW_ENABLED) void registration.report()
 }
 
-export async function revokePushDevice(): Promise<void> {
-  if (SYSTEM_NOTICE_PREVIEW_ENABLED) await registration.revoke()
+export async function revokePushDevice(accessToken: string | null): Promise<void> {
+  if (SYSTEM_NOTICE_PREVIEW_ENABLED) await registration.revoke(accessToken)
 }

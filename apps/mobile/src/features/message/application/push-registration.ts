@@ -26,22 +26,21 @@ export function createPushRegistration(options: PushRegistrationOptions) {
       const token = options.getAccessToken()
       if (!token) return false
       const device = await options.readDevice().catch(() => null)
-      if (!device) return false
+      if (!device || options.getAccessToken() !== token) return false
       const cityCode = options.getCityCode()
       const key = `${token}|${device.platform}|${device.pushClientId}|${cityCode ?? ''}`
       if (key === lastReported) return false
       try {
         await options.api.registerPushDevice(token, { ...device, cityCode })
-        lastReported = key
+        if (options.getAccessToken() === token) lastReported = key
         return true
       } catch {
         return false
       }
     },
 
-    /** Before signing out: this account's pushes stop coming to this device. */
-    async revoke(): Promise<void> {
-      const token = options.getAccessToken()
+    /** The account that signed out releases its registration even if a new session has started. */
+    async revoke(token: string | null): Promise<void> {
       lastReported = null
       if (!token) return
       const device = await options.readDevice().catch(() => null)

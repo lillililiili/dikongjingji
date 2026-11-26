@@ -6,12 +6,16 @@ import { useAddressChoiceStore } from '@/features/account/state/address-choice'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 import type { CheckoutSource } from '@/features/mall/domain/cart'
+import { CART_PREVIEW_ENABLED } from '@/features/mall/application/cart-preview'
+import MallUnavailable from '@/features/mall/presentation/shared/MallUnavailable.vue'
 import { buildMyDemandsUrl } from '@/features/demand/navigation/demand-routes'
 import {
   CART_TAB_PATH,
   MALL_CHECKOUT_PATH,
   MALL_INQUIRY_QUOTES_PATH,
   buildAddressBookUrl,
+  buildBuyNowCheckoutUrl,
+  buildCartCheckoutUrl,
   buildMallInquiryQuotesUrl,
   buildQuoteCheckoutUrl,
 } from '@/features/mall/navigation/mall-routes'
@@ -80,6 +84,7 @@ function openLogin(): void {
 }
 
 onLoad((query) => {
+  if (!CART_PREVIEW_ENABLED) return
   cityCode.value = decode(query?.cityCode)
   const items = decode(query?.items).split(',').map((id) => id.trim()).filter(Boolean)
   const offerId = decode(query?.offerId)
@@ -91,18 +96,19 @@ onLoad((query) => {
     returnUrl = buildQuoteCheckoutUrl(inquiryQuoteId, inquiryId.value ?? '', cityCode.value)
   } else if (items.length > 0) {
     source.value = { kind: 'CART', cartItemIds: items }
-    returnUrl = `${MALL_CHECKOUT_PATH}?items=${items.map(encodeURIComponent).join(',')}&cityCode=${encodeURIComponent(cityCode.value)}`
+    returnUrl = buildCartCheckoutUrl(items, cityCode.value)
   } else if (offerId && Number.isInteger(quantity) && quantity > 0) {
     source.value = { kind: 'OFFER', offerId, quantity }
     const delivery = decode(query?.delivery)
     initialDelivery.value = delivery === 'EXPRESS' || delivery === 'PICKUP' ? delivery : null
-    returnUrl = `${MALL_CHECKOUT_PATH}?offerId=${encodeURIComponent(offerId)}&quantity=${quantity}&cityCode=${encodeURIComponent(cityCode.value)}`
+    returnUrl = buildBuyNowCheckoutUrl(offerId, quantity, cityCode.value, initialDelivery.value)
   }
   // A new confirm page starts from the default address.
   addressChoice.choose(null)
 })
 
 onShow(() => {
+  if (!CART_PREVIEW_ENABLED) return
   accessToken.value = getBookingAuthContext().getAccessToken()
   refreshKey.value += 1
   shown.value = true
@@ -111,7 +117,7 @@ onShow(() => {
 
 <template>
   <MallCheckoutPage
-    v-if="shown"
+    v-if="CART_PREVIEW_ENABLED && shown"
     :source="source"
     :city-code="cityCode"
     :address-id="addressChoice.addressId"
@@ -126,4 +132,5 @@ onShow(() => {
     @address-gone="addressChoice.choose(null)"
     @submitted="openCashier"
   />
+  <MallUnavailable v-else-if="!CART_PREVIEW_ENABLED" test-id="checkout-unavailable" message="确认订单尚未开通" />
 </template>

@@ -95,8 +95,9 @@ public final class NotificationController {
     }
 
     @PostMapping("/api/v1/notifications/read-all")
-    public MarkedReadView markAllRead(Authentication authentication) {
-        return service.markAllRead(recipient(authentication));
+    public MarkedReadView markAllRead(Authentication authentication,
+                                       @RequestParam(defaultValue = "true") boolean systemNotices) {
+        return service.markAllRead(recipient(authentication), systemNotices);
     }
 
     @PostMapping("/api/v1/notifications/{notificationId}/read")

@@ -19,6 +19,7 @@ import type { ExperienceItemDetail, ExperienceRecord } from '../../domain/experi
 
 // Starting, resuming and ending use the server's record and expiration time.
 const props = defineProps<{
+  trialType: 'SOFTWARE_TRIAL' | 'COURSE_TRIAL'
   experienceId: string
   // A record to show (opened from 我的体验); otherwise the page starts or resumes one.
   recordId: string | null
@@ -54,7 +55,7 @@ let requestVersion = 0
 let clock: ReturnType<typeof setInterval> | null = null
 let expiryRead = false
 
-const course = computed(() => item.value?.type === 'COURSE_TRIAL')
+const course = computed(() => props.trialType === 'COURSE_TRIAL')
 const word = computed(() => (course.value ? '试听' : '试用'))
 const pageTitle = computed(() => (course.value ? '课程试听' : '软件试用'))
 const stage = computed(() => (record.value ? trialStage(record.value) : null))
@@ -91,7 +92,7 @@ async function load(): Promise<void> {
     if (!target) {
       const loaded = await experienceApi.loadExperienceItem(props.experienceId)
       if (requested !== requestVersion) return
-      if ((loaded.type !== 'SOFTWARE_TRIAL' && loaded.type !== 'COURSE_TRIAL') || !loaded.trialMinutes) {
+      if (loaded.type !== props.trialType || !loaded.trialMinutes) {
         state.value = { kind: 'unavailable' }
         return
       }
@@ -104,7 +105,7 @@ async function load(): Promise<void> {
     const found = await findOrStart(token)
     if (requested !== requestVersion) return
     if (found.experience.experienceId !== props.experienceId
-      || (found.experience.type !== 'SOFTWARE_TRIAL' && found.experience.type !== 'COURSE_TRIAL')) {
+      || found.experience.type !== props.trialType) {
       state.value = { kind: 'unavailable' }
       return
     }

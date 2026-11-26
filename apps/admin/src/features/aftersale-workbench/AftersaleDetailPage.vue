@@ -42,6 +42,7 @@ const dialog = ref<'approve' | 'reject' | 'receipt' | 'receipt-reject' | null>(n
 const aftersaleId = computed(() => String(route.params.aftersaleId ?? ''))
 
 async function load(): Promise<void> {
+  if (loading.value) return
   loading.value = true
   error.value = ''
   try {
@@ -91,16 +92,16 @@ onMounted(() => {
   >
     <template #actions>
       <template v-if="aftersale">
-        <el-button v-if="aftersale.actions.canReview" type="primary" @click="dialog = 'approve'">同意退货</el-button>
-        <el-button v-if="aftersale.actions.canReview" type="danger" plain @click="dialog = 'reject'">不同意</el-button>
-        <el-button v-if="aftersale.actions.canConfirmReceipt" type="primary" @click="dialog = 'receipt'">
+        <el-button v-if="aftersale.actions.canReview" :disabled="loading" type="primary" @click="dialog = 'approve'">同意退货</el-button>
+        <el-button v-if="aftersale.actions.canReview" :disabled="loading" type="danger" plain @click="dialog = 'reject'">不同意</el-button>
+        <el-button v-if="aftersale.actions.canConfirmReceipt" :disabled="loading" type="primary" @click="dialog = 'receipt'">
           确认收货并退款
         </el-button>
-        <el-button v-if="aftersale.actions.canRejectReceipt" type="danger" plain @click="dialog = 'receipt-reject'">
+        <el-button v-if="aftersale.actions.canRejectReceipt" :disabled="loading" type="danger" plain @click="dialog = 'receipt-reject'">
           验货不通过
         </el-button>
       </template>
-      <el-button @click="load()">刷新</el-button>
+      <el-button :loading="loading" @click="load()">刷新</el-button>
       <el-button @click="router.push({ name: 'workbench-aftersales' })">返回列表</el-button>
     </template>
 

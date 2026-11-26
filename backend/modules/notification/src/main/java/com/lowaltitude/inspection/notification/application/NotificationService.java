@@ -102,7 +102,7 @@ public class NotificationService {
 
     /**
      * 一页站内信。systemNotices 为 true 时（App 开通了系统通知的构建），先把发给全体、发给 cityCode（App 的当前城市，
-     * 可以不给）的系统通知补记成这个账号的（每份只记一次），再读。没开通的构建不补记，也就看不到、数不到。
+     * 可以不给）的系统通知补记成这个账号的（每份只记一次），再读。没开通的构建从查询中过滤已投递的系统通知。
      */
     public NotificationPageView list(UUID recipientId, int page, int size, boolean systemNotices, String cityCode) {
         requireRecipient(recipientId);
@@ -110,9 +110,9 @@ public class NotificationService {
             throw new IllegalArgumentException("page is invalid");
         }
         deliverSystemNotices(recipientId, systemNotices, cityCode);
-        long total = store.count(recipientId);
+        long total = store.count(recipientId, systemNotices);
         List<NotificationView> items = store
-                .findPage(recipientId, size, Math.multiplyExact(page - 1, size))
+                .findPage(recipientId, size, Math.multiplyExact(page - 1, size), systemNotices)
                 .stream()
                 .map(row -> new NotificationView(
                         row.id(),
@@ -128,7 +128,7 @@ public class NotificationService {
                         row.readAt() != null))
                 .toList();
         return new NotificationPageView(
-                page, size, total, (long) page * size < total, store.countUnread(recipientId), items);
+                page, size, total, (long) page * size < total, store.countUnread(recipientId, systemNotices), items);
     }
 
     public UnreadCountView unreadCount(UUID recipientId) {
@@ -139,7 +139,7 @@ public class NotificationService {
     public UnreadCountView unreadCount(UUID recipientId, boolean systemNotices, String cityCode) {
         requireRecipient(recipientId);
         deliverSystemNotices(recipientId, systemNotices, cityCode);
-        return new UnreadCountView(store.countUnread(recipientId));
+        return new UnreadCountView(store.countUnread(recipientId, systemNotices));
     }
 
     /** 标一条为已读；已经读过的再标一次没有变化。不是这个收件人的通知返回 false。 */
@@ -156,8 +156,12 @@ public class NotificationService {
     }
 
     public MarkedReadView markAllRead(UUID recipientId) {
+        return markAllRead(recipientId, true);
+    }
+
+    public MarkedReadView markAllRead(UUID recipientId, boolean systemNotices) {
         requireRecipient(recipientId);
-        return new MarkedReadView(store.markAllRead(recipientId, now()));
+        return new MarkedReadView(store.markAllRead(recipientId, now(), systemNotices));
     }
 
     private void deliverSystemNotices(UUID recipientId, boolean systemNotices, String cityCode) {

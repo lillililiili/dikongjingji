@@ -3,11 +3,25 @@ import { resolve } from 'node:path'
 
 import { expect, test, type Page } from '@playwright/test'
 
-import { swipeCarouselTo } from './support/home-carousel'
+import { swipeCarouselOnce, swipeCarouselTo } from './support/home-carousel'
 
 // Home revamp from the 2026-11-14 revised prototype: carousel, renamed channel, play games.
-// None of these cases needs the back end; the recommend channel keeps its entries when content fails to load.
 const visualOutput = resolve(__dirname, '../../../.planning/home-revamp/visual')
+
+type Slide = { id: string; target: 'ACTIVITY' | 'EXPERIENCE' | 'PLAY_GAMES' }
+
+async function openCarousel(page: Page): Promise<Slide[]> {
+  const response = page.waitForResponse(r => new URL(r.url()).pathname === '/api/v1/home/carousel' && r.ok())
+  await openHome(page)
+  const { items } = await (await response).json() as { items: Slide[] }
+  expect(items.length).toBeGreaterThan(1)
+  return items
+}
+
+async function expectSlideDestination(page: Page, slide: Slide): Promise<void> {
+  if (slide.target === 'PLAY_GAMES') await expect(page.getByTestId('play-games')).toBeVisible()
+  else await expect(page.getByTestId('home-channel-' + slide.target.toLowerCase())).toHaveClass(/home-header__channel--active/)
+}
 
 async function openHome(page: Page): Promise<void> {
   await page.goto('/#/pages/home/index')
@@ -53,81 +67,84 @@ test.describe('首页改版', () => {
   test.describe('轮播只靠左右滑动', () => {
     test.use({ reducedMotion: 'reduce' })
 
-    test('HOME-002 轮播四张，下方没有圆点、箭头和暂停按钮，左滑依次切换', async ({ page }) => {
-      await openHome(page)
+    test('HOME-002 按后台发布顺序滑动所有轮播并回到第一张，下方不显示控制按钮', async ({ page }) => {
+      const slides = await openCarousel(page)
       const carousel = page.getByTestId('home-carousel')
 
-      await expect(carousel.locator('swiper-item, uni-swiper-item')).toHaveCount(4)
+      await expect(carousel.locator('swiper-item, uni-swiper-item')).toHaveCount(slides.length)
       await expect(carousel.getByRole('button', { name: /上一张|下一张|暂停轮播|播放轮播|第 \d 张/ })).toHaveCount(0)
       await expect(carousel).not.toContainText('运营精选')
 
-      await expect(carousel).toHaveAttribute('data-current-slide', 'contest')
-      await swipeCarouselTo(page, 'study-tour')
-      await swipeCarouselTo(page, 'games')
-      await swipeCarouselTo(page, 'experience')
-      // Circular: one more swipe comes back to the first slide.
-      await swipeCarouselTo(page, 'contest')
+      await expect(carousel).toHaveAttribute('data-current-slide', slides[0].id)
+      for (const slide of [...slides.slice(1), slides[0]]) {
+        await swipeCarouselOnce(page)
+        await expect(carousel).toHaveAttribute('data-current-slide', slide.id)
+      }
     })
 
     test('HOME-004 轮播按钮各到各的去处', async ({ page }) => {
-      await openHome(page)
+      const slides = await openCarousel(page)
 
-      await swipeCarouselTo(page, 'contest')
-      await page.getByTestId('home-carousel-action-contest').click()
+      const activity = slides.find(slide => slide.target === 'ACTIVITY')!
+      const experience = slides.find(slide => slide.target === 'EXPERIENCE')!
+      const games = slides.find(slide => slide.target === 'PLAY_GAMES')!
+      await swipeCarouselTo(page, activity.id)
+      await page.getByTestId('home-carousel-action-' + activity.id).click()
       await expect(page.getByTestId('home-channel-activity')).toHaveClass(
         /home-header__channel--active/,
       )
 
       await page.getByTestId('home-channel-recommend').click()
-      await swipeCarouselTo(page, 'experience')
-      await page.getByTestId('home-carousel-action-experience').click()
+      await swipeCarouselTo(page, experience.id)
+      await page.getByTestId('home-carousel-action-' + experience.id).click()
       await expect(page.getByTestId('home-channel-experience')).toHaveClass(
         /home-header__channel--active/,
       )
 
       await page.getByTestId('home-channel-recommend').click()
-      await swipeCarouselTo(page, 'games')
-      await page.getByTestId('home-carousel-action-games').click()
+      await swipeCarouselTo(page, games.id)
+      await page.getByTestId('home-carousel-action-' + games.id).click()
       await expect(page.getByTestId('play-games')).toBeVisible()
     })
   })
 
   test('HOME-003 轮播自己往后翻', async ({ page }) => {
     test.setTimeout(40_000)
-    await openHome(page)
+    const slides = await openCarousel(page)
     const carousel = page.getByTestId('home-carousel')
-    await expect(carousel).toHaveAttribute('data-current-slide', 'contest')
+    await expect(carousel).toHaveAttribute('data-current-slide', slides[0].id)
 
     // One interval is 5.5 s; the second slide has to arrive on its own.
-    await expect(carousel).toHaveAttribute('data-current-slide', 'study-tour', {
+    await expect(carousel).toHaveAttribute('data-current-slide', slides[1].id, {
       timeout: 9_000,
     })
   })
 
   test('HOME-007 读轮播时保持当前张，点画面进入对应频道', async ({ page }) => {
-    await openHome(page)
+    const [slide] = await openCarousel(page)
     const carousel = page.getByTestId('home-carousel')
-    const first = page.getByTestId('home-carousel-slide-contest')
+    const first = page.getByTestId('home-carousel-slide-' + slide.id)
     await carousel.hover()
     await page.waitForTimeout(6100)
-    await expect(carousel).toHaveAttribute('data-current-slide', 'contest')
+    await expect(carousel).toHaveAttribute('data-current-slide', slide.id)
     await first.click({ position: { x: 300, y: 75 } })
-    await expect(page.getByTestId('home-channel-activity')).toHaveClass(/home-header__channel--active/)
+    await expectSlideDestination(page, slide)
   })
 
   test('HOME-008 焦点留在轮播时保持当前张，键盘可以打开卡片', async ({ page }) => {
-    await openHome(page)
-    const slide = page.getByTestId('home-carousel-slide-contest')
+    const slides = await openCarousel(page)
+    const last = slides[slides.length - 1]
+    const slide = page.getByTestId('home-carousel-slide-' + slides[0].id)
     await slide.focus()
     await page.waitForTimeout(6100)
-    await expect(page.getByTestId('home-carousel')).toHaveAttribute('data-current-slide', 'contest')
+    await expect(page.getByTestId('home-carousel')).toHaveAttribute('data-current-slide', slides[0].id)
     await page.keyboard.press('ArrowLeft')
-    await expect(page.getByTestId('home-carousel')).toHaveAttribute('data-current-slide', 'experience')
-    await expect(page.getByTestId('home-carousel-slide-experience')).toBeFocused()
+    await expect(page.getByTestId('home-carousel')).toHaveAttribute('data-current-slide', last.id)
+    await expect(page.getByTestId('home-carousel-slide-' + last.id)).toBeFocused()
     await page.keyboard.press('ArrowRight')
     await expect(slide).toBeFocused()
     await page.keyboard.press('Enter')
-    await expect(page.getByTestId('home-channel-activity')).toHaveClass(/home-header__channel--active/)
+    await expectSlideDestination(page, slides[0])
   })
 
   test('HOME-005 金刚位：趣玩挑战换下专业服务，商品入口进商城频道', async ({

@@ -1,6 +1,7 @@
 package com.lowaltitude.inspection.infrastructure.cache;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -67,15 +68,22 @@ class StringRedisCitySearchSelectionRateLimiterRedisIT {
     }
 
     @Test
-    void resetsTheCounterAfterTheWindowExpires() throws InterruptedException {
-        StringRedisCitySearchSelectionRateLimiter limiter = limiter(1, Duration.ofMillis(100));
+    void resetsTheCounterAfterTheWindowExpires() {
+        String address = "203.0.113.21";
+        String key = rateLimitKey(address);
+        Duration window = Duration.ofMinutes(1);
+        StringRedisCitySearchSelectionRateLimiter limiter = limiter(1, window);
 
-        assertThat(limiter.check("203.0.113.21").status())
+        assertThat(limiter.check(address).status())
                 .isEqualTo(CitySearchSelectionRateLimiter.Status.ALLOWED);
-        assertThat(limiter.check("203.0.113.21").status())
-                .isEqualTo(CitySearchSelectionRateLimiter.Status.RATE_LIMITED);
-        Thread.sleep(200);
-        assertThat(limiter.check("203.0.113.21").status())
+        var limited = limiter.check(address);
+        assertThat(limited.status()).isEqualTo(CitySearchSelectionRateLimiter.Status.RATE_LIMITED);
+        assertThat(limited.retryAfter()).isPositive().isLessThanOrEqualTo(window);
+
+        // Shorten this fixture's active window only after observing the limited request.
+        assertThat(redisTemplate.expire(key, Duration.ofMillis(100))).isTrue();
+        await().atMost(Duration.ofSeconds(10)).until(() -> Boolean.FALSE.equals(redisTemplate.hasKey(key)));
+        assertThat(limiter.check(address).status())
                 .isEqualTo(CitySearchSelectionRateLimiter.Status.ALLOWED);
     }
 

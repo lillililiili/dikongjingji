@@ -335,16 +335,37 @@ test.describe('巡检入口', () => {
   test('NAV-012 切频道不串滚动位置', async ({ page }) => {
     await page.setViewportSize(SHORT_SCREEN)
     await enterServiceChannel(page)
-    await page.evaluate(() => window.scrollTo(0, 300))
-    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(300)
+    // The header scrolls with the page. Tap the part that is still on screen without
+    // Playwright scrolling an offscreen tab into view and changing the position being tested.
+    await page.evaluate(() => window.scrollTo(0, 12))
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(12)
 
     // Every channel has content now; a channel opened for the first time starts at the top.
-    await page.getByTestId('home-channel-mall').click()
-    await expect(page.getByTestId('mall-channel')).toBeVisible()
+    const next = await page.getByTestId('home-channel-activity').boundingBox()
+    if (!next) throw new Error('赛事研学入口不可见')
+    const bottom = next.y + next.height
+    expect(bottom).toBeGreaterThan(0)
+    await page.mouse.click(next.x + next.width / 2, (Math.max(0, next.y) + bottom) / 2)
+    await expect(page.getByTestId('activity-channel')).toBeVisible()
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
 
     await page.getByTestId('home-channel-service').click()
     await expect(page.getByTestId('inspection-portal')).toBeVisible()
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(12)
+  })
+
+  test('NAV-SCROLL 滚动后同一帧切换频道，返回保留实际浏览位置', async ({ page }) => {
+    await page.setViewportSize(SHORT_SCREEN)
+    await enterServiceChannel(page)
+    await expect(page.getByTestId('portal-view-all')).toBeVisible()
+    await page.getByTestId('home-channel-mall').evaluate((button: HTMLElement) => {
+      window.scrollTo(0, 300)
+      if (window.scrollY !== 300) throw new Error('巡检内容尚不足一屏')
+      button.click()
+    })
+    await expect(page.getByTestId('mall-channel')).toBeVisible()
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+    await page.getByTestId('home-channel-service').click()
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(300)
   })
 

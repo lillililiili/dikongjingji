@@ -526,7 +526,7 @@ describe('inspection login route and recovery', () => {
       "error.status === 401 || error.code === 'COMMON_UNAUTHORIZED'",
     )
     // A 401 first tries one silent renewal with the refresh token (auth-refresh.test.ts).
-    expect(bookingHttpSource).toContain('accessTokenAfterUnauthorized(token)')
+    expect(bookingHttpSource).toContain('renewRequestToken(token)')
   })
 
 })

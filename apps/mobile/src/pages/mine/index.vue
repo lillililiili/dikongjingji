@@ -49,6 +49,8 @@ import PlatformMinePage from '@/features/inspection/presentation/platform/mine/P
 import { buildMyOrdersUrl, type MyOrderChip } from '@/features/orders/application/my-orders-route'
 import { buildAftersalesUrl } from '@/features/trade/navigation/aftersale-routes'
 import { SETTINGS_PATH, ABOUT_PATH } from '@/features/settings/navigation/settings-routes'
+import { SETTINGS_PREVIEW_ENABLED } from '@/features/settings/application/settings-preview'
+import { confirmSignOut } from '@/features/account/application/confirm-sign-out'
 import { loadStaffAccess } from '@/features/staff/application/staff-access'
 import { STAFF_WORK_MODE_ENABLED } from '@/features/staff/application/staff-work-mode'
 import { COURSE_PREVIEW_ENABLED } from '@/features/course/application/course-preview'
@@ -110,7 +112,7 @@ function resolveLinkRows(signedIn: boolean, values: RowValues): PlatformMineLink
     ...(FAVORITE_PREVIEW_ENABLED ? [{ code: 'FAVORITES', title: '收藏与对比' }] : []),
     ...(SUPPORT_PREVIEW_ENABLED ? [{ code: 'HELP', title: '帮助与反馈' }] : []),
     ...(SUPPORT_PREVIEW_ENABLED && signedIn ? [{ code: 'SUPPORT', title: '联系客服' }] : []),
-    ...(SUPPORT_PREVIEW_ENABLED && !signedIn ? [{ code: 'ABOUT', title: '关于' }] : []),
+    ...(SETTINGS_PREVIEW_ENABLED && !signedIn ? [{ code: 'ABOUT', title: '关于' }] : []),
     ...(STAFF_WORK_MODE_ENABLED && signedIn && values.staffWorkMode
       ? [{ code: 'STAFF_WORK_MODE', title: '工作模式', valueText: '核销员 · 仅授权可见' }]
       : []),
@@ -360,10 +362,6 @@ function openCustomerService(): void {
 }
 
 function openSettings(): void {
-  if (!SUPPORT_PREVIEW_ENABLED) {
-    showUnavailable()
-    return
-  }
   if (!signedIn()) openLogin()
   else uni.navigateTo({ url: SETTINGS_PATH })
 }
@@ -498,10 +496,12 @@ onShow(() => {
   <view data-testid="mine-page">
     <PlatformMinePage
       :state="state"
+      :settings-enabled="SETTINGS_PREVIEW_ENABLED"
       :goods-orders-entry="TRADE_PREVIEW_ENABLED"
       @retry="loadSignedIn"
       @login="openLogin"
       @settings="openSettings"
+      @logout="confirmSignOut"
       @select-stage="openStage"
       @view-all-orders="openAllOrders"
       @open-enrollment="openEnrollment"

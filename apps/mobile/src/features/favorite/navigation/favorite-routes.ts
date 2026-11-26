@@ -27,7 +27,13 @@ export interface MallCompareQuery {
 // to compare).
 export function parseMallCompareQuery(query: Record<string, string | undefined>, maxItems: number): MallCompareQuery | null {
   const cityCode = query.cityCode?.trim() ?? ''
-  const ids = [...new Set(decodeURIComponent(query.ids ?? '').split(',').map((id) => id.trim()).filter((id) => UUID.test(id)))]
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(query.ids ?? '')
+  } catch {
+    return null
+  }
+  const ids = [...new Set(decoded.split(',').map((id) => id.trim()).filter((id) => UUID.test(id)))]
   if (!/^[A-Z0-9]{4,16}$/.test(cityCode) || ids.length < 2) return null
   return { productIds: ids.slice(0, maxItems), cityCode }
 }

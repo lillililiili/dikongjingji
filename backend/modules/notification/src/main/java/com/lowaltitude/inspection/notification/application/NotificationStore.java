@@ -24,17 +24,17 @@ interface NotificationStore {
     int markTargetRead(UUID recipientId, NotificationCategory category, NotificationTargetType targetType,
                        UUID targetId, Instant at);
 
-    long count(UUID recipientId);
+    long count(UUID recipientId, boolean systemNotices);
 
-    long countUnread(UUID recipientId);
+    long countUnread(UUID recipientId, boolean systemNotices);
 
-    List<MessageRow> findPage(UUID recipientId, int limit, int offset);
+    List<MessageRow> findPage(UUID recipientId, int limit, int offset, boolean systemNotices);
 
     boolean exists(UUID recipientId, UUID id);
 
     int markRead(UUID recipientId, UUID id, Instant at);
 
-    int markAllRead(UUID recipientId, Instant at);
+    int markAllRead(UUID recipientId, Instant at, boolean systemNotices);
 
     /** 把发给全体、发给 cityCode 的有效公告补记成收件人的站内信；返回新记了几条。 */
     int deliverSystemNotices(UUID recipientId, String cityCode, Instant now);

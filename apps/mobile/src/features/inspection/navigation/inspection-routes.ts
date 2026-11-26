@@ -125,7 +125,7 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   '/pages/cart/index': { allowed: [] },
   '/pages/cart/checkout': {
     required: 'cityCode',
-    allowed: ['items', 'offerId', 'quantity', 'inquiryQuoteId', 'inquiryId', 'cityCode'],
+    allowed: ['items', 'offerId', 'quantity', 'inquiryQuoteId', 'inquiryId', 'cityCode', 'delivery'],
   },
   // Inquiry goods (F4).
   '/pages/mall/inquiry': { required: 'productId', allowed: ['productId', 'cityCode'] },

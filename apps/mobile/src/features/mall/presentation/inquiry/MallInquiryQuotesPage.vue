@@ -4,6 +4,9 @@ import QualificationBadge from '@/shared/ui/QualificationBadge.vue'
 import { computed, ref, watch } from 'vue'
 
 import { tradeApi } from '@/features/trade/data/trade-api-client'
+import { TRADE_PREVIEW_ENABLED } from '@/features/trade/application/trade-preview'
+import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
+import { CART_PREVIEW_ENABLED } from '../../application/cart-preview'
 import { ApiRequestError } from '@/shared/http/public-api-request'
 
 import { loadInquiryCityName } from '../../application/inquiry-city'
@@ -99,18 +102,8 @@ function isUnauthorized(error: unknown): boolean {
   return error instanceof ApiRequestError && (error.status === 401 || error.code === 'COMMON_UNAUTHORIZED')
 }
 
-// The chosen quote's latest order: alive unless it was closed without payment.
-async function readOrderOpen(token: string, orderId: string | null): Promise<boolean> {
-  if (!orderId) return false
-  try {
-    return (await tradeApi.read(token, orderId)).status !== 'CLOSED'
-  } catch (error) {
-    if (isUnauthorized(error)) throw error
-    return false
-  }
-}
-
 async function load(): Promise<void> {
+  const requested = ++requestVersion
   const token = props.accessToken
   if (!token) {
     emit('login')
@@ -120,16 +113,18 @@ async function load(): Promise<void> {
     state.value = { kind: 'missing' }
     return
   }
-  const requested = ++requestVersion
-  if (state.value.kind !== 'ready') state.value = { kind: 'loading' }
+  state.value = { kind: 'loading' }
+  let inquiryFound = false
   try {
     const loaded = await mallInquiryApi.read(token, props.inquiryId, sort.value)
-    const [open, name] = await Promise.all([
-      readOrderOpen(token, loaded.inquiry.chosen?.orderId ?? null),
+    inquiryFound = true
+    const orderId = loaded.inquiry.chosen?.orderId
+    const [order, name] = await Promise.all([
+      orderId && TRADE_PREVIEW_ENABLED ? tradeApi.read(token, orderId) : Promise.resolve(null),
       cityName.value ? Promise.resolve(cityName.value) : loadInquiryCityName(loaded.inquiry.cityCode),
     ])
     if (requested !== requestVersion) return
-    orderOpen.value = open
+    orderOpen.value = order !== null && order.status !== 'CLOSED'
     cityName.value = name
     state.value = { kind: 'ready', detail: loaded }
   } catch (error) {
@@ -139,7 +134,8 @@ async function load(): Promise<void> {
       return
     }
     state.value = {
-      kind: error instanceof ApiRequestError && (error.status === 404 || error.status === 400) ? 'missing' : 'error',
+      kind: !inquiryFound && error instanceof ApiRequestError && (error.status === 404 || error.status === 400)
+        ? 'missing' : 'error',
     }
   }
 }
@@ -352,7 +348,7 @@ watch(() => [props.refreshKey, props.accessToken, props.inquiryId], () => { void
                 {{ card.totalLabel }}<text class="inquiry-quotes__total" data-testid="inquiry-quote-total">{{ card.total }}</text>
               </text>
               <view class="inquiry-quotes__card-actions">
-                <button class="inquiry-quotes__consult" data-testid="inquiry-quote-consult" @click="consult(card.quote.merchant.organizationId, card.total)">咨询</button>
+                <button v-if="SUPPORT_PREVIEW_ENABLED" class="inquiry-quotes__consult" data-testid="inquiry-quote-consult" @click="consult(card.quote.merchant.organizationId, card.total)">咨询</button>
                 <button
                   :class="[
                     'inquiry-quotes__choose',
@@ -412,7 +408,7 @@ watch(() => [props.refreshKey, props.accessToken, props.inquiryId], () => { void
             <text class="inquiry-quotes__bar-total" data-testid="inquiry-quotes-chosen-total">{{ bar.total }}</text>
           </view>
           <button
-            v-if="bar.kind === 'ORDER'"
+            v-if="bar.kind === 'ORDER' && CART_PREVIEW_ENABLED && TRADE_PREVIEW_ENABLED"
             class="inquiry-quotes__bar-button"
             data-testid="inquiry-quotes-checkout"
             @click="toCheckout"
@@ -420,14 +416,14 @@ watch(() => [props.refreshKey, props.accessToken, props.inquiryId], () => { void
             转为订单
           </button>
           <button
-            v-else-if="bar.kind === 'VIEW_ORDER'"
+            v-else-if="bar.kind === 'VIEW_ORDER' && TRADE_PREVIEW_ENABLED"
             class="inquiry-quotes__bar-button"
             data-testid="inquiry-quotes-view-order"
             @click="emit('viewOrder', bar.orderId)"
           >
             查看订单
           </button>
-          <button v-else class="inquiry-quotes__bar-button" data-testid="inquiry-quotes-reinquire" @click="reinquire">
+          <button v-else-if="bar.kind === 'EXPIRED'" class="inquiry-quotes__bar-button" data-testid="inquiry-quotes-reinquire" @click="reinquire">
             重新询价
           </button>
         </template>
@@ -439,7 +435,7 @@ watch(() => [props.refreshKey, props.accessToken, props.inquiryId], () => { void
         </template>
         <template v-else>
           <text class="inquiry-quotes__bar-text">请选择一份报价</text>
-          <button class="inquiry-quotes__bar-button inquiry-quotes__bar-button--off" data-testid="inquiry-quotes-checkout" disabled>
+          <button v-if="CART_PREVIEW_ENABLED && TRADE_PREVIEW_ENABLED" class="inquiry-quotes__bar-button inquiry-quotes__bar-button--off" data-testid="inquiry-quotes-checkout" disabled>
             转为订单
           </button>
         </template>

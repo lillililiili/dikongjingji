@@ -14,6 +14,7 @@ import LineIcon from '@/shared/ui/LineIcon.vue'
 import { MALL_PREVIEW_ENABLED } from '../../../mall/application/mall-preview'
 import { buildMallProductUrl } from '../../../mall/navigation/mall-routes'
 import { experienceApi } from '../../data/experience-api-client'
+import ExperienceLinkMissing from '../shared/ExperienceLinkMissing.vue'
 import { buildVenueDetailUrl } from '../../navigation/experience-routes'
 import {
   EXPERIENCE_PAGE_SIZE,
@@ -39,6 +40,7 @@ const devices = ref<PagedListState<VenueDevice>>(emptyPagedList())
 const subtitle = ref<string | undefined>(undefined)
 let venueId = ''
 let cityCode = ''
+const missingLink = ref(false)
 
 async function loadSubtitle(): Promise<void> {
   try {
@@ -105,17 +107,22 @@ function openVenue(): void {
 onLoad((query) => {
   venueId = typeof query?.venueId === 'string' ? query.venueId : ''
   cityCode = typeof query?.cityCode === 'string' ? query.cityCode : ''
+  if (!venueId || !cityCode) {
+    missingLink.value = true
+    return
+  }
   reload()
-  if (venueId && cityCode) void loadSubtitle()
+  void loadSubtitle()
 })
 
 onReachBottom(() => {
-  void loader.loadMore()
+  if (!missingLink.value) void loader.loadMore()
 })
 </script>
 
 <template>
-  <view class="venue-devices" data-testid="venue-devices">
+  <ExperienceLinkMissing v-if="missingLink" />
+  <view v-else class="venue-devices" data-testid="venue-devices">
     <view class="venue-devices__top">
       <AppPageHeader title="馆内展示设备" :subtitle="subtitle" test-id="venue-devices" @back="goBack">
         <template #bottom>

@@ -5,7 +5,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 
 import HomeHeader from '@/app-shell/components/HomeHeader.vue'
 import { ACCOUNT_PREVIEW_ENABLED } from '@/features/account/application/account-preview'
-import { shouldOpenOnboardingNow } from '@/features/account/application/onboarding-consent'
+import { prefersManualHomeCity, shouldOpenOnboardingNow, takeManualHomeCityRequest } from '@/features/account/application/onboarding-consent'
 import { ONBOARDING_PATH } from '@/features/account/navigation/account-routes'
 import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
 import type { HomeCarouselSlide } from '@/app-shell/navigation/home-carousel'
@@ -47,6 +47,7 @@ import {
   isCityClosed,
   openCityToSwitchTo,
   resolveCityOpening,
+  restoreHomeCity,
 } from '@/features/platform/application/city-opening'
 import type { CityDirectory } from '@/shared/city/domain/city-directory'
 import CityClosedPanel from '@/features/platform/presentation/closed/CityClosedPanel.vue'
@@ -238,7 +239,8 @@ function defaultCity(): CurrentCity | null {
 
 async function restoreDefaultCity(): Promise<CurrentCity> {
   if (currentCityStore.currentCity) return currentCityStore.currentCity
-  const city = defaultCity() ?? openCityToSwitchTo(await platformCityApi.load(), null, null)
+  const previousCode = prefersManualHomeCity() ? recentCities.value[0]?.code : undefined
+  const city = await restoreHomeCity(previousCode, defaultCity(), () => platformCityApi.load())
   if (currentCityStore.currentCity) return currentCityStore.currentCity
   if (!city) {
     void citySheet.open()
@@ -277,7 +279,7 @@ async function loadHomeContent(): Promise<void> {
   const requestVersion = ++contentRequestVersion
   if (state.value.kind !== 'ready') state.value = { kind: 'loading' }
   try {
-    const city = await resolveCurrentCity({
+    const city = prefersManualHomeCity() ? await restoreDefaultCity() : await resolveCurrentCity({
       getCurrentCity: () => currentCityStore.currentCity,
       setCurrentCity: (located) => currentCityStore.setCurrentCity(located),
       locateCityName: locateCurrentCityName,
@@ -381,7 +383,12 @@ function scrollToTop(): void {
 }
 
 watch(activeChannel, async (channel, previousChannel) => {
-  scrollPositions.set(previousChannel, currentScrollTop)
+  // A tap can follow a scroll before H5 delivers its next onPageScroll event.
+  let previousTop = currentScrollTop
+  // #ifdef H5
+  previousTop = window.scrollY
+  // #endif
+  scrollPositions.set(previousChannel, previousTop)
   keyword.value = ''
   // The box is emptied on every channel change, so a mall search ends with it.
   if (previousChannel === 'MALL' && requestedMallKeyword.value?.keyword) searchMall('')
@@ -412,6 +419,7 @@ onShow(() => {
   }
   pageVisible.value = true
   takePendingMall()
+  if (takeManualHomeCityRequest()) void citySheet.open()
   void loadHomeContent()
   void nextTick(() => restoreChannelScroll(activeChannel.value))
 })

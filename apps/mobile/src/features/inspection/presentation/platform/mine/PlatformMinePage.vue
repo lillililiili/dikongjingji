@@ -19,6 +19,7 @@ import {
 // Layout, sizes and colours copied from the 2026-11-14 boards Mine (signed in) and MineGuest.
 const props = defineProps<{
   state: PlatformMineViewState
+  settingsEnabled: boolean
   // Goods orders exist (trade module, preview builds): 待付款 is their way in from here.
   goodsOrdersEntry?: boolean
 }>()
@@ -27,6 +28,7 @@ const emit = defineEmits<{
   retry: []
   login: []
   settings: []
+  logout: []
   selectStage: [stage: MineOrderStage]
   viewAllOrders: []
   openEnrollment: []
@@ -72,9 +74,10 @@ const stageCount = (code: MineOrderStage): number | undefined =>
         <!-- Signed in (board Mine): the gear tile above a gradient profile card. -->
         <template v-if="content.user">
           <view class="platform-mine__profile-actions">
-            <button class="platform-mine__settings" data-testid="mine-settings" aria-label="设置" @click="emit('settings')">
+            <button v-if="settingsEnabled" class="platform-mine__settings" data-testid="mine-settings" aria-label="设置" @click="emit('settings')">
               <IconTile tone="blue" :d="MINE_GEAR_ICON" :size="44" :icon-size="22" />
             </button>
+            <button v-else class="platform-mine__logout" role="button" aria-label="退出登录" @click="emit('logout')">退出登录</button>
           </view>
           <view class="platform-mine__profile" data-testid="mine-profile">
             <view v-if="content.user.enterpriseIdentity" class="platform-mine__identity" data-testid="mine-enterprise-identity">
@@ -279,6 +282,13 @@ button::after {
   height: 44px;
   align-items: center;
   justify-content: center;
+}
+
+.platform-mine__logout {
+  min-height: 44px;
+  padding: 0 16px;
+  color: #48566c;
+  font-size: 14px;
 }
 
 .platform-mine__profile {

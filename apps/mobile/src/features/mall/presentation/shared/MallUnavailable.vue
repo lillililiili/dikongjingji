@@ -1,15 +1,15 @@
 <script setup lang="ts">
-// What a goods inquiry page shows in a public build, where inquiry goods are not open yet.
+defineProps<{ message: string; testId: string }>()
 </script>
 
 <template>
-  <view class="inquiry-unavailable" data-testid="mall-inquiry-unavailable">
-    <text>询价功能尚未开通</text>
+  <view class="mall-unavailable" :data-testid="testId">
+    <text>{{ message }}</text>
   </view>
 </template>
 
 <style scoped>
-.inquiry-unavailable {
+.mall-unavailable {
   display: flex;
   min-height: 100vh;
   align-items: center;

@@ -20,6 +20,6 @@
     { "key": "PLACES", "flag": "PLACE_PREVIEW_ENABLED", "file": "src/features/place/application/place-preview.ts", "publicRelease": false },
     { "key": "FAVORITE", "flag": "FAVORITE_PREVIEW_ENABLED", "file": "src/features/favorite/application/favorite-preview.ts", "publicRelease": false },
     { "key": "ACCOUNT", "flag": "ACCOUNT_PREVIEW_ENABLED", "file": "src/features/account/application/account-preview.ts", "publicRelease": false },
-    { "key": "PLAY", "flag": null, "file": "src/app-shell/navigation/home-channels.ts", "publicRelease": false }
+    { "key": "PLAY", "flag": "PLAY_PREVIEW_ENABLED", "file": "src/features/play/application/play-preview.ts", "publicRelease": false }
   ]
 }

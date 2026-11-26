@@ -42,7 +42,7 @@ export type ReleaseFeatureKey =
 
 export interface ReleaseFeature {
   key: ReleaseFeatureKey
-  /** The module's flag constant, or null when the switch is read in place (PLAY). */
+  /** The module's flag constant, or null when the switch is read in place. */
   flag: string | null
   /** The file (relative to apps/mobile) that reads the switch. */
   file: string

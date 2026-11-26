@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { isMediaUrl } from '../http/media-url'
 
 /**
  * The shared picture viewer (board PhotoViewer): review pictures, delivery pictures and content
@@ -33,11 +34,15 @@ export const usePhotoViewerStore = defineStore('photo-viewer', {
   state: (): { request: PhotoViewerRequest | null } => ({ request: null }),
   actions: {
     show(request: PhotoViewerRequest): void {
-      const photos = request.photos.filter((photo) => /^(https:\/\/|\/static\/|data:image\/)/.test(photo.url) || /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//.test(photo.url))
+      const entries = request.photos.map((photo, index) => ({ photo, index })).filter(({ photo }) =>
+        isMediaUrl(photo.url) || /^(\/static\/|data:image\/)/.test(photo.url) || /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//.test(photo.url))
+      const firstAtOrAfter = entries.findIndex(({ index }) => index >= request.startIndex)
+      const save = request.save
       this.request = {
         ...request,
-        photos,
-        startIndex: Math.min(Math.max(0, request.startIndex), Math.max(0, photos.length - 1)),
+        photos: entries.map(({ photo }) => photo),
+        startIndex: firstAtOrAfter >= 0 ? firstAtOrAfter : Math.max(0, entries.length - 1),
+        save: save && ((index) => save(entries[index].index)),
       }
     },
   },

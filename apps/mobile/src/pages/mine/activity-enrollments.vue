@@ -3,6 +3,8 @@ import { onLoad, onReachBottom, onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
+import { ACTIVITY_PREVIEW_ENABLED } from '@/features/activity/application/activity-preview'
+import ActivityUnavailable from '@/features/activity/presentation/shared/ActivityUnavailable.vue'
 import type { EnrollmentStatus } from '@/features/activity/domain/enrollment'
 import {
   buildActivityChangeUrl,
@@ -101,7 +103,7 @@ onReachBottom(() => {
 
 <template>
   <ActivityEnrollmentsPage
-    v-if="shown"
+    v-if="ACTIVITY_PREVIEW_ENABLED && shown"
     :access-token="accessToken"
     :refresh-key="refreshKey"
     :reach-bottom-key="reachBottomKey"
@@ -119,4 +121,5 @@ onReachBottom(() => {
     @open-result="openResult"
     @open-change="openChange"
   />
+  <ActivityUnavailable v-else-if="!ACTIVITY_PREVIEW_ENABLED" />
 </template>

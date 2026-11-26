@@ -52,10 +52,11 @@ function onTouchEnd(event: Event): void {
 async function save(): Promise<void> {
   const saver = props.request.save
   if (!saver || saving.value || isSaved.value) return
+  const photoIndex = index.value
   saving.value = true
   try {
-    const outcome = await saver(index.value)
-    saved.value = { ...saved.value, [index.value]: outcome.until }
+    const outcome = await saver(photoIndex)
+    saved.value = { ...saved.value, [photoIndex]: outcome.until }
   } catch {
     uni.showToast({ title: '下载链接没有生成，请稍后重试', icon: 'none' })
   } finally {

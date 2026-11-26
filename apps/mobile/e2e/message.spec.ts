@@ -31,16 +31,40 @@ async function signIn(page: Page): Promise<void> {
   })
 }
 
-async function stubInbox(page: Page, items: unknown[], unreadCount: number, hasMore = false): Promise<void> {
+async function stubInbox(page: Page, items: unknown[], unreadCount: number, hasMore = false) {
+  const inbox = { items, unreadCount }
   await page.route('**/api/v1/notifications?**', (route: Route) =>
-    route.fulfill({ json: { page: 1, size: 20, total: items.length, hasMore, unreadCount, items } }))
+    route.fulfill({ json: { page: 1, size: 20, total: inbox.items.length, hasMore, ...inbox } }))
   await page.route('**/api/v1/notifications/unread-count*', (route: Route) =>
-    route.fulfill({ json: { count: unreadCount } }))
+    route.fulfill({ json: { count: inbox.unreadCount } }))
+  return inbox
 }
 
 const messageBadge = (page: Page) => page.getByTestId('root-tab-message').locator('.root-tab-bar__badge')
 
 test.describe('消息', () => {
+  test('MSG-RETRY 全部已读失败保留未读数，可在当前页重试', async ({ page }) => {
+    await signIn(page)
+    const inbox = await stubInbox(page, [notice(1), notice(2)], 2)
+    let attempts = 0
+    await page.route('**/api/v1/notifications/read-all', route => {
+      if (++attempts === 1) return route.fulfill({ status: 503, json: {} })
+      inbox.items = [notice(1, { read: true }), notice(2, { read: true })]
+      inbox.unreadCount = 0
+      return route.fulfill({ json: { updated: 2 } })
+    })
+    await page.goto('/#/pages/message/index')
+    const markAll = page.getByTestId('message-read-all')
+    await markAll.click()
+    await expect(page.getByText('标记已读失败，请重试')).toBeVisible()
+    await expect(messageBadge(page)).toHaveText('2')
+    await expect(page.locator('.message-center__dot')).toHaveCount(2)
+    await markAll.click()
+    await expect(markAll).toHaveCount(0)
+    await expect(messageBadge(page)).toHaveCount(0)
+    expect(attempts).toBe(2)
+  })
+
   test('切换账号清除旧会话，新账号读失败后可独立重试', async ({ page }) => {
     await signIn(page)
     await stubInbox(page, [], 0)
@@ -111,10 +135,12 @@ test.describe('消息', () => {
 
   test('MSG-003 “全部已读”清掉未读点和角标，没有未读时不显示这个按钮', async ({ page }) => {
     await signIn(page)
-    await stubInbox(page, [notice(1), notice(2)], 2)
+    const inbox = await stubInbox(page, [notice(1), notice(2)], 2)
     let readAll = 0
     await page.route('**/api/v1/notifications/read-all', (route: Route) => {
       readAll += 1
+      inbox.items = [notice(1, { read: true }), notice(2, { read: true })]
+      inbox.unreadCount = 0
       return route.fulfill({ json: { updated: 2 } })
     })
     await page.goto('/#/pages/message/index')
@@ -126,6 +152,22 @@ test.describe('消息', () => {
     await expect(messageBadge(page)).toHaveCount(0)
     await expect(page.getByTestId('message-read-all')).toHaveCount(0)
     expect(readAll).toBe(1)
+  })
+
+  test('MSG-ARRIVAL 全部已读写入后收到新消息，只清除写入时已有消息的未读点', async ({ page }) => {
+    await signIn(page)
+    const inbox = await stubInbox(page, [notice(1)], 1)
+    await page.route('**/api/v1/notifications/read-all', route => {
+      inbox.items = [notice(2, { title: '操作后收到的新消息' }), notice(1, { read: true })]
+      inbox.unreadCount = 1
+      return route.fulfill({ json: { updated: 1 } })
+    })
+    await page.goto('/#/pages/message/index')
+    await page.getByTestId('message-read-all').click()
+    await expect(page.getByText('操作后收到的新消息')).toBeVisible()
+    await expect(page.locator('.message-center__dot')).toHaveCount(1)
+    await expect(messageBadge(page)).toHaveText('1')
+    await expect(page.getByTestId('message-read-all')).toBeVisible()
   })
 
   test('MSG-004 登录失效和加载失败分开提示；失败可重试', async ({ page }) => {

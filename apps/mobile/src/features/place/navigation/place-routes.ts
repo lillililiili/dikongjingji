@@ -1,6 +1,12 @@
+import { HOME_ROOT_PATH } from '../../../app-shell/navigation/root-tabs'
 import type { MapPickPurpose } from '../domain/map-place'
 
 export const MAP_PICK_PATH = '/pages/place/map-pick'
+
+export function leavePlacePage(): void {
+  if (getCurrentPages().length > 1) uni.navigateBack()
+  else uni.switchTab({ url: HOME_ROOT_PATH })
+}
 
 export interface MapPickTarget {
   purpose: MapPickPurpose

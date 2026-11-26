@@ -49,6 +49,7 @@ const keyword = ref('')
 const pick = ref<Pick>(null)
 const manualAddress = ref('')
 const offset = ref({ x: 0, y: 0 })
+let selectionRevision = 0
 let dragFrom: { x: number; y: number; point: MapPoint } | null = null
 let searchRevision = 0
 let active = true
@@ -98,35 +99,43 @@ async function loadPlaces(): Promise<void> {
 
 async function locate(): Promise<void> {
   locating.value = true
+  const selectionAtStart = selectionRevision
   const point = await props.provider.locate()
   if (!active) return
   locating.value = false
   located.value = point
-  if (point) {
+  if (point && selectionRevision === selectionAtStart) {
     pin.value = point
     pick.value = null
+    await loadPlaces()
   }
-  await loadPlaces()
 }
 
 // 回到我的位置: the pin back on the position, the search cleared (board).
 function relocate(): void {
-  keyword.value = ''
+  if (locating.value) return
+  if (keyword.value) {
+    keyword.value = ''
+    void loadPlaces()
+  }
   void locate()
 }
 
 function onInput(event: Event): void {
+  selectionRevision++
   keyword.value = ((event as Event & { detail?: { value?: string } }).detail?.value ?? '').toString().slice(0, 40)
   void loadPlaces()
 }
 
 function choose(place: MapPlace): void {
+  selectionRevision++
   pick.value = { kind: 'PLACE', place }
   pin.value = place.point
 }
 
 // 没有找到 a place: the typed words become the address of the pin's spot.
 function useTypedAddress(): void {
+  selectionRevision++
   manualAddress.value = typed.value.slice(0, MAP_ADDRESS_MAX)
   pick.value = { kind: 'PIN' }
 }
@@ -157,6 +166,7 @@ function startDrag(event: Event): void {
   if (dragFrom || !pin.value) return
   const at = pointOf(event as PointerEvent)
   if (!at) return
+  selectionRevision++
   dragFrom = { ...at, point: pin.value }
   if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
     window.addEventListener('mouseup', onWindowRelease)
@@ -202,6 +212,7 @@ function confirm(): void {
 }
 
 onMounted(() => {
+  void loadPlaces()
   void locate()
 })
 onUnmounted(() => {

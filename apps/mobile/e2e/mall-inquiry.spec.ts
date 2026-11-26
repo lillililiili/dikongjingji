@@ -374,8 +374,14 @@ test.describe('询价商品', () => {
     await expect(page.locator('.goods-order__line')).toContainText('× 2')
     await expect(page.getByTestId('goods-order-payable')).toHaveText(payable)
 
-    // 报价比选：已经下过单，底栏是“查看订单”。
+    // 订单服务暂不可用时，已经付款的报价仍不能被误判为允许重新下单。
+    const linkedOrder = `**/api/v1/trade/orders/${orderId}`
+    await page.route(linkedOrder, (route) => route.fulfill({ status: 503, json: { message: '测试订单查询暂不可用' } }))
     await page.goto(`/?n=quotes#/pages/mall/inquiry-quotes?inquiryId=${inquiryId}`)
+    await expect(page.getByTestId('inquiry-quotes-retry')).toBeVisible()
+    await expect(page.getByTestId('inquiry-quotes-checkout')).toHaveCount(0)
+    await page.unroute(linkedOrder)
+    await page.getByTestId('inquiry-quotes-retry').click()
     await expect(page.getByTestId('inquiry-quotes-bar')).toHaveAttribute('data-bar', 'VIEW_ORDER')
     await page.getByTestId('inquiry-quotes-view-order').click()
     await expect(page.getByTestId('goods-order-merchant')).toHaveText('示例行业装备代理')

@@ -3,6 +3,7 @@ import { onReady } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 
 import { HOME_ROOT_PATH } from '@/app-shell/navigation/root-tabs'
+import { readPermissionStates } from '@/features/account/application/app-permissions'
 import { PLACE_PREVIEW_ENABLED } from '@/features/place/application/place-preview'
 import { platformOrigins } from '@/features/scan/application/scan-target'
 import ScanPage from '@/features/scan/presentation/ScanPage.vue'
@@ -43,7 +44,7 @@ function openSearch(): void {
 }
 
 onReady(() => {
-  if (canScan) page.value?.scan()
+  if (canScan && readPermissionStates().camera === 'on') page.value?.scan()
 })
 </script>
 
@@ -56,7 +57,6 @@ onReady(() => {
     @back="goBack"
     @open="open"
     @search="openSearch"
-    @home="goHome"
   />
   <view v-else class="scan-unavailable" data-testid="scan-unavailable">
     <text>扫一扫尚未开通</text>

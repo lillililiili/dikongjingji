@@ -4,9 +4,12 @@ import { rewriteDemoMedia } from '../../../../shared/http/media-url'
 import { createCityDirectoryApi } from '../../../../shared/city/data/city-directory-api'
 import {
   beginBookingAuthenticationRecovery,
+  bookingTokenPrincipal,
   clearBookingAuthSession,
   getBookingAuthContext,
+  hasForeignTabRefreshToken,
   readBookingRefreshToken,
+  sameBookingAccountToken,
   saveBookingAuthSession,
 } from '../../application/service-flow/booking-auth-context'
 import { createInspectionCatalogApi } from '../catalog/inspection-catalog-api'
@@ -91,35 +94,40 @@ type PublicRequestInput = {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE'
   data?: unknown
   headers?: Record<string, string>
+  /** Sign-out cleanup must use the captured credential even after the next account signs in. */
+  authMode?: 'captured'
 }
 
 // Exported for shared/http/public-api-request.ts, the entry every feature uses: anonymous calls, and
-// calls that carry the signed-in account's token in an Authorization header.
-//
-// Login renewal lives here so every feature gets it: a call with a Bearer token always goes out with
-// the session's current access token (a page may still hold one that was renewed since), and a 401
-// is answered by renewing the login once with the refresh token and sending the call again. Only when
-// that fails does the 401 reach the page, which then sends the user to the login page as before.
+// calls that carry the initiating account's token in an Authorization header.
 export async function publicRequest<T>(input: PublicRequestInput): Promise<T> {
   const usedToken = bearerToken(input.headers)
-  const sent = usedToken ? withAccessToken(input, currentAccessTokenOr(usedToken)) : input
+  if (!usedToken || input.authMode === 'captured') return sendWithEndpointRetry<T>(input)
+  const current = getBookingAuthContext().getAccessToken()
+  // Explicit credentials are also used before a login result is persisted.
+  const token = current ? currentAccountToken(usedToken) : usedToken
   try {
-    return await sendWithEndpointRetry<T>(sent)
+    return await sendWithEndpointRetry<T>(withAccessToken(input, token), current ? token : undefined)
   } catch (error) {
-    if (!usedToken || !isUnauthorized(error)) throw error
-    const renewed = await accessTokenAfterUnauthorized(bearerToken(sent.headers) ?? usedToken)
+    if (!isUnauthorized(error) || !current) throw error
+    const renewed = await renewRequestToken(token)
     if (!renewed) throw error
-    return sendWithEndpointRetry<T>(withAccessToken(input, renewed))
+    try {
+      return await sendWithEndpointRetry<T>(withAccessToken(input, renewed), renewed)
+    } catch (retryError) {
+      if (isUnauthorized(retryError)) currentAccountToken(renewed)
+      throw retryError
+    }
   }
 }
 
-async function sendWithEndpointRetry<T>(input: PublicRequestInput): Promise<T> {
+async function sendWithEndpointRetry<T>(input: PublicRequestInput, ownerToken?: string): Promise<T> {
   try {
-    return await sendPublicRequest<T>(input)
+    return await sendPublicRequest<T>(input, ownerToken)
   } catch (error) {
     if (!(error instanceof ApiRequestError) || error.code !== 'NETWORK_ERROR') throw error
     invalidateInspectionApiBaseUrl()
-    return sendPublicRequest<T>(input)
+    return sendPublicRequest<T>(input, ownerToken)
   }
 }
 
@@ -135,15 +143,21 @@ function withAccessToken(input: PublicRequestInput, token: string): PublicReques
   return { ...input, headers: { ...headers, Authorization: `Bearer ${token}` } }
 }
 
-function currentAccessTokenOr(fallback: string): string {
-  return getBookingAuthContext().getAccessToken() ?? fallback
+function sessionChanged(): ApiRequestError {
+  return new ApiRequestError('登录账号已变更，请重新操作', 409, 'AUTH_SESSION_CHANGED')
+}
+
+function currentAccountToken(original: string): string {
+  const current = getBookingAuthContext().getAccessToken()
+  if (!current || !sameBookingAccountToken(original, current)) throw sessionChanged()
+  return current
 }
 
 function isUnauthorized(error: unknown): boolean {
   return error instanceof ApiRequestError && (error.status === 401 || error.code === 'COMMON_UNAUTHORIZED')
 }
 
-let renewalInFlight: Promise<string | null> | null = null
+const renewals = new Map<string, Promise<string | null>>()
 
 /**
  * The access token to retry with after a call made with {@code rejectedToken} got a 401: the
@@ -152,35 +166,51 @@ let renewalInFlight: Promise<string | null> | null = null
  * look like theft to the server and end the login. Null when the login cannot be renewed.
  */
 export async function accessTokenAfterUnauthorized(rejectedToken: string): Promise<string | null> {
-  if (renewalInFlight) return renewalInFlight
-  const current = getBookingAuthContext().getAccessToken()
-  if (current && current !== rejectedToken) return current
-  renewalInFlight = renewLogin().finally(() => { renewalInFlight = null })
-  return renewalInFlight
+  try {
+    return await renewRequestToken(rejectedToken)
+  } catch (error) {
+    if (error instanceof ApiRequestError && error.code === 'AUTH_SESSION_CHANGED') return null
+    throw error
+  }
 }
 
-async function renewLogin(): Promise<string | null> {
+async function renewRequestToken(rejectedToken: string): Promise<string | null> {
+  const current = currentAccountToken(rejectedToken)
+  if (current !== rejectedToken) return current
+  if (hasForeignTabRefreshToken()) throw sessionChanged()
   const refreshToken = readBookingRefreshToken()
   if (!refreshToken) return null
+  const pending = renewals.get(refreshToken)
+  if (pending) return pending
+  const renewal = renewLogin(rejectedToken, refreshToken).finally(() => renewals.delete(refreshToken))
+  renewals.set(refreshToken, renewal)
+  return renewal
+}
+
+async function renewLogin(rejectedToken: string, refreshToken: string): Promise<string | null> {
+  let renewed: InspectionLoginResponse
   try {
     // No Authorization header: the server would reject the expired access token before looking at the body.
-    const renewed = await sendWithEndpointRetry<InspectionLoginResponse>({
+    // A refresh token is single-use. Retrying a lost response immediately would revoke the family.
+    renewed = await sendPublicRequest<InspectionLoginResponse>({
       url: '/api/v1/auth/refresh',
       method: 'POST',
       data: { refreshToken },
     })
-    // A password change or a new login can finish before this response arrives.
-    if (readBookingRefreshToken() !== refreshToken) return null
-    saveBookingAuthSession(renewed)
-    return renewed.accessToken
   } catch (error) {
-    // Offline: the login may still be renewable later, keep it. Any answer from the server means the
-    // refresh token is spent, expired or withdrawn: the login is over.
-    if (readBookingRefreshToken() === refreshToken && (!(error instanceof ApiRequestError) || error.code !== 'NETWORK_ERROR')) {
-      clearBookingAuthSession()
-    }
+    currentAccountToken(rejectedToken)
+    if (readBookingRefreshToken() !== refreshToken) throw sessionChanged()
+    // Only the refresh endpoint's 401 means the credential was refused. Other failures can be retried.
+    if (!(error instanceof ApiRequestError) || error.status !== 401) throw error
+    clearBookingAuthSession()
     return null
   }
+  currentAccountToken(rejectedToken)
+  if (readBookingRefreshToken() !== refreshToken) throw sessionChanged()
+  // H5 tabs share the access token but each keeps its own refresh token.
+  if (bookingTokenPrincipal(rejectedToken) && !sameBookingAccountToken(rejectedToken, renewed.accessToken)) throw sessionChanged()
+  saveBookingAuthSession(renewed)
+  return renewed.accessToken
 }
 
 async function sendPublicRequest<T>(input: {
@@ -188,8 +218,9 @@ async function sendPublicRequest<T>(input: {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE'
   data?: unknown
   headers?: Record<string, string>
-}): Promise<T> {
+}, ownerToken?: string): Promise<T> {
   const url = await resolveInspectionApiRequestUrl(input.url)
+  if (ownerToken) currentAccountToken(ownerToken)
   return new Promise((resolve, reject) => {
     uni.request({
       url,
@@ -206,6 +237,8 @@ async function sendPublicRequest<T>(input: {
 
 async function request<T>(input: { url: string; method: 'GET' | 'POST'; data?: unknown; headers?: Record<string, string> }): Promise<T> {
   const token = getBookingAuthContext().getAccessToken()
+  const caller = bearerToken(input.headers)
+  if (caller) currentAccountToken(caller)
   if (!token) {
     beginBookingAuthenticationRecovery()
     throw new ApiRequestError('请先登录后再进行预约操作', 401, 'COMMON_UNAUTHORIZED')
@@ -215,14 +248,17 @@ async function request<T>(input: { url: string; method: 'GET' | 'POST'; data?: u
   } catch (error) {
     if (!isUnauthorized(error)) throw error
     // A 401 is answered before the request is handled, so sending it again once is safe.
-    const renewed = await accessTokenAfterUnauthorized(token)
+    const renewed = await renewRequestToken(token)
     if (renewed) {
       try {
         return await sendAuthorized<T>(input, renewed)
       } catch (retryError) {
         if (!isUnauthorized(retryError)) throw retryError
+        currentAccountToken(renewed)
       }
     }
+    const current = getBookingAuthContext().getAccessToken()
+    if (current && !sameBookingAccountToken(current, renewed ?? token)) throw sessionChanged()
     beginBookingAuthenticationRecovery()
     throw error
   }
@@ -240,6 +276,7 @@ function sendAuthorizedTo<T>(
   input: { method: 'GET' | 'POST'; data?: unknown; headers?: Record<string, string> },
   token: string,
 ): Promise<T> {
+  currentAccountToken(token)
   return new Promise((resolve, reject) => {
     uni.request({
       url, method: input.method, data: input.data as object,
@@ -282,15 +319,24 @@ export const inspectionAuthApi = {
  * login (its refresh token). A failed call does not keep the user signed in; the server's copy then
  * runs out by itself.
  */
-export function signOutBookingSession(): void {
+export function signOutBookingSession(releaseDevice?: () => Promise<void>): void {
   const refreshToken = readBookingRefreshToken()
   clearBookingAuthSession()
+  const cleanup = releaseDevice?.().catch(() => undefined)
   if (!refreshToken) return
-  void sendWithEndpointRetry<void>({
+  const withdraw = () => sendWithEndpointRetry<void>({
     url: '/api/v1/auth/logout',
     method: 'POST',
     data: { refreshToken },
   }).catch(() => undefined)
+  if (!cleanup) {
+    void withdraw()
+    return
+  }
+  // Revoking this login can invalidate its access token. Give its device release a bounded head start.
+  let timer: ReturnType<typeof setTimeout>
+  const deadline = new Promise<void>(resolve => { timer = setTimeout(resolve, 3000) })
+  void Promise.race([cleanup, deadline]).finally(() => clearTimeout(timer)).then(withdraw)
 }
 
 async function putFile(input: { url: string; filePath: string; headers: Record<string, string> }): Promise<{ etag: string }> {

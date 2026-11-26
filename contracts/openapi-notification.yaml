@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Notification API
-  version: 1.6.0
+  version: 1.7.0
   description: >-
     The signed-in account's in-app notifications (docs/redesign/03-App实现任务计划.md §15.4).
     Every route needs a login. The recipient is always the subject of the access token: there is
@@ -138,7 +138,17 @@ paths:
   /api/v1/notifications/read-all:
     post:
       operationId: markAllMyNotificationsRead
-      summary: Mark every unread notification of the account as read
+      summary: Mark the account's visible unread notifications as read
+      parameters:
+        - name: systemNotices
+          in: query
+          required: false
+          description: >-
+            1.7.0. False preserves unread system announcements in this account. True or omitted
+            marks all previously delivered categories, preserving the existing write behavior.
+          schema:
+            type: boolean
+            default: true
       responses:
         "200":
           description: How many were marked; 0 when there was nothing unread

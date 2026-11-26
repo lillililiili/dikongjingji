@@ -41,7 +41,7 @@ export interface MessageApi {
   loadPage(accessToken: string, page: number, size: number, scope?: InboxScope): Promise<MessagePage>
   loadUnreadCount(accessToken: string, scope?: InboxScope): Promise<number>
   markRead(accessToken: string, messageId: string): Promise<void>
-  markAllRead(accessToken: string): Promise<void>
+  markAllRead(accessToken: string, scope?: InboxScope): Promise<void>
 }
 
 // Every call carries the access token it was given. The request helper is the plain one, so a
@@ -83,9 +83,9 @@ export function createMessageApi(request: MessageRequest): MessageApi {
         headers: headers(accessToken),
       })
     },
-    async markAllRead(accessToken) {
+    async markAllRead(accessToken, scope) {
       await request<{ updated: number }>({
-        url: '/api/v1/notifications/read-all',
+        url: '/api/v1/notifications/read-all' + (scope?.systemNotices === false ? '?systemNotices=false' : ''),
         method: 'POST',
         headers: headers(accessToken),
       })

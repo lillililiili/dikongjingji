@@ -39,7 +39,7 @@ describe('account pages stay behind the ACCOUNT switch (S5-7, S5-8)', () => {
 
   it('settings, 我的 and the home page only add account things with the switch on', () => {
     expect(settingsHost).toContain(':account-pages="ACCOUNT_PREVIEW_ENABLED"')
-    expect(settingsHost).toContain('ACCOUNT_PREVIEW_ENABLED ? readClosure(token)')
+    expect(settingsHost).toMatch(/ACCOUNT_PREVIEW_ENABLED\s*\?\s*readClosure\([^)]+\)\s*:\s*Promise\.resolve\(null\)/)
     expect(mineHost).toContain("if (!user || !ACCOUNT_PREVIEW_ENABLED || !own) return user")
     expect(mineHost.replace(/\r\n/g, '\n')).toContain("...(ACCOUNT_PREVIEW_ENABLED\n      ? [{ code: 'ENTERPRISE', title: '企业组织'")
     expect(homeHost).toContain('shouldOpenOnboardingNow(ACCOUNT_PREVIEW_ENABLED)')

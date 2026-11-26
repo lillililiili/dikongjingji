@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onLoad } from '@dcloudio/uni-app'
+import { onHide, onLoad, onShow } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
@@ -231,7 +231,17 @@ function goBack(): void {
 onLoad((query) => {
   activityId = typeof query?.activityId === 'string' ? query.activityId : ''
   cityCode = typeof query?.cityCode === 'string' ? query.cityCode : ''
+  selectedSessionId.value = typeof query?.sessionId === 'string' ? query.sessionId : null
   void loadDetail()
+})
+
+let refreshOnReturn = false
+onHide(() => { refreshOnReturn = true })
+onShow(() => {
+  if (refreshOnReturn) {
+    refreshOnReturn = false
+    void loadDetail()
+  }
 })
 </script>
 

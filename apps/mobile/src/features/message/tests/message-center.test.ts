@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { createMessageCenter, type MessageCenterState } from '../application/message-center'
-import type { MessageApi } from '../data/message-api'
+import type { InboxScope, MessageApi } from '../data/message-api'
 import type { MessageItem, MessagePage } from '../domain/message'
 
 const item = (id: string, read = false): MessageItem => ({
@@ -14,7 +14,7 @@ const item = (id: string, read = false): MessageItem => ({
   read,
 })
 
-function setup(overrides: Partial<MessageApi> = {}, token: string | null = 'token') {
+function setup(overrides: Partial<MessageApi> = {}, token: string | null = 'token', getInboxScope?: () => InboxScope) {
   let state: MessageCenterState = { kind: 'loading' }
   const unread: number[] = []
   const api: MessageApi = {
@@ -25,19 +25,24 @@ function setup(overrides: Partial<MessageApi> = {}, token: string | null = 'toke
     ...overrides,
   }
   let currentToken = token
+  const onReadError = vi.fn()
   const center = createMessageCenter({
     api,
     getAccessToken: () => currentToken,
+    getInboxScope,
     getState: () => state,
     setState: (next) => { state = next },
     onUnreadCount: (count) => { unread.push(count) },
+    onReadError,
   })
   return {
     api,
     center,
     unread,
+    onReadError,
     state: () => state,
     signOut: () => { currentToken = null },
+    signIn: (newToken: string) => { currentToken = newToken },
   }
 }
 
@@ -111,7 +116,7 @@ describe('message center', () => {
     expect(ready.kind === 'ready' && ready.items.map((entry) => entry.id)).toEqual(['a', 'b'])
   })
 
-  it('marks one notification as read at once, once, and tells the server', async () => {
+  it('marks a notification read after confirmation and only sends it once', async () => {
     const { api, center, state, unread } = setup({
       loadPage: vi.fn(async () => ({ hasMore: false, unreadCount: 2, items: [item('a'), item('b')] })),
     })
@@ -130,8 +135,10 @@ describe('message center', () => {
   })
 
   it('marks everything as read and does nothing when nothing is unread', async () => {
+    let marked = false
     const { api, center, state } = setup({
-      loadPage: vi.fn(async () => ({ hasMore: false, unreadCount: 2, items: [item('a'), item('b')] })),
+      loadPage: vi.fn(async () => ({ hasMore: false, unreadCount: marked ? 0 : 2, items: [item('a', marked), item('b', marked)] })),
+      markAllRead: vi.fn(async () => { marked = true }),
     })
     await center.load()
 
@@ -163,6 +170,56 @@ describe('message center', () => {
     expect(ready.kind === 'ready' && ready.items[0].id).toBe('load-1')
   })
 
+  it.each(['one', 'all'])('keeps unread counts and allows retry after a failed %s mark', async mode => {
+    let marked = false
+    const write = vi.fn().mockRejectedValueOnce(new Error('offline')).mockImplementation(async () => { marked = true })
+    const { center, state, unread, onReadError } = setup({
+      loadPage: async () => ({ hasMore: false, unreadCount: marked ? 0 : 1, items: [item('a', marked)] }),
+      markRead: write, markAllRead: write,
+    })
+    await center.load()
+    const submit = () => mode === 'one' ? center.markRead('a') : center.markAllRead()
+    await submit()
+    expect(state()).toMatchObject({ unreadCount: 1, items: [{ read: false }] })
+    expect(unread.at(-1)).toBe(1)
+    expect(onReadError).toHaveBeenCalledOnce()
+    await Promise.all([submit(), submit()])
+    expect(write).toHaveBeenCalledTimes(2)
+    expect(state()).toMatchObject({ unreadCount: 0, items: [{ read: true }] })
+  })
+
+  it('ignores a write error that belongs to an account that signed out', async () => {
+    let reject!: (error: Error) => void
+    const { center, state, signOut, onReadError } = setup({
+      loadPage: async () => ({ hasMore: false, unreadCount: 1, items: [item('a')] }),
+      markRead: () => new Promise<void>((_, fail) => { reject = fail }),
+    })
+    await center.load()
+    const pending = center.markRead('a')
+    signOut()
+    await center.load()
+    reject(new Error('offline'))
+    await pending
+    expect(state()).toEqual({ kind: 'guest' })
+    expect(onReadError).not.toHaveBeenCalled()
+  })
+
+  it('does not reintroduce unread items from a refresh that started before the write committed', async () => {
+    const initial = { hasMore: false, unreadCount: 1, items: [item('a')] }
+    let finish!: (page: MessagePage) => void
+    const loadPage = vi.fn().mockResolvedValueOnce(initial)
+      .mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+      .mockResolvedValue({ hasMore: false, unreadCount: 0, items: [item('a', true)] })
+    const { center, state } = setup({ loadPage })
+    await center.load()
+    const refresh = center.load()
+    await center.markRead('a')
+    finish(initial)
+    await refresh
+    expect(state()).toMatchObject({ unreadCount: 0, items: [{ read: true }] })
+    expect(loadPage).toHaveBeenCalledTimes(3)
+  })
+
   it('goes back to the guest state after signing out', async () => {
     const { center, state, signOut } = setup({
       loadPage: vi.fn(async () => ({ hasMore: false, unreadCount: 1, items: [item('a')] })),
@@ -173,5 +230,52 @@ describe('message center', () => {
     await center.load()
 
     expect(state()).toEqual({ kind: 'guest' })
+  })
+
+  it.each([1, 2])('never publishes the old account’s page %d if the login changes before onShow', async delayedPage => {
+    let finish!: (page: MessagePage) => void
+    const loadPage: MessageApi['loadPage'] = async (token, page) => {
+      if (token === 'token' && page === delayedPage) return new Promise(resolve => { finish = resolve })
+      return { hasMore: true, unreadCount: 1, items: [item('inbox-' + token)] }
+    }
+    const { center, state, signIn, unread } = setup({ loadPage })
+    if (delayedPage === 2) await center.load()
+    const pending = delayedPage === 1 ? center.load() : center.loadMore()
+    signIn('second')
+    finish({ hasMore: false, unreadCount: 99, items: [item('old-private-notice')] })
+    await pending
+    expect(state()).toMatchObject({ kind: 'ready', unreadCount: 1, items: [{ id: 'inbox-second' }] })
+    expect(unread).not.toContain(99)
+  })
+
+  it.each(['same scope', 'changed city', 'system notices enabled'])('preserves post-write deliveries when marking all in %s', async scenario => {
+    let release!: () => void
+    let written = false
+    let arrived = false
+    let scope = { cityCode: '370500', systemNotices: scenario !== 'system notices enabled' }
+    const startScope = { ...scope }
+    const loadPage = vi.fn(async () => ({
+      hasMore: false, unreadCount: Number(!written) + Number(arrived),
+      items: [...(arrived ? [item('delivered-after-write')] : []), item('already-in-inbox', written)],
+    }))
+    const markAllRead = vi.fn(async () => {
+      written = true
+      await new Promise<void>(resolve => { release = resolve })
+    })
+    const { center, state, unread } = setup({ loadPage, markAllRead }, 'token', () => scope)
+    await center.load()
+    const pending = center.markAllRead()
+    arrived = true
+    if (scenario === 'changed city') scope = { ...scope, cityCode: '370100' }
+    if (scenario === 'system notices enabled') scope = { ...scope, systemNotices: true }
+    if (scenario !== 'same scope') await center.load()
+    release()
+    await pending
+    expect(markAllRead).toHaveBeenCalledWith('token', startScope)
+    expect(loadPage.mock.calls.length).toBe(scenario === 'same scope' ? 2 : 3)
+    expect(state()).toMatchObject({ unreadCount: 1, items: [
+      { id: 'delivered-after-write', read: false }, { id: 'already-in-inbox', read: true },
+    ] })
+    expect(unread.at(-1)).toBe(1)
   })
 })

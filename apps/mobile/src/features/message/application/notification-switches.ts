@@ -4,6 +4,7 @@ import type { NotificationPreferences, NotificationSwitch } from '../domain/noti
 export interface NotificationSwitchesOptions {
   api: Pick<NotificationExtrasApi, 'readPreferences' | 'updatePreferences'>
   getAccessToken(): string | null
+  getAccountKey?(): string | null
   get(): NotificationPreferences | null
   set(next: NotificationPreferences | null): void
   /** Told when a change could not be saved and the switch went back. */
@@ -16,45 +17,68 @@ export interface NotificationSwitchesOptions {
  * save puts the switch back as it was.
  */
 export function createNotificationSwitches(options: NotificationSwitchesOptions) {
-  let queue: Promise<void> = Promise.resolve()
-  let revision = 0
+  const account = options.getAccountKey ?? options.getAccessToken
+  const newSession = (owner: string | null) => ({
+    owner, revision: 0, queue: Promise.resolve(), lastTap: new Map<NotificationSwitch, number>(),
+    confirmed: null as NotificationPreferences | null,
+  })
+  let active = newSession(null)
+  function session() {
+    const owner = account()
+    if (active.owner !== owner) {
+      active = newSession(owner)
+      options.set(null)
+    }
+    return active
+  }
+  const current = (s: typeof active) => active === s && s.owner === account()
 
   return {
     async load(): Promise<void> {
-      const token = options.getAccessToken()
-      const requested = ++revision
-      if (!token) {
+      const s = session()
+      const requested = ++s.revision
+      if (!s.owner) {
         options.set(null)
         return
       }
       try {
+        await s.queue
+        const token = options.getAccessToken()
+        if (!token || requested !== s.revision || !current(s)) return
         const preferences = await options.api.readPreferences(token)
-        if (requested === revision) options.set(preferences)
+        if (requested === s.revision && current(s)) {
+          s.confirmed = preferences
+          options.set(preferences)
+        }
       } catch {
         // The group stays hidden rather than showing switches that may be wrong.
       }
     },
 
     toggle(key: NotificationSwitch): Promise<void> {
-      const current = options.get()
-      const token = options.getAccessToken()
-      if (!current || !token) return queue
-      const value = !current[key]
-      options.set({ ...current, [key]: value })
-      revision += 1
-      queue = queue.then(async () => {
+      const s = session()
+      const displayed = options.get()
+      if (!displayed || !s.confirmed || !s.owner) return s.queue
+      const value = !displayed[key]
+      options.set({ ...displayed, [key]: value })
+      const request = ++s.revision
+      s.lastTap.set(key, request)
+      s.queue = s.queue.then(async () => {
+        const token = options.getAccessToken()
+        if (!token || !current(s)) return
         try {
           const saved = await options.api.updatePreferences(token, { [key]: value })
-          const latest = options.get()
-          // Keep later taps that are still on their way; take the server's answer for this switch.
-          if (latest) options.set({ ...latest, [key]: saved[key] })
+          if (current(s) && s.confirmed) s.confirmed = { ...s.confirmed, [key]: saved[key] }
         } catch {
-          const latest = options.get()
-          if (latest) options.set({ ...latest, [key]: !value })
-          options.onSaveFailed?.()
+          if (current(s) && s.lastTap.get(key) === request) options.onSaveFailed?.()
+        }
+        const latest = options.get()
+        if (s.confirmed && latest && current(s) && s.lastTap.get(key) === request) {
+          options.set({ ...latest, [key]: s.confirmed[key] })
+          s.lastTap.delete(key)
         }
       })
-      return queue
+      return s.queue
     },
   }
 }

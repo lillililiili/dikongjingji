@@ -121,9 +121,12 @@ async function sessionsOn(request: APIRequestContext, date: string): Promise<Ses
 // Open sessions of the robot project within the week with room for `people`, earliest first.
 async function openSessions(request: APIRequestContext, people = 1): Promise<SessionSlot[]> {
   const found: SessionSlot[] = []
+  // Payment closes at the session's start if that comes before the normal 15-minute deadline.
+  const earliestStart = Date.now() + 20 * 60_000
   for (const date of beijingDays()) {
     found.push(...(await sessionsOn(request, date))
-      .filter((session) => session.status === 'OPEN' && session.seatsLeft >= people))
+      .filter((session) => session.status === 'OPEN'
+        && session.seatsLeft >= people && Date.parse(session.startsAt) > earliestStart))
   }
   expect(found.length).toBeGreaterThan(1)
   return found

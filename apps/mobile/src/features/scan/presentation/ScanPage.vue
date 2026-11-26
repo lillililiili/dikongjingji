@@ -2,12 +2,13 @@
 import { computed, ref } from 'vue'
 
 import LineIcon from '@/shared/ui/LineIcon.vue'
+import { readPermissionStates } from '@/features/account/application/app-permissions'
 
 import { parseScanText } from '../application/scan-target'
 
-// Board Scan: the viewfinder and its two lines on dark; in the App the system scanner opens at
-// once (uni.scanCode, no extra SDK) and 重新扫描 opens it again; in a browser, which has no camera
-// scanner, the code or link is typed or pasted. A platform link opens its page; the three other
+// Board Scan: the viewfinder and its two lines on dark. With camera permission the system scanner
+// opens immediately. A code can also be typed or
+// pasted on either platform. A platform link opens its page; the three other
 // answers are a sheet: 未识别到平台二维码, 这是核销码 (for the staff at the door) and 需要相机权限.
 const props = defineProps<{
   // Whether the system scanner is there (the App); a browser types the code instead.
@@ -19,7 +20,6 @@ const emit = defineEmits<{
   back: []
   open: [url: string]
   search: []
-  home: []
 }>()
 
 type Sheet = 'UNKNOWN' | 'CHECK_IN_CODE' | 'DENIED' | null
@@ -44,6 +44,8 @@ const ROUTES = [
 const sheet = ref<Sheet>(null)
 const typed = ref('')
 const scanning = ref(false)
+const attemptedScan = ref(false)
+const fromCamera = ref(false)
 const current = computed(() => (sheet.value ? SHEETS[sheet.value] : null))
 
 function handle(text: string): void {
@@ -62,7 +64,13 @@ function isDenied(message: string): boolean {
 
 function scan(): void {
   if (!props.canScan || scanning.value) return
+  attemptedScan.value = true
+  if (readPermissionStates().camera === 'off') {
+    sheet.value = 'DENIED'
+    return
+  }
   scanning.value = true
+  fromCamera.value = true
   sheet.value = null
   uni.scanCode({
     scanType: ['qrCode'],
@@ -84,6 +92,7 @@ function submitTyped(): void {
     uni.showToast({ title: '请输入码内容或链接', icon: 'none' })
     return
   }
+  fromCamera.value = false
   handle(text)
 }
 
@@ -100,7 +109,7 @@ function onConfirm(event: Event): void {
 
 function again(): void {
   sheet.value = null
-  if (props.canScan) scan()
+  if (fromCamera.value) scan()
 }
 
 function openSettings(): void {
@@ -135,12 +144,12 @@ defineExpose({ scan })
       </view>
       <text class="scan__lead">将二维码放入框内，自动识别</text>
       <text class="scan__note">可识别平台内的商品、活动和场馆码</text>
-      <button v-if="canScan" class="scan__again" data-testid="scan-start" @click="scan">重新扫描</button>
+      <button v-if="canScan" class="scan__again" data-testid="scan-start" @click="scan">{{ attemptedScan ? '重新扫描' : '打开相机扫描' }}</button>
     </view>
 
-    <view v-if="!canScan" class="scan__manual" data-testid="scan-manual">
+    <view class="scan__manual" data-testid="scan-manual">
       <text class="scan__manual-title">输入码内容或链接</text>
-      <text class="scan__manual-text">在浏览器里打开时，可以把二维码下面的链接或码粘贴到这里</text>
+      <text class="scan__manual-text">可以把二维码下方的平台链接或码粘贴到这里</text>
       <view class="scan__manual-row">
         <input
           class="scan__manual-input"
@@ -179,11 +188,11 @@ defineExpose({ scan })
         <view class="scan__sheet-actions">
           <template v-if="sheet === 'UNKNOWN'">
             <button class="scan__button" data-testid="scan-go-search" @click="emit('search')">去搜索</button>
-            <button class="scan__button scan__button--primary" data-testid="scan-again" @click="again">{{ canScan ? '重新扫描' : '重新输入' }}</button>
+            <button class="scan__button scan__button--primary" data-testid="scan-again" @click="again">{{ fromCamera ? '重新扫描' : '重新输入' }}</button>
           </template>
           <button v-else-if="sheet === 'CHECK_IN_CODE'" class="scan__button scan__button--primary" data-testid="scan-ok" @click="sheet = null">知道了</button>
           <template v-else>
-            <button class="scan__button" data-testid="scan-not-now" @click="emit('home')">暂不开启</button>
+            <button class="scan__button" data-testid="scan-not-now" @click="sheet = null">手动输入</button>
             <button class="scan__button scan__button--primary" data-testid="scan-settings" @click="openSettings">去设置</button>
           </template>
         </view>

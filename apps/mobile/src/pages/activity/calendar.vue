@@ -2,6 +2,7 @@
 import { onLoad } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 
+import { openHomeChannel } from '@/app-shell/navigation/home-entry'
 import { ACTIVITY_PREVIEW_ENABLED } from '@/features/activity/application/activity-preview'
 import { buildActivityDetailUrl } from '@/features/activity/navigation/activity-routes'
 import ActivityCalendarPage from '@/features/activity/presentation/calendar/ActivityCalendarPage.vue'
@@ -37,10 +38,18 @@ function goBack(): void {
     return
   }
   // Opened alone (a link, a reload): the activity it belongs to.
-  uni.redirectTo({ url: buildActivityDetailUrl(activityId.value, cityCode.value) })
+  if (activityId.value && cityCode.value) {
+    uni.redirectTo({ url: buildActivityDetailUrl(activityId.value, cityCode.value) })
+  } else {
+    openHomeChannel('ACTIVITY')
+  }
 }
 
 function picked(id: string): void {
+  if (getCurrentPages().length === 1) {
+    uni.redirectTo({ url: buildActivityDetailUrl(activityId.value, cityCode.value, id) })
+    return
+  }
   openerChannel()?.emit('picked', { sessionId: id })
   goBack()
 }

@@ -98,6 +98,8 @@ describe('message api', () => {
     await api.loadPage('t', 2, 20, { systemNotices: true, cityCode: '370500' })
     await api.loadUnreadCount('t', { systemNotices: true, cityCode: null })
     await api.loadUnreadCount('t')
+    await api.markAllRead('t', { systemNotices: false, cityCode: null })
+    await api.markAllRead('t', { systemNotices: true, cityCode: null })
 
     expect(urls).toEqual([
       '/api/v1/notifications?page=1&size=20',
@@ -105,6 +107,8 @@ describe('message api', () => {
       '/api/v1/notifications?page=2&size=20&systemNotices=true&cityCode=370500',
       '/api/v1/notifications/unread-count?systemNotices=true',
       '/api/v1/notifications/unread-count',
+      '/api/v1/notifications/read-all?systemNotices=false',
+      '/api/v1/notifications/read-all',
     ])
   })
 })

@@ -39,6 +39,22 @@ export function openCityToSwitchTo(
   return preferred ? { code: preferred.code, name: preferred.name } : null
 }
 
+export async function restoreHomeCity(
+  previousCode: string | undefined,
+  configured: { code: string; name: string } | null,
+  load: () => Promise<CityDirectory>,
+): Promise<{ code: string; name: string } | null> {
+  if (!previousCode && configured) return configured
+  try {
+    const directory = await load()
+    const previous = previousCode && allCities(directory).find((city) => city.code === previousCode)
+    return previous || configured || openCityToSwitchTo(directory, null, null)
+  } catch (error) {
+    if (configured) return configured
+    throw error
+  }
+}
+
 // The channels a closed city keeps (board CityClosed: 推荐、体验、商城, everything nationwide).
 export const CLOSED_CITY_CHANNELS = ['RECOMMEND', 'EXPERIENCE', 'MALL'] as const
 

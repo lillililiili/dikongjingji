@@ -185,9 +185,9 @@ test('SDR-109 没有评分也没有评价时，这一行只有服务次数', asy
   await openDetail(page, SERVICE_ID, '370500')
 
   const metrics = page.locator('.service-detail-hero__metrics')
-  await expect(metrics).toContainText('已服务')
+  await expect(metrics).toContainText(/已完成\s*[\d,]+\s*单/)
   const text = (await metrics.innerText()).replace(/\s+/g, ' ').trim()
-  expect(text.startsWith('·')).toBe(false)
   expect(text).not.toContain('条评价')
-  expect(text).toMatch(/^已服务/)
+  expect(text).not.toContain('·')
+  await expect(metrics.locator('.service-detail-hero__rating')).toHaveCount(0)
 })

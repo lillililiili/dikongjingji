@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { BUYER, devPassword } from './support/trade-fixtures'
 
 // Runs against a production H5 build, where unfinished channels must stay hidden.
 test.skip(
@@ -14,16 +15,6 @@ test.describe('公开构建', () => {
     await expect(page.getByTestId('login-switch-mode')).toHaveCount(0)
     await expect(page.getByText('注册账号', { exact: true })).toHaveCount(0)
     await expect(page.getByText('忘记密码', { exact: true })).toHaveCount(0)
-  })
-
-  test('PUB-ART 趣玩深链加载项目自绘图标', async ({ page }) => {
-    await page.goto('/#/pages/play/index')
-    await expect(page.getByTestId('play-games')).toBeVisible()
-    const images = page.locator('.play-games__cover-image img')
-    await expect(images).toHaveCount(2)
-    await expect(images.nth(0)).toHaveAttribute('src', /\/static\/images\/play\/avatar-robot\.svg$/)
-    await expect(images.nth(1)).toHaveAttribute('src', /\/static\/images\/play\/avatar-drone\.svg$/)
-    await expect.poll(() => images.evaluateAll((items) => items.every((item) => (item as HTMLImageElement).naturalWidth > 0))).toBe(true)
   })
 
   test('PUB-001 只露出已闭环的频道和入口', async ({ page }) => {
@@ -241,7 +232,7 @@ test.describe('公开构建', () => {
       ['/pages/support/chat?kind=PLATFORM', '客服会话尚未开通'],
       ['/pages/mine/settings', '设置尚未开通'],
       ['/pages/mine/help', '帮助与反馈尚未开通'],
-      ['/pages/mine/agreement?doc=PRIVACY_POLICY', '协议正文待提供'],
+      ['/pages/mine/agreement?doc=TRADE_AGREEMENT', '协议中心尚未开通'],
       ['/pages/mine/about', '关于页面尚未开通'],
     ]) {
       await page.goto(`/?r=${encodeURIComponent(route)}#${route}`)
@@ -345,3 +336,90 @@ test.describe('公开构建：账号（S5-8）', () => {
     await expect(page.getByText('企业组织尚未开通')).toBeVisible()
   })
 })
+
+test('PUB-PLAY 关闭趣玩挑战时，从分享或历史链接打开列表和关卡都不会加载游戏', async ({ page }) => {
+  const reads: string[] = []
+  page.on('request', request => {
+    if (new URL(request.url()).pathname === '/api/v1/experience/play-games') reads.push(request.url())
+  })
+  for (const path of ['/pages/play/index', '/pages/play/game?game=robot-maze']) {
+    await page.goto(`/?direct=${encodeURIComponent(path)}#${path}`)
+    await expect(page.getByText('趣玩挑战尚未开通', { exact: true })).toBeVisible()
+    await expect(page.getByTestId('play-games')).toHaveCount(0)
+  }
+  expect(reads).toEqual([])
+})
+
+test('PUB-LEGAL 游客能在登录前逐份读取协议并返回，协议内容与接口一致', async ({ page }) => {
+  await page.goto('/#/pages/service/inspection/login')
+  for (const [name, doc] of [
+    ['用户协议', 'USER_AGREEMENT'], ['隐私政策', 'PRIVACY_POLICY'], ['儿童个人信息保护规则', 'CHILD_PRIVACY_RULES'],
+  ]) {
+    const response = page.waitForResponse(r => new URL(r.url()).pathname === '/api/v1/platform/agreements/' + doc)
+    await page.getByText('《' + name + '》', { exact: true }).click()
+    const agreement = page.getByTestId('agreement-page')
+    await expect(agreement).toHaveAttribute('data-doc', doc)
+    const res = await response
+    if (res.status() === 404) await expect(page.getByTestId('agreement-unpublished')).toBeVisible()
+    else {
+      expect(res.status()).toBe(200)
+      const body = await res.json()
+      await expect(page.getByTestId('agreement-title')).toHaveText(body.title)
+      await expect(agreement).toContainText(body.version)
+      await expect(agreement.locator('.agreement__section-body')).toHaveText(body.sections.map((s: { body: string }) => s.body))
+    }
+    await expect(page.getByTestId('agreement-contact')).toHaveCount(0)
+    await expect(page.getByTestId('agreement-all')).toHaveCount(0)
+    await page.getByTestId('agreement-back').click()
+    await expect(page.getByTestId('login-password-submit')).toBeVisible()
+  }
+})
+
+test('PUB-SESSION 关闭完整设置时仍能登录、取消退出和退出登录', async ({ page }) => {
+  await page.goto('/#/pages/mine/index')
+  await page.getByTestId('mine-login').click()
+  await page.getByTestId('login-password-name').locator('input').fill(BUYER)
+  await page.getByTestId('login-password-value').locator('input').fill(devPassword())
+  await page.getByTestId('login-agreement').click()
+  await page.getByTestId('login-password-submit').click()
+  const logout = page.getByRole('button', { name: '退出登录', exact: true })
+  await expect(page.getByTestId('mine-profile')).toBeVisible()
+  await logout.click()
+  await page.locator('.uni-modal__btn_default').click()
+  await expect(logout).toBeVisible()
+  await logout.click()
+  const revoked = page.waitForResponse(r => new URL(r.url()).pathname === '/api/v1/auth/logout')
+  await page.locator('.uni-modal__btn_primary').click()
+  expect((await revoked).ok()).toBe(true)
+  await expect(page.getByTestId('mine-login')).toBeVisible()
+  await page.reload()
+  await expect(page.getByTestId('mine-login')).toBeVisible()
+})
+
+for (const group of [
+  { name: '商城与购物车', routes: [
+    ['mall/product?productId=c2000000-0000-4000-8000-000000000101&cityCode=370500', 'mall-product-unavailable'],
+    ['mall/compare', 'mall-compare-unavailable'],
+    ['cart/checkout', 'checkout-unavailable'],
+    ['mine/addresses', 'address-book-unavailable'],
+  ], reads: /^\/api\/v1\/(mall|cart|me\/addresses|account\/addresses)(\/|$)/ },
+  { name: '赛事与参与人', routes: ['activity/detail', 'activity/enroll', 'activity/participants', 'activity/ticket', 'mine/activity-enrollments']
+      .map(path => [path, 'activity-unavailable']), reads: /^\/api\/v1\/(activities|activity|participants|me\/(activity-enrollments|participants))(\/|$)/ },
+  { name: '场馆与设备', routes: ['venue/detail', 'venue/devices'].map(path => [path, 'venue-booking-unavailable']),
+    reads: /^\/api\/v1\/(venues|experience)(\/|$)/ },
+]) {
+  test(`PUB-DIRECT 关闭${group.name}后历史链接显示关闭提示`, async ({ page }) => {
+    const requests: string[] = []
+    page.on('request', request => {
+      const path = new URL(request.url()).pathname
+      if (group.reads.test(path)) requests.push(path)
+    })
+    for (const [route, notice] of group.routes) {
+      const hash = '#/pages/' + route
+      await page.goto('/?direct=' + encodeURIComponent(route) + hash)
+      await expect(page.getByTestId(notice)).toBeVisible()
+      await expect(page).toHaveURL(url => url.hash === hash)
+    }
+    expect(requests).toEqual([])
+  })
+}

@@ -23,10 +23,12 @@ const CHECK = 'M5 12l5 5 9-10'
 // falling through would override it with the raw value of the link.
 const props = withDefaults(defineProps<{
   selected: AgreementDoc
+  showDirectory?: boolean
+  canContact?: boolean
   // 有更新 (S5-9): the latest 系统通知 about each document the host has read; a document without one
   // (or not read yet) shows no entry.
   updates?: Partial<Record<AgreementDoc, { noticeId: string } | null>>
-}>(), { updates: () => ({}) })
+}>(), { updates: () => ({}), showDirectory: true, canContact: true })
 
 const emit = defineEmits<{
   back: []
@@ -72,7 +74,7 @@ function pick(doc: AgreementDoc): void {
   <view class="agreement" data-testid="agreement-page" :data-doc="current">
     <AppPageHeader title="协议与规则" test-id="agreement" @back="emit('back')">
       <template #actions>
-        <button class="agreement__all" data-testid="agreement-all" aria-haspopup="dialog" @click="sheetOpen = true">
+        <button v-if="showDirectory" class="agreement__all" data-testid="agreement-all" aria-haspopup="dialog" @click="sheetOpen = true">
           <text>全部协议</text>
         </button>
       </template>
@@ -120,7 +122,7 @@ function pick(doc: AgreementDoc): void {
         <text v-else data-testid="agreement-unpublished">协议正文尚未发布</text>
       </view>
 
-      <button class="agreement__card agreement__contact" data-testid="agreement-contact" @click="emit('contactPlatform')">
+      <button v-if="canContact" class="agreement__card agreement__contact" data-testid="agreement-contact" @click="emit('contactPlatform')">
         <LineIcon :d="HEADSET" :size="20" color="#536178" />
         <text class="agreement__contact-text">对内容有疑问，联系平台客服</text>
         <LineIcon :d="SETTINGS_CHEVRON" :size="14" color="#91a0b4" :stroke-width="2" />

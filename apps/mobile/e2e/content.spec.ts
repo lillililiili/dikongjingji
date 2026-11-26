@@ -380,12 +380,11 @@ test.describe('发现页图文内容与专题', () => {
 })
 
 test.describe('发现页视觉', () => {
-  test('CNT-201 320 / 375 / 430 不溢出，390 宽与画板对照', async ({ page }) => {
-    mkdirSync(visualOutput, { recursive: true })
-    mkdirSync(compareOutput, { recursive: true })
-
-    let loads = 0
-    for (const width of [375, 320, 430, 390]) {
+  for (const width of [320, 375, 390, 430]) {
+    test(`CNT-201 ${width} 宽无横向溢出${width === 390 ? '，与原型画板对照' : ''}`, async ({ page }) => {
+      mkdirSync(visualOutput, { recursive: true })
+      mkdirSync(compareOutput, { recursive: true })
+      let loads = 0
       await page.setViewportSize({ width, height: 844 })
       const at = (hash: string) => `/?w=${width}&n=${++loads}${hash}`
       const shot = (name: string) => width === 390
@@ -427,31 +426,32 @@ test.describe('发现页视觉', () => {
       await expect(page.getByTestId('content-topic-merchants').locator('[data-testid^="content-topic-merchant-"]')).toHaveCount(1)
       await assertNoHorizontalOverflow(page)
       await tallShot(page, shot('Topic'))
-    }
 
-    for (const board of ['Discover', 'ContentArticle', 'ContentKnow2', 'Topic']) {
-      await page.setViewportSize({ width: 390, height: 844 })
-      await page.goto(boardUrl(board))
-      const frame = page.locator('#root > div').first()
-      await expect(frame).toBeVisible()
-      const height = Math.ceil((await frame.boundingBox())?.height ?? 844) + 60
-      await page.setViewportSize({ width: 390, height })
-      await page.waitForTimeout(300)
-      await frame.screenshot({ path: resolve(compareOutput, `${board}-board.png`) })
+      if (width !== 390) return
+      for (const board of ['Discover', 'ContentArticle', 'ContentKnow2', 'Topic']) {
+        await page.setViewportSize({ width: 390, height: 844 })
+        await page.goto(boardUrl(board))
+        const frame = page.locator('#root > div').first()
+        await expect(frame).toBeVisible()
+        const height = Math.ceil((await frame.boundingBox())?.height ?? 844) + 60
+        await page.setViewportSize({ width: 390, height })
+        await page.waitForTimeout(300)
+        await frame.screenshot({ path: resolve(compareOutput, `${board}-board.png`) })
 
-      const image = (name: string) => `data:image/png;base64,${readFileSync(resolve(compareOutput, name)).toString('base64')}`
-      await page.setViewportSize({ width: 820, height: 900 })
-      await page.setContent(`
-        <body style="margin:0;background:#dfe5ee;font:13px sans-serif">
-          <div style="display:flex;gap:20px;padding:10px;align-items:flex-start">
-            <figure style="margin:0;width:390px"><figcaption>画板 ${board}</figcaption>
-              <img style="width:390px;display:block" src="${image(`${board}-board.png`)}"></figure>
-            <figure style="margin:0;width:390px"><figcaption>App 390 宽</figcaption>
-              <img style="width:390px;display:block" src="${image(`${board}-app.png`)}"></figure>
-          </div>
-        </body>`)
-      await page.waitForTimeout(200)
-      await page.screenshot({ path: resolve(compareOutput, `${board}-compare.png`), fullPage: true })
-    }
-  })
+        const image = (name: string) => `data:image/png;base64,${readFileSync(resolve(compareOutput, name)).toString('base64')}`
+        await page.setViewportSize({ width: 820, height: 900 })
+        await page.setContent(`
+          <body style="margin:0;background:#dfe5ee;font:13px sans-serif">
+            <div style="display:flex;gap:20px;padding:10px;align-items:flex-start">
+              <figure style="margin:0;width:390px"><figcaption>画板 ${board}</figcaption>
+                <img style="width:390px;display:block" src="${image(`${board}-board.png`)}"></figure>
+              <figure style="margin:0;width:390px"><figcaption>App 390 宽</figcaption>
+                <img style="width:390px;display:block" src="${image(`${board}-app.png`)}"></figure>
+            </div>
+          </body>`)
+        await page.waitForTimeout(200)
+        await page.screenshot({ path: resolve(compareOutput, `${board}-compare.png`), fullPage: true })
+      }
+    })
+  }
 })

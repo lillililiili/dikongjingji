@@ -11,6 +11,7 @@ type ExtrasRequest = <T>(input: {
   url: string
   method: 'GET' | 'POST' | 'PUT'
   headers?: Record<string, string>
+  authMode?: 'captured'
   data?: unknown
 }) => Promise<T>
 
@@ -99,6 +100,7 @@ export function createNotificationExtrasApi(request: ExtrasRequest): Notificatio
       await request<void>({
         url: '/api/v1/notifications/push-devices/unregister',
         method: 'POST',
+        authMode: 'captured',
         headers: { ...headers(accessToken), 'Content-Type': 'application/json' },
         data: device,
       })

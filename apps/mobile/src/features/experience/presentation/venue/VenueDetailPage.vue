@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onLoad } from '@dcloudio/uni-app'
+import { onHide, onLoad, onShow } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
@@ -112,6 +112,7 @@ async function loadSessions(): Promise<void> {
   const project = selectedProject.value
   if (!project) return
   const requested = ++sessionsVersion
+  const previousSession = selectedSessionId.value
   selectedSessionId.value = null
   sessionsState.value = { kind: 'loading' }
   try {
@@ -123,6 +124,9 @@ async function loadSessions(): Promise<void> {
     })
     if (requested !== sessionsVersion) return
     sessionsState.value = { kind: 'ready', sessions: loaded }
+    if (loaded.some(session => session.sessionId === previousSession && session.status === 'OPEN' && session.seatsLeft > 0)) {
+      selectedSessionId.value = previousSession
+    }
   } catch {
     if (requested !== sessionsVersion) return
     sessionsState.value = { kind: 'error' }
@@ -173,8 +177,10 @@ async function loadVenue(): Promise<void> {
     if (requested !== detailVersion) return
     state.value = { kind: 'ready', venue: loaded }
     days.value = buildBeijingDayOptions(new Date(), DAY_TAB_COUNT)
-    selectedDate.value = days.value[0].date
-    selectedProjectId.value = loaded.projects[0]?.projectId ?? null
+    if (!days.value.some(day => day.date === selectedDate.value)) selectedDate.value = days.value[0].date
+    if (!loaded.projects.some(project => project.projectId === selectedProjectId.value)) {
+      selectedProjectId.value = loaded.projects[0]?.projectId ?? null
+    }
     void loadSessions()
     if (loaded.deviceCount > 0) void loadDeviceStrip(requested)
   } catch (error) {
@@ -249,6 +255,15 @@ onLoad((query) => {
   venueId = typeof query?.venueId === 'string' ? query.venueId : ''
   cityCode = typeof query?.cityCode === 'string' ? query.cityCode : ''
   void loadVenue()
+})
+
+let refreshOnReturn = false
+onHide(() => { refreshOnReturn = true })
+onShow(() => {
+  if (refreshOnReturn) {
+    refreshOnReturn = false
+    void loadVenue()
+  }
 })
 </script>
 

@@ -124,17 +124,19 @@ public interface NotificationMapper {
             FROM notification_message
             WHERE recipient_id = #{recipientId}
               AND status = 'ACTIVE'
+              AND (#{systemNotices} OR category != 'SYSTEM_NOTICE')
             """)
-    long count(@Param("recipientId") UUID recipientId);
+    long count(@Param("recipientId") UUID recipientId, @Param("systemNotices") boolean systemNotices);
 
     @Select("""
             SELECT count(*)
             FROM notification_message
             WHERE recipient_id = #{recipientId}
               AND status = 'ACTIVE'
+              AND (#{systemNotices} OR category != 'SYSTEM_NOTICE')
               AND read_at IS NULL
             """)
-    long countUnread(@Param("recipientId") UUID recipientId);
+    long countUnread(@Param("recipientId") UUID recipientId, @Param("systemNotices") boolean systemNotices);
 
     @Select("""
             SELECT id,
@@ -150,13 +152,15 @@ public interface NotificationMapper {
             FROM notification_message
             WHERE recipient_id = #{recipientId}
               AND status = 'ACTIVE'
+              AND (#{systemNotices} OR category != 'SYSTEM_NOTICE')
             ORDER BY occurred_at DESC, created_at DESC, id DESC
             LIMIT #{limit} OFFSET #{offset}
             """)
     List<MessageRow> findPage(
             @Param("recipientId") UUID recipientId,
             @Param("limit") int limit,
-            @Param("offset") int offset
+            @Param("offset") int offset,
+            @Param("systemNotices") boolean systemNotices
     );
 
     @Select("""
@@ -187,9 +191,10 @@ public interface NotificationMapper {
                 updated_at = #{at}
             WHERE recipient_id = #{recipientId}
               AND status = 'ACTIVE'
+              AND (#{systemNotices} OR category != 'SYSTEM_NOTICE')
               AND read_at IS NULL
             """)
-    int markAllRead(@Param("recipientId") UUID recipientId, @Param("at") Instant at);
+    int markAllRead(@Param("recipientId") UUID recipientId, @Param("at") Instant at, @Param("systemNotices") boolean systemNotices);
 
     /**
      * 系统通知（S5-9）：把发给全体、发给这个城市、还在有效期内的公告补记成收件人的一条站内信。

@@ -18,9 +18,10 @@ export const ACTIVITY_CHANGE_PATH = '/pages/activity/change'
 export const ACTIVITY_CALENDAR_PATH = '/pages/activity/calendar'
 
 // Only stable ids travel in the URL; the page reads everything else from the server.
-export function buildActivityDetailUrl(activityId: string, cityCode: string): string {
+export function buildActivityDetailUrl(activityId: string, cityCode: string, sessionId?: string): string {
   return `${ACTIVITY_DETAIL_PATH}?activityId=${encodeURIComponent(activityId)}`
     + `&cityCode=${encodeURIComponent(cityCode)}`
+    + (sessionId ? `&sessionId=${encodeURIComponent(sessionId)}` : '')
 }
 
 // `mode` 'waitlist' (S5-3): the same form joins the waitlist of a full session instead of signing up.
