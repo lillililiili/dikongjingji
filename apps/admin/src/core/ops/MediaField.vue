@@ -16,6 +16,7 @@ const props = withDefaults(defineProps<{
   kind?: OpsMediaKind
   api?: MediaApi
   disabled?: boolean
+  uploadOnly?: boolean
 }>(), { kind: 'IMAGE', api: undefined, disabled: false })
 
 const emit = defineEmits<{
@@ -76,7 +77,7 @@ function useTyped(): void {
           @change="upload"
         >
       </div>
-      <div class="media-field__typed">
+      <div v-if="!uploadOnly" class="media-field__typed">
         <el-input v-model="typed" size="small" placeholder="或粘贴受控 https 地址" :disabled="disabled" @keyup.enter="useTyped" />
         <el-button size="small" :disabled="disabled || !typed.trim()" @click="useTyped">使用</el-button>
       </div>

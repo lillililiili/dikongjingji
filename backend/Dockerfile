@@ -21,7 +21,8 @@ FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 
 RUN groupadd --system spring \
-    && useradd --system --gid spring --home-dir /app --shell /usr/sbin/nologin spring
+    && useradd --system --gid spring --home-dir /app --shell /usr/sbin/nologin spring \
+    && install -d -m 0750 -o spring -g spring /app/data/ops-media
 
 COPY --from=build /workspace/backend/bootstrap/target/bootstrap-*.jar /app/app.jar
 

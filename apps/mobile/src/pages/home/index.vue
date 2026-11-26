@@ -8,7 +8,8 @@ import { ACCOUNT_PREVIEW_ENABLED } from '@/features/account/application/account-
 import { shouldOpenOnboardingNow } from '@/features/account/application/onboarding-consent'
 import { ONBOARDING_PATH } from '@/features/account/navigation/account-routes'
 import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
-import { resolveHomeCarouselSlides } from '@/app-shell/navigation/home-carousel'
+import type { HomeCarouselSlide } from '@/app-shell/navigation/home-carousel'
+import { loadHomeCarousel } from '@/features/recommend/data/home-carousel-api'
 import {
   isHomeChannelSearchable,
   resolveHomeChannelCards,
@@ -24,7 +25,6 @@ import ActivityChannel from '@/features/activity/presentation/channel/ActivityCh
 import ExperienceChannel from '@/features/experience/presentation/channel/ExperienceChannel.vue'
 import MallChannel from '@/features/mall/presentation/channel/MallChannel.vue'
 import { buildPortalSearchUrl } from '@/features/inspection/application/portal/build-portal-navigation'
-import { createPlatformHomePreviewContent } from '@/features/inspection/data/preview/platform-home-preview'
 import {
   inspectionCatalogApi,
   platformCityApi,
@@ -65,8 +65,6 @@ import {
   type CurrentCity,
 } from '@/shared/city/state/current-city'
 
-const DEFAULT_CITY: CurrentCity = { code: '370500', name: '东营市' }
-
 const currentCityStore = useCurrentCityStore()
 const channelStore = useHomeChannelStore()
 const { activeChannel } = storeToRefs(channelStore)
@@ -82,10 +80,16 @@ let contentRequestVersion = 0
 const visibleChannels = resolveVisibleHomeChannels(PLATFORM_PREVIEW_ENABLED)
 const channelCards = resolveHomeChannelCards(PLATFORM_PREVIEW_ENABLED)
 const kingEntries = resolveHomeKingEntries(PLATFORM_PREVIEW_ENABLED)
-// Written as a build-time branch so the sample slides are dropped from public bundles.
-const carouselSlides = PLATFORM_PREVIEW_ENABLED
-  ? resolveHomeCarouselSlides(true)
-  : []
+const carouselSlides = ref<HomeCarouselSlide[]>([])
+watch(() => currentCityStore.currentCity?.code, (cityCode, _, onCleanup) => {
+  carouselSlides.value = []
+  if (!cityCode) return
+  let current = true
+  onCleanup(() => { current = false })
+  void loadHomeCarousel(cityCode, PLATFORM_PREVIEW_ENABLED)
+    .then((slides) => { if (current) carouselSlides.value = slides })
+    .catch(() => { /* The city has no available carousel while its request is failing. */ })
+}, { immediate: true })
 const pageVisible = ref(false)
 const serviceChannelOpened = ref(activeChannel.value === 'SERVICE')
 const activityChannelOpened = ref(activeChannel.value === 'ACTIVITY')
@@ -214,15 +218,20 @@ const {
   isRelocating,
 } = citySheet
 
-function defaultCity(): CurrentCity {
+function defaultCity(): CurrentCity | null {
   const code = import.meta.env.VITE_INSPECTION_DEFAULT_CITY_CODE?.trim()
   const name = import.meta.env.VITE_INSPECTION_DEFAULT_CITY_NAME?.trim()
-  return code && name ? { code, name } : DEFAULT_CITY
+  return code && name ? { code, name } : null
 }
 
-function restoreDefaultCity(): CurrentCity {
+async function restoreDefaultCity(): Promise<CurrentCity> {
   if (currentCityStore.currentCity) return currentCityStore.currentCity
-  const city = defaultCity()
+  const city = defaultCity() ?? openCityToSwitchTo(await platformCityApi.load(), null, null)
+  if (currentCityStore.currentCity) return currentCityStore.currentCity
+  if (!city) {
+    void citySheet.open()
+    throw new Error('CITY_NOT_SELECTED')
+  }
   currentCityStore.setCurrentCity(city)
   return city
 }
@@ -276,13 +285,13 @@ async function loadHomeContent(): Promise<void> {
     if (requestVersion !== contentRequestVersion) return
     state.value = resolvePlatformHomeState({
       status: 'ready',
-      content: PLATFORM_PREVIEW_ENABLED
-        ? createPlatformHomePreviewContent(portal)
-        : createPlatformHomeContentFromPortal(portal),
+      content: createPlatformHomeContentFromPortal(portal),
     })
-  } catch {
+  } catch (error) {
     if (requestVersion !== contentRequestVersion) return
-    state.value = { kind: 'error', message: '首页内容加载失败，请稍后重试' }
+    const message = error instanceof Error && error.message === 'CITY_NOT_SELECTED'
+      ? '请选择服务城市' : '首页内容加载失败，请稍后重试'
+    state.value = { kind: 'error', message }
   }
 }
 

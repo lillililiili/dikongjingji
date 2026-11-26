@@ -1,7 +1,10 @@
 import {
   beginBookingAuthenticationRecovery,
+  clearBookingAuthSession,
+  completeBookingAuthenticationRecovery,
   getBookingAuthContext,
 } from '@/features/inspection/application/service-flow/booking-auth-context'
+import { useRootTabBadgeStore } from '@/app-shell/state/root-tab-badges'
 import { MINE_TAB_PATH, buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 import { SETTINGS_PATH } from '@/features/settings/navigation/settings-routes'
 
@@ -16,6 +19,15 @@ export function accountToken(returnUrl: string): string | null {
 
 export function onAccountUnauthorized(): void {
   beginBookingAuthenticationRecovery()
+}
+
+export function loginAfterPasswordUpdate(returnUrl: string): void {
+  clearBookingAuthSession()
+  completeBookingAuthenticationRecovery()
+  const badges = useRootTabBadgeStore()
+  badges.setMessageUnread(0)
+  badges.setCartCount(0)
+  uni.reLaunch({ url: buildInspectionLoginUrl(returnUrl) + '&notice=password-updated' })
 }
 
 export function leaveAccountPage(fallback: 'settings' | 'mine' = 'settings'): void {

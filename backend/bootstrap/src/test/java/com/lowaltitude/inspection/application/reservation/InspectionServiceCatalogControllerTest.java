@@ -42,6 +42,7 @@ class InspectionServiceCatalogControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.serviceId").value(serviceId.toString()))
                 .andExpect(jsonPath("$.provider.name").value("云翼科技"))
+                .andExpect(jsonPath("$.demonstrationMetrics").value(true))
                 .andExpect(jsonPath("$.provider.qualificationReviewed").value(true))
                 .andExpect(jsonPath("$.priceNote").value("按线路公里计价，起步价含现场巡检和报告"))
                 .andExpect(jsonPath("$.priceFactors[0]").value("线路长度"))
@@ -64,6 +65,7 @@ class InspectionServiceCatalogControllerTest {
                         .param("cityCode", "370500"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.priceNote").value(nullValue()))
+                .andExpect(jsonPath("$.demonstrationMetrics").value(false))
                 .andExpect(jsonPath("$.priceFactors").value(nullValue()))
                 .andExpect(jsonPath("$.cancellationNote").value(nullValue()))
                 .andExpect(jsonPath("$.serviceCities").value(nullValue()));
@@ -285,6 +287,7 @@ class InspectionServiceCatalogControllerTest {
                 "RESERVABLE",
                 "RESERVE",
                 8_560L,
+                true,
                 new ServiceProviderView(
                         UUID.randomUUID(),
                         "云翼科技",
@@ -324,6 +327,7 @@ class InspectionServiceCatalogControllerTest {
                 "AVAILABLE",
                 "REQUEST_QUOTE",
                 0L,
+                false,
                 new ServiceProviderView(
                         UUID.randomUUID(),
                         "云翼科技",

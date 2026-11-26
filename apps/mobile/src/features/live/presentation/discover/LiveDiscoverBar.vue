@@ -2,14 +2,13 @@
 import { computed } from 'vue'
 
 import { formatLiveCount, liveBarLine } from '../../application/live-view'
-import { resolveLivePreviewCover } from '../../data/preview/live-preview-covers'
 import type { LiveRoomCard } from '../../domain/live'
 
 // 推荐 · 直播条 (board Discover): the first room that is live in the city, with 进直播间.
 const props = defineProps<{ card: LiveRoomCard }>()
 const emit = defineEmits<{ open: [] }>()
 
-const picture = computed(() => props.card.coverUrl ?? resolveLivePreviewCover(props.card.roomId)?.url ?? null)
+const picture = computed(() => props.card.coverUrl ?? null)
 </script>
 
 <template>

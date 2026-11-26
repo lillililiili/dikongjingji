@@ -19,7 +19,6 @@ import {
   formatResume,
   progressSegments,
 } from '../application/course-format'
-import { coursePlaySource, resolveCoursePreviewCover } from '../data/preview/course-preview-media'
 import type { CourseCard, CourseDetail } from '../domain/course'
 
 const FLY = 'd7c00000-0000-4000-8000-000000000001'
@@ -100,22 +99,5 @@ describe('course wording (boards MallCourse, CourseFly, MyCourses)', () => {
     expect(describeCourseFailure(new ApiRequestError('x', 409, 'COURSE_REFUND_NOT_ALLOWED', { reason: 'WINDOW_PASSED' })).message)
       .toBe('付款已超过 7 天，不能在线退款；如有问题请联系客服')
     expect(describeCourseFailure(new Error('offline'))).toMatchObject({ signIn: false, reload: false })
-  })
-})
-
-describe('course preview media', () => {
-  it('plays the server address first, else the sample clip of a seeded course', () => {
-    expect(coursePlaySource(FLY, 1, 'https://cdn/1.mp4', true)).toBe('https://cdn/1.mp4')
-    expect(coursePlaySource(FLY, 1, null, true)).toBe('/static/videos/preview/course-flight-principle.mp4')
-    expect(coursePlaySource(FLY, 4, null, true)).toBe('/static/videos/preview/course-flight-control.mp4')
-    expect(coursePlaySource(FLY, 1, null, false)).toBeNull()
-    expect(coursePlaySource('other', 1, null, true)).toBeNull()
-  })
-
-  it('uses the course picture, or the picture of an offline class\'s activity', () => {
-    expect(resolveCoursePreviewCover({ courseId: FLY }, true)).toBe('/static/images/preview/course-flight.jpg')
-    expect(resolveCoursePreviewCover({ courseId: 'x', activityId: 'a2000000-0000-4000-8000-000000000002' }, true))
-      .toBe('/static/images/preview/robot-workshop.jpg')
-    expect(resolveCoursePreviewCover({ courseId: FLY }, false)).toBeNull()
   })
 })

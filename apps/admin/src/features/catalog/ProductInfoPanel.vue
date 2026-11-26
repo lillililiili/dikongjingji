@@ -117,11 +117,11 @@ function rowsProblem(): string | null {
       return `图文第 ${index + 1} 段最多 ${L.introText} 个字`
     }
     if (block.type === 'IMAGE' && block.imageUrl) {
-      const problem = imageUrlProblem(block.imageUrl)
+      const problem = imageUrlProblem(block.imageUrl, props.detail.introBlocks[index]?.imageUrl)
       if (problem) return `图文第 ${index + 1} 段：${problem}`
     }
   }
-  const cover = imageUrlProblem(form.coverUrl)
+  const cover = imageUrlProblem(form.coverUrl, props.detail.product.coverUrl)
   if (cover) return `封面：${cover}`
   return null
 }

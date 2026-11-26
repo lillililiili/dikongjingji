@@ -1,7 +1,6 @@
 import type { ActivityType } from '../../activity/domain/activity'
 import { padTwo, toBeijingParts } from '../../../shared/time/beijing-time'
 
-import { resolveArticleFigurePreview } from '../data/preview/content-preview-covers'
 import type {
   ContentArticle,
   ContentArticleCard,
@@ -147,19 +146,10 @@ export interface ArticleFigureView {
   caption: string | null
 }
 
-/**
- * The pictures of an article's IMAGE blocks, one entry per block (null for other blocks). A block
- * without a licensed picture takes the board's on preview builds and is left out (null) on public ones.
- */
-export function articleFigures(
-  article: Pick<ContentArticle, 'articleId' | 'blocks'>,
-  resolvePreview: (articleId: string, ordinal: number) => string | null = resolveArticleFigurePreview,
-): Array<ArticleFigureView | null> {
-  let ordinal = 0
+export function articleFigures(article: Pick<ContentArticle, 'blocks'>): Array<ArticleFigureView | null> {
   return article.blocks.map((block) => {
     if (block.type !== 'IMAGE' || !block.image) return null
-    const url = block.image.url ?? resolvePreview(article.articleId, ordinal)
-    ordinal += 1
+    const url = block.image.url
     return url ? { url, alt: block.image.alt, caption: block.image.caption } : null
   })
 }

@@ -1,5 +1,5 @@
 import { charCount } from '@/core/ui/format'
-import { isHttpsUrl } from '@/core/ops/media-api'
+import { isRetainedMediaUrl } from '@/core/ops/media-api'
 
 import type {
   ArticleKind,
@@ -123,6 +123,7 @@ export interface BlockForm {
   text: string
   items: BlockItemForm[]
   imageUrl: string
+  originalImageUrl?: string | null
   imageAlt: string
   imageCaption: string
 }
@@ -209,6 +210,7 @@ export function blockForm(block: OpsBlock): BlockForm {
     text: block.text ?? '',
     items: block.items.map((item) => ({ key: newKey(), title: item.title, text: item.text ?? '' })),
     imageUrl: block.image?.url ?? '',
+    originalImageUrl: block.image?.url,
     imageAlt: block.image?.alt ?? '',
     imageCaption: block.image?.caption ?? '',
   }
@@ -330,7 +332,7 @@ export function blockProblem(block: BlockForm, position: number): string | null 
   if (tooLong(block.imageAlt, LIMITS.imageAlt) || tooLong(block.imageCaption, LIMITS.imageCaption)) {
     return `${label}替代文字和图注最多 ${LIMITS.imageAlt} 个字`
   }
-  if (block.imageUrl.trim() && !isHttpsUrl(block.imageUrl)) return `${label}的图片地址要是 https`
+  if (block.imageUrl.trim() && !isRetainedMediaUrl(block.imageUrl, block.originalImageUrl)) return `${label}的图片地址要是 https`
   return null
 }
 
@@ -358,13 +360,13 @@ export function authorProblem(author: AuthorForm, label = '作者'): string | nu
   return author.organizationId ? null : `请选择${label}机构`
 }
 
-export function articleProblems(form: ArticleForm): string[] {
+export function articleProblems(form: ArticleForm, existing?: OpsArticle | null): string[] {
   const problems: string[] = []
   const author = authorProblem(form.author)
   if (author) problems.push(author)
   if (form.kind === 'CASE' && form.author.kind === 'PLATFORM') problems.push('案例不能由平台发布，请选服务商或商家')
   if (form.kind === 'CASE' && !form.cityCode) problems.push('案例要选城市')
-  if (form.coverUrl.trim() && !isHttpsUrl(form.coverUrl)) problems.push('封面地址要是 https')
+  if (form.coverUrl.trim() && !isRetainedMediaUrl(form.coverUrl, existing?.coverUrl)) problems.push('封面地址要是 https')
   if (form.blocks.length > LIMITS.blocks) problems.push(`正文最多 ${LIMITS.blocks} 块`)
   form.blocks.forEach((block, index) => {
     const problem = blockProblem(block, index + 1)
@@ -375,7 +377,7 @@ export function articleProblems(form: ArticleForm): string[] {
   return problems
 }
 
-export function videoProblems(form: VideoForm): string[] {
+export function videoProblems(form: VideoForm, existing?: OpsVideo | null): string[] {
   const problems: string[] = []
   const author = authorProblem(form.author)
   if (author) problems.push(author)
@@ -383,8 +385,8 @@ export function videoProblems(form: VideoForm): string[] {
   if (!Number.isInteger(form.durationSeconds) || form.durationSeconds < 1 || form.durationSeconds > LIMITS.videoSeconds) {
     problems.push(`时长要在 1–${LIMITS.videoSeconds} 秒`)
   }
-  if (form.playUrl.trim() && !isHttpsUrl(form.playUrl)) problems.push('播放地址要是 https')
-  if (form.coverUrl.trim() && !isHttpsUrl(form.coverUrl)) problems.push('封面地址要是 https')
+  if (form.playUrl.trim() && !isRetainedMediaUrl(form.playUrl, existing?.playUrl)) problems.push('播放地址要是 https')
+  if (form.coverUrl.trim() && !isRetainedMediaUrl(form.coverUrl, existing?.coverUrl)) problems.push('封面地址要是 https')
   const tags = tagsFromText(form.tagsText)
   if (tags.length > LIMITS.tags) problems.push(`话题最多 ${LIMITS.tags} 个`)
   if (tags.some((tag) => charCount(tag) > LIMITS.tag || tag.includes('#'))) problems.push(`每个话题最多 ${LIMITS.tag} 个字`)
@@ -394,14 +396,14 @@ export function videoProblems(form: VideoForm): string[] {
   return problems
 }
 
-export function topicProblems(form: TopicForm): string[] {
+export function topicProblems(form: TopicForm, existing?: OpsTopic | null): string[] {
   const problems: string[] = []
   const publisher = authorProblem(form.publisher, '发布方')
   if (publisher) problems.push(publisher)
   if (!form.cityCode) problems.push('专题要选城市')
   if (!form.startsOn || !form.endsOn) problems.push('请选起止日期')
   else if (form.endsOn < form.startsOn) problems.push('结束日期不能早于开始日期')
-  if (form.coverUrl.trim() && !isHttpsUrl(form.coverUrl)) problems.push('封面地址要是 https')
+  if (form.coverUrl.trim() && !isRetainedMediaUrl(form.coverUrl, existing?.coverUrl)) problems.push('封面地址要是 https')
   for (const [text, label, max] of [
     [form.activityIdsText, '活动', LIMITS.topicActivities],
     [form.venueIdsText, '场馆', LIMITS.topicVenues],

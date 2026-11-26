@@ -96,7 +96,7 @@ class MallOpenApiContractTest {
     void eachOfferAlwaysSaysWhetherItsMerchantTakesPaymentOnline() {
         Map<String, Object> offer = map(schemas().get("MallOffer"));
 
-        assertThat(map(root().get("info")).get("version")).isEqualTo("1.4.0");
+        assertThat(map(root().get("info")).get("version")).isEqualTo("1.4.1");
         assertThat(map(map(offer.get("properties")).get("onlinePayment")).get("type")).isEqualTo("boolean");
         assertThat(strings(offer.get("required"))).contains("onlinePayment");
         assertThat(Arrays.stream(MallOfferView.class.getRecordComponents())

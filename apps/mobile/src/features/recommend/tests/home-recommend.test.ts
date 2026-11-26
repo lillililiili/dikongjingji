@@ -98,14 +98,24 @@ describe('home recommend loader', () => {
 
   it('leaves the blocks out when the request fails', async () => {
     let current: HomeRecommendContent = contentFor('旧内容')
+    const failures: boolean[] = []
+    let offline = true
     const loader = createHomeRecommendLoader(
-      { load: async () => { throw new Error('offline') } },
-      { setContent: (content) => { current = content } },
+      { load: async () => {
+        if (offline) throw new Error('offline')
+        return contentFor('重新获取的活动')
+      } },
+      { setContent: (content) => { current = content }, setFailed: (failed) => failures.push(failed) },
     )
 
     await loader.load('370500')
 
     expect(current).toEqual(EMPTY_HOME_RECOMMEND)
+    expect(failures).toEqual([false, true])
+    offline = false
+    await loader.load('370500')
+    expect(failures).toEqual([false, true, false])
+    expect(current).toEqual(contentFor('重新获取的活动'))
   })
 
   it('drops the answer of the previous city once another city is being loaded', async () => {

@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+import com.lowaltitude.inspection.media.DevelopmentMediaPath;
 import com.lowaltitude.inspection.mall.application.MallOpsException.Error;
 import com.lowaltitude.inspection.mall.application.MallOpsViews.OpsCatalogOperationView;
 import com.lowaltitude.inspection.mall.application.MallOpsViews.OpsIntroBlockView;
@@ -186,7 +187,6 @@ public class MallCatalogOpsService {
         MallCategory category = parse(MallCategory.class, draft.category(), "category");
         String name = text(draft.name(), MAX_NAME, "name");
         String summary = optionalText(draft.summary(), MAX_SUMMARY, "summary");
-        String coverUrl = optionalUrl(draft.coverUrl());
         MallExperienceBadge badge = blank(draft.experienceBadge())
                 ? null : parse(MallExperienceBadge.class, draft.experienceBadge(), "experience badge");
         int sortOrder = sortOrder(draft.sortOrder());
@@ -197,6 +197,8 @@ public class MallCatalogOpsService {
         List<OpsIntroBlockView> introBlocks = introBlocks(draft.introBlocks());
 
         UUID id = lock(productId);
+        String coverUrl = DevelopmentMediaPath.matches(draft.coverUrl()) && draft.coverUrl().equals(mapper.findProduct(id).coverUrl())
+                ? draft.coverUrl() : optionalUrl(draft.coverUrl());
         OffsetDateTime at = now();
         if (mapper.updateProduct(id, category.name(), name, summary, coverUrl, badge == null ? null : badge.name(),
                 sortOrder, draft.version(), at) != 1) {

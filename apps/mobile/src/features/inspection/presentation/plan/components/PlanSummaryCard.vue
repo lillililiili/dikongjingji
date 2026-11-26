@@ -11,7 +11,7 @@ defineProps<{
 
 <template>
   <view class="plan-summary">
-    <image class="plan-summary__cover" :src="coverUrl" mode="aspectFill" />
+    <image v-if="coverUrl" class="plan-summary__cover" :src="coverUrl" mode="aspectFill" />
     <view class="plan-summary__body">
       <text class="plan-summary__title">{{ title }}</text>
       <view v-if="providerName" class="plan-summary__line">

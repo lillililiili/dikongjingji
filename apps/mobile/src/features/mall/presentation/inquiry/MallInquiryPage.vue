@@ -7,7 +7,6 @@ import { ApiRequestError } from '@/shared/http/public-api-request'
 import { DAY_MS, toBeijingDate } from '@/shared/time/beijing-time'
 
 import { loadInquiryCityName } from '../../application/inquiry-city'
-import { inquiryCoverUrl } from '../../application/inquiry-cover'
 import {
   clampInquiryQuantity,
   createMallInquiryDraft,
@@ -76,7 +75,7 @@ let requestVersion = 0
 
 const product = computed(() => (state.value.kind === 'ready' ? state.value.product : null))
 const offers = computed(() => (state.value.kind === 'ready' ? state.value.offers : []))
-const cover = computed(() => (product.value ? inquiryCoverUrl(product.value.coverImage, product.value.productId) : null))
+const cover = computed(() => (product.value ? (product.value.coverImage?.url ?? null) : null))
 const askableCount = computed(() => offers.value.filter((offer) => offer.canInquire).length)
 const pickedCount = computed(() => draft.value?.offerIds.length ?? 0)
 const buyerView = computed(() => (buyer.value ? describeMallInquiryBuyer(buyer.value) : null))

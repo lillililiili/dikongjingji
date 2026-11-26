@@ -158,7 +158,7 @@ public class ContentOpsService {
     @Transactional
     public OpsArticleView createArticle(ArticleDraft draft, Operator operator) {
         Operator who = operator(operator);
-        ValidArticle valid = validArticle(draft);
+        ValidArticle valid = validArticle(draft, null);
         UUID id = UUID.randomUUID();
         OffsetDateTime at = now();
         mapper.insertArticle(valid.write(id), at);
@@ -174,7 +174,7 @@ public class ContentOpsService {
         int expected = version(version);
         OpsArticleRow current = requireArticle(mapper.lockArticle(required(articleId)), false);
         checkVersion(current.version(), expected);
-        ValidArticle valid = validArticle(draft);
+        ValidArticle valid = validArticle(draft, current);
         if (OpsContentStatus.valueOf(current.status()) == OpsContentStatus.PUBLISHED) {
             requireComplete(articleMissing(valid.coverUrl(), valid.blocks(), valid.author()));
         }
@@ -232,7 +232,7 @@ public class ContentOpsService {
     @Transactional
     public OpsVideoView createVideo(VideoDraft draft, Operator operator) {
         Operator who = operator(operator);
-        ValidVideo valid = validVideo(draft);
+        ValidVideo valid = validVideo(draft, null);
         UUID id = UUID.randomUUID();
         OffsetDateTime at = now();
         mapper.insertArticle(valid.write(id), at);
@@ -247,7 +247,7 @@ public class ContentOpsService {
         int expected = version(version);
         OpsArticleRow current = requireArticle(mapper.lockArticle(required(videoId)), true);
         checkVersion(current.version(), expected);
-        ValidVideo valid = validVideo(draft);
+        ValidVideo valid = validVideo(draft, current);
         if (OpsContentStatus.valueOf(current.status()) == OpsContentStatus.PUBLISHED) {
             requireComplete(videoMissing(valid.coverUrl(), valid.playUrl(), valid.author()));
         }
@@ -314,7 +314,7 @@ public class ContentOpsService {
     @Transactional
     public OpsTopicView createTopic(TopicDraft draft, Operator operator) {
         Operator who = operator(operator);
-        ValidTopic valid = validTopic(draft);
+        ValidTopic valid = validTopic(draft, null);
         UUID id = UUID.randomUUID();
         OffsetDateTime at = now();
         mapper.insertTopic(valid.write(id), at);
@@ -329,7 +329,7 @@ public class ContentOpsService {
         int expected = version(version);
         OpsTopicRow current = requireTopic(mapper.lockTopic(required(topicId)));
         checkVersion(current.version(), expected);
-        ValidTopic valid = validTopic(draft);
+        ValidTopic valid = validTopic(draft, current);
         if (OpsContentStatus.valueOf(current.status()) == OpsContentStatus.PUBLISHED) {
             requireComplete(topicMissing(valid.coverUrl(), valid.itemCount(), valid.publisher()));
         }
@@ -612,7 +612,7 @@ public class ContentOpsService {
         }
     }
 
-    private ValidArticle validArticle(ArticleDraft draft) {
+    private ValidArticle validArticle(ArticleDraft draft, OpsArticleRow current) {
         if (draft == null) {
             throw new IllegalArgumentException("article is required");
         }
@@ -621,27 +621,29 @@ public class ContentOpsService {
         OpsContentAuthorView author = author(draft.author(), kind == OpsArticleKind.CASE);
         // 案例要有城市（城市里的服务商做的事）；知识可以不分城市。
         String city = kind == OpsArticleKind.CASE ? requiredCity(draft.cityCode()) : optionalCity(draft.cityCode());
-        String cover = OpsText.httpsUrl(draft.coverUrl(), "coverUrl");
-        List<OpsBlockView> blocks = blocks(draft.blocks());
+        String cover = OpsText.mediaUrl(draft.coverUrl(), current == null ? null : current.coverUrl(), "coverUrl");
+        List<String> existingImages = current == null ? List.of() : reads.findBlocks(current.id()).stream()
+                .map(BlockRow::imageUrl).filter(java.util.Objects::nonNull).toList();
+        List<OpsBlockView> blocks = blocks(draft.blocks(), existingImages);
         return new ValidArticle(kind, title, author, city, cover, Boolean.TRUE.equals(draft.sample()), blocks,
                 refs(draft.refs()));
     }
 
-    private ValidVideo validVideo(VideoDraft draft) {
+    private ValidVideo validVideo(VideoDraft draft, OpsArticleRow current) {
         if (draft == null) {
             throw new IllegalArgumentException("video is required");
         }
         String title = OpsText.required(draft.title(), MAX_TITLE, "title");
         OpsContentAuthorView author = author(draft.author(), false);
         String city = requiredCity(draft.cityCode());
-        String cover = OpsText.httpsUrl(draft.coverUrl(), "coverUrl");
+        String cover = OpsText.mediaUrl(draft.coverUrl(), current == null ? null : current.coverUrl(), "coverUrl");
         Integer seconds = draft.durationSeconds();
         if (seconds == null || seconds < 1 || seconds > MAX_VIDEO_SECONDS) {
             throw new IllegalArgumentException("duration is invalid");
         }
         OpsVideoOrientation orientation = OpsText.enumValue(OpsVideoOrientation.class, draft.orientation(),
                 "orientation");
-        String playUrl = OpsText.httpsUrl(draft.playUrl(), "playUrl");
+        String playUrl = OpsText.mediaUrl(draft.playUrl(), current == null ? null : current.videoUrl(), "playUrl");
         String caption = OpsText.optional(draft.caption(), MAX_VIDEO_CAPTION, "caption");
         int rank = draft.rank() == null ? 0 : draft.rank();
         if (rank < 0 || rank > MAX_RANK) {
@@ -651,7 +653,7 @@ public class ContentOpsService {
                 playUrl, caption, tags(draft.tags()), rank, refs(draft.refs()));
     }
 
-    private ValidTopic validTopic(TopicDraft draft) {
+    private ValidTopic validTopic(TopicDraft draft, OpsTopicRow current) {
         if (draft == null) {
             throw new IllegalArgumentException("topic is required");
         }
@@ -664,7 +666,7 @@ public class ContentOpsService {
         if (ends.isBefore(starts)) {
             throw new IllegalArgumentException("topic dates are invalid");
         }
-        String cover = OpsText.httpsUrl(draft.coverUrl(), "coverUrl");
+        String cover = OpsText.mediaUrl(draft.coverUrl(), current == null ? null : current.coverUrl(), "coverUrl");
         List<UUID> activities = ids(draft.activityIds(), MAX_TOPIC_ACTIVITIES, "activityIds");
         List<UUID> venues = ids(draft.venueIds(), MAX_TOPIC_VENUES, "venueIds");
         List<UUID> articles = ids(draft.articleIds(), MAX_TOPIC_ARTICLES, "articleIds");
@@ -709,7 +711,7 @@ public class ContentOpsService {
                 .orElseThrow(() -> new OpsException(ContentOpsError.AUTHOR_INVALID));
     }
 
-    private List<OpsBlockView> blocks(List<BlockDraft> drafts) {
+    private List<OpsBlockView> blocks(List<BlockDraft> drafts, List<String> existingImages) {
         List<BlockDraft> list = drafts == null ? List.of() : drafts;
         if (list.size() > MAX_BLOCKS) {
             throw new IllegalArgumentException("too many blocks");
@@ -750,7 +752,7 @@ public class ContentOpsService {
                     throw new IllegalArgumentException("image block has no text or items");
                 }
                 blocks.add(new OpsBlockView(type, null, List.of(), new OpsBlockImageView(
-                        OpsText.httpsUrl(draft.imageUrl(), "imageUrl"),
+                        OpsText.mediaUrl(draft.imageUrl(), draft.imageUrl() != null && existingImages.contains(draft.imageUrl()) ? draft.imageUrl() : null, "imageUrl"),
                         OpsText.required(draft.imageAlt(), MAX_IMAGE_ALT, "imageAlt"),
                         OpsText.optional(draft.imageCaption(), MAX_IMAGE_CAPTION, "imageCaption"))));
             }

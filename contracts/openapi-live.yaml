@@ -1,8 +1,11 @@
 openapi: "3.1.0"
 info:
   title: "Live API"
-  version: "1.1.0"
+  version: "1.1.1"
   description: |-
+    1.1.1 exposes database-backed development media at /api/v1/dev-media/; production media uses HTTPS.
+    日常库的观看按设备和场次去重，点赞来自已记录的用户操作，弹幕只展示有发送者的业务记录。
+
     1.1.0（2026-11-23，S3-2）：直播主办的工作台放在 Web 运营端（apps/admin）；listHostLiveRooms 加可选查询参数 status。其他不变。
     1.0.0（2026-11-20，docs/redesign/07-视频与直播实现计划.md §3、§4，模块 M20 live）：平台内直播的观看端。
     原型：Discover（“直播”频道、推荐里的直播条）、LiveNotice（直播预告）、LiveRoom（直播间）。
@@ -22,7 +25,7 @@ info:
     - 推流与播放经 LiveStreamProvider 端口接第三方直播服务（服务商未定，概要设计 §14 D20）。建直播间时向服务商建流：
       推流地址只给主办方（LiveHostRoom.pushUrl），播放地址只在直播中给观众（LiveRoom.playUrl）。
       生产环境的播放地址是 https；开发环境（dev profile 的模拟服务）给的是 App 内的示例视频路径
-      /static/videos/preview/live-*.mp4，App 只在预览构建认这种地址。
+      /api/v1/dev-media/videos/preview/live-*.mp4，App 只在预览构建认这种地址。
     - 列表只列当前城市可见的直播间（城市为空的是全国可见）：直播中的在前（开播早的在前，不按人气排），预告按开播时间先后（开播时间
       过了一天还没开播的不再列），已结束的只列有回看链接的（结束晚的在前）。详情只要当前城市可见就能读，没有回看的
       已结束直播间也能读。
@@ -1031,7 +1034,8 @@ components:
           type:
             - "string"
             - "null"
-          description: "https 地址；没有时为空"
+          format: uri-reference
+          description: Controlled HTTPS URL or, for development fixtures, a same-origin /api/v1/dev-media/ reference.
         host:
           $ref: "#/components/schemas/LiveHost"
         cityCode:
@@ -1129,6 +1133,8 @@ components:
           type:
             - "string"
             - "null"
+          format: uri-reference
+          description: Controlled HTTPS URL or, for development fixtures, a same-origin /api/v1/dev-media/ reference.
         host:
           $ref: "#/components/schemas/LiveHost"
         cityCode:
@@ -1199,7 +1205,8 @@ components:
           type:
             - "string"
             - "null"
-          description: "只在直播中给：生产是 https；开发环境是 App 内的示例视频路径 /static/videos/preview/live-*.mp4"
+          format: uri-reference
+          description: Controlled HTTPS URL or, for development fixtures, a same-origin /api/v1/dev-media/ reference.
         streamInterrupted:
           type: "boolean"
           description: "直播中服务商报了断流，还没恢复"

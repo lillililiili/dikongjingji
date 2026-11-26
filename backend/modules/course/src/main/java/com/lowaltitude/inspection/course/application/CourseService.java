@@ -25,6 +25,8 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import com.lowaltitude.inspection.media.DevelopmentMediaPath;
+
 import com.lowaltitude.inspection.course.application.CourseException.Error;
 import com.lowaltitude.inspection.course.infrastructure.persistence.CourseMapper;
 import com.lowaltitude.inspection.course.infrastructure.persistence.CourseMapper.BundleRow;
@@ -181,7 +183,7 @@ public class CourseService {
         List<LessonRow> lessons = lessonsByCourse(List.of(row.id())).getOrDefault(row.id(), List.of());
         boolean collecting = payments.merchantCanCollect(row.organizationId());
         List<CourseImageView> gallery = CourseJson.strings(row.galleryUrls()).stream()
-                .filter(CourseService::isHttps)
+                .filter(CourseService::isMediaUrl)
                 .map(url -> new CourseImageView(url, row.title()))
                 .toList();
         return new CourseDetailView(
@@ -237,6 +239,9 @@ public class CourseService {
             throw new IllegalArgumentException("exactly one of courseId and experienceItemId is required");
         }
         CourseRow row = courseId != null ? mapper.findCourse(courseId) : mapper.findCourseByExperience(experienceItemId);
+        if (experienceItemId != null && !simulations.isPublishedCourseTrial(experienceItemId)) {
+            throw new CourseException(Error.NOT_FOUND);
+        }
         if (row == null || !isOnline(row) || !isOpen(row)) {
             throw new CourseException(Error.NOT_FOUND);
         }
@@ -814,20 +819,20 @@ public class CourseService {
     }
 
     private static CourseImageView cover(CourseRow row) {
-        return isHttps(row.coverUrl()) ? new CourseImageView(row.coverUrl(), row.title()) : null;
+        return isMediaUrl(row.coverUrl()) ? new CourseImageView(row.coverUrl(), row.title()) : null;
     }
 
     private static boolean isOnline(CourseRow row) {
         return CourseMode.ONLINE.name().equals(row.deliveryMode());
     }
 
-    private static boolean isHttps(String url) {
-        return url != null && url.startsWith("https://") && url.length() > "https://".length();
+    private static boolean isMediaUrl(String url) {
+        return DevelopmentMediaPath.matches(url) || url != null && url.startsWith("https://") && url.length() > "https://".length();
     }
 
     /** 只给受控 HTTPS 地址。 */
     static String secureUrl(String url) {
-        return isHttps(url) ? url : null;
+        return isMediaUrl(url) ? url : null;
     }
 
     private static String clip(String value, int max) {

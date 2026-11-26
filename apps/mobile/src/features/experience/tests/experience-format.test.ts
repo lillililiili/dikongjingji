@@ -117,7 +117,7 @@ describe('experience intents', () => {
     expect(resolveExperienceIntent({ ...open, experienceType: 'COURSE_TRIAL' }, true))
       .toEqual({ action: 'NAVIGATE', url: '/pages/experience/course-trial?experienceId=e' })
     expect(resolveExperienceIntent({ ...open, experienceType: 'RECORDED_DEMO' }, true))
-      .toEqual({ action: 'SHOW_NOTICE', message: '录播演示即将开放' })
+      .toEqual({ action: 'NAVIGATE', url: '/pages/experience/recorded?experienceId=e' })
     expect(resolveExperienceIntent(open, false)).toEqual({ action: 'HIDE' })
   })
 })

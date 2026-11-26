@@ -114,9 +114,13 @@ public class AuthenticationService {
 
     /** S5-8 code login: the identity module checked the code and named the account; it must be active. */
     public Optional<LoginToken> issueForVerifiedAccount(UUID subjectId, LoginDevice device) {
+        return issueForVerifiedAccount(subjectId, device, "SMS_CODE");
+    }
+
+    Optional<LoginToken> issueForVerifiedAccount(UUID subjectId, LoginDevice device, String method) {
         return identityAccountPort.findBySubjectId(subjectId)
                 .filter(account -> account.status() == IdentityAccountStatus.ACTIVE)
-                .map(account -> startLogin(account, device, "SMS_CODE"));
+                .map(account -> startLogin(account, device, method));
     }
 
     /**

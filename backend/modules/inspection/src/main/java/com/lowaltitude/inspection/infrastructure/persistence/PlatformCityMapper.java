@@ -13,7 +13,8 @@ public interface PlatformCityMapper {
     @Select("""
             SELECT city_code, city_name, city_pinyin, city_initials,
                    province_code, province_name, province_pinyin,
-                   province_initials, search_count, service_status
+                   province_initials,
+                   CASE WHEN platform_demo_metrics() THEN search_count ELSE recorded_search_count END AS search_count, service_status
             FROM platform_city
             WHERE status = 'ACTIVE'
             ORDER BY province_initials, province_pinyin, province_code,
@@ -24,6 +25,7 @@ public interface PlatformCityMapper {
     @Update("""
             UPDATE platform_city
             SET search_count = search_count + 1,
+                recorded_search_count = recorded_search_count + 1,
                 version = version + 1,
                 updated_at = now()
             WHERE city_code = #{cityCode}

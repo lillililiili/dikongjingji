@@ -129,7 +129,7 @@ describe('platform service visual contract', () => {
 
   it('keeps the copy of each service type outside the reusable entry component', () => {
     expect(channelContentSource).toContain('defineProps')
-    expect(channelContentSource).toContain('v-for="guarantee in content.guarantees"')
+    expect(channelContentSource).not.toContain('content.guarantees')
     expect(channelContentSource).toContain('v-for="(step, index) in content.processSteps"')
     expect(channelContentSource).not.toContain('fixture')
     expect(channelContentSource).not.toContain('持证飞手')
@@ -150,7 +150,7 @@ describe('platform service visual contract', () => {
     expect(channelContentSource).toContain("emit('intent', { type: 'PUBLISH_DEMAND', channel: content.code })")
     expect(channelContentSource).toContain("emit('intent', { type: 'SEARCH', channel: content.code })")
     expect(channelContentSource).toContain('closedCityText(list.page.cityName, list.page.type)')
-    expect(serviceContentSource).toContain("guarantees: ['资质审核', '服务记录', '报价留档']")
+    expect(serviceContentSource).not.toContain('持证飞手')
     for (const code of ['AERIAL', 'SURVEY', 'MAINTENANCE', 'SUPPORT']) {
       expect(serviceContentSource).toContain(`code: '${code}'`)
     }

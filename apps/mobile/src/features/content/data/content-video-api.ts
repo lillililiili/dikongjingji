@@ -1,3 +1,4 @@
+import { resolveDiscoveryVideoUrl } from '../../../shared/http/business-media'
 import {
   CONTENT_COMMENT_REPORT_REASONS,
   type ContentComment,
@@ -81,11 +82,6 @@ export interface ContentVideoApi {
 
 const count = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0)
 
-// Only an HTTPS address with a host may reach a <video>; anything else is no address.
-function httpsUrl(url: string | null | undefined): string | null {
-  return url && /^https:\/\/[^/\s]+/i.test(url.trim()) ? url.trim() : null
-}
-
 export function toContentVideo(dto: VideoDto): ContentVideo {
   const author = toAuthor(dto.author)
   return {
@@ -100,7 +96,7 @@ export function toContentVideo(dto: VideoDto): ContentVideo {
     publishedAt: dto.publishedAt,
     durationSeconds: Math.max(1, Math.floor(dto.durationSeconds || 1)),
     orientation: dto.orientation === 'LANDSCAPE' ? 'LANDSCAPE' : 'PORTRAIT',
-    playUrl: httpsUrl(dto.playUrl),
+    playUrl: resolveDiscoveryVideoUrl(dto.playUrl),
     caption: dto.caption?.trim() || null,
     tags: (dto.tags ?? []).map((tag) => tag.replace(/^#+/, '').trim()).filter(Boolean),
     refs: toRefs(dto.refs ?? []),

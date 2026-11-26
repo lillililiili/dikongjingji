@@ -5,11 +5,9 @@ import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import {
   CARRIER_NAME_LIMIT,
-  SAMPLE_CARRIER,
   initialWaybillDraft,
   waybillHint,
   waybillInput,
-  type CarrierPick,
 } from '../../application/aftersale-waybill'
 import type { AftersaleWaybill, ReturnShipmentInput } from '../../domain/aftersale'
 
@@ -28,11 +26,6 @@ const emit = defineEmits<{
 const draft = ref(initialWaybillDraft(props.waybill))
 const input = computed(() => waybillInput(draft.value))
 const hint = computed(() => waybillHint(draft.value))
-const CARRIERS: Array<{ pick: CarrierPick; name: string }> = [
-  { pick: 'SAMPLE', name: SAMPLE_CARRIER },
-  { pick: 'OTHER', name: '其他承运商' },
-]
-
 function submit(): void {
   if (input.value && !props.busy) emit('submit', input.value)
 }
@@ -49,26 +42,10 @@ function submit(): void {
         </button>
       </view>
       <view class="waybill-sheet__fields">
-        <view class="waybill-sheet__row waybill-sheet__row--carriers">
+        <view class="waybill-sheet__row">
           <text class="waybill-sheet__label">承运商</text>
-          <view class="waybill-sheet__carriers" role="radiogroup" aria-label="承运商">
-            <button
-              v-for="carrier in CARRIERS"
-              :key="carrier.pick"
-              :class="['waybill-sheet__carrier', { 'waybill-sheet__carrier--on': draft.pick === carrier.pick }]"
-              role="radio"
-              :aria-checked="draft.pick === carrier.pick"
-              :data-testid="`aftersale-carrier-${carrier.pick.toLowerCase()}`"
-              @click="draft.pick = carrier.pick"
-            >
-              {{ carrier.name }}
-            </button>
-          </view>
-        </view>
-        <view v-if="draft.pick === 'OTHER'" class="waybill-sheet__row">
-          <text class="waybill-sheet__label">名称</text>
           <input
-            v-model="draft.otherCarrier"
+            v-model="draft.carrierName"
             class="waybill-sheet__input"
             data-testid="aftersale-carrier-name"
             placeholder="填写承运商名称"
@@ -182,10 +159,6 @@ button::after {
   border-bottom: 1px solid #f0f1f3;
 }
 
-.waybill-sheet__row--carriers {
-  min-height: 56px;
-}
-
 .waybill-sheet__label {
   width: 60px;
   flex: none;
@@ -193,34 +166,6 @@ button::after {
   font-size: 14px;
   line-height: 20px;
   white-space: nowrap;
-}
-
-.waybill-sheet__carriers {
-  display: grid;
-  flex: 1;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.waybill-sheet__carrier {
-  display: flex;
-  height: 40px;
-  align-items: center;
-  justify-content: center;
-  border: 1.5px solid #e5ebf3;
-  border-radius: 999px;
-  color: #202c42;
-  background: #ffffff;
-  font-size: 14px;
-  white-space: nowrap;
-  box-sizing: border-box;
-}
-
-.waybill-sheet__carrier--on {
-  border-color: #ff6a00;
-  color: #ba470b;
-  background: #fffaf5;
-  font-weight: 500;
 }
 
 .waybill-sheet__input {

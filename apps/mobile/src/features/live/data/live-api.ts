@@ -1,4 +1,4 @@
-import { acceptPlayUrl } from './preview/live-preview-covers'
+import { resolveBusinessMediaUrl } from '../../../shared/http/business-media'
 import {
   LIVE_ITEM_TYPES,
   type LiveComment,
@@ -80,10 +80,6 @@ const count = (value: unknown): number => (typeof value === 'number' && Number.i
 
 const text = (value: unknown): string | null => (typeof value === 'string' && value.trim() ? value.trim() : null)
 
-const httpsOnly = (value: unknown): string | null => {
-  const url = text(value)
-  return url && /^https:\/\/\S+$/i.test(url) ? url : null
-}
 
 function toHost(dto: HostDto | undefined): LiveHost {
   return { organizationId: dto?.organizationId ?? '', name: text(dto?.name) ?? '主办方' }
@@ -100,7 +96,7 @@ export function toLiveRoomCard(dto: CardDto): LiveRoomCard {
     roomId: dto.roomId,
     title: text(dto.title) ?? '直播',
     subtitle: text(dto.subtitle),
-    coverUrl: httpsOnly(dto.coverUrl),
+    coverUrl: resolveBusinessMediaUrl(dto.coverUrl),
     host: toHost(dto.host),
     cityCode: text(dto.cityCode),
     status: toStatus(dto.status),
@@ -120,12 +116,13 @@ export function toLiveRoom(dto: RoomDto): LiveRoom {
     const mapped = toLiveItem(item)
     return mapped ? [mapped] : []
   })
-  const replayUrl = httpsOnly(dto.replayUrl)
+  const replayUrl = typeof dto.replayUrl === 'string' && /^https:\/\//i.test(dto.replayUrl)
+    ? resolveBusinessMediaUrl(dto.replayUrl) : null
   return {
     roomId: dto.roomId,
     title: text(dto.title) ?? '直播',
     subtitle: text(dto.subtitle),
-    coverUrl: httpsOnly(dto.coverUrl),
+    coverUrl: resolveBusinessMediaUrl(dto.coverUrl),
     host: toHost(dto.host),
     cityCode: text(dto.cityCode),
     status,
@@ -141,7 +138,7 @@ export function toLiveRoom(dto: RoomDto): LiveRoom {
     currentItemSeq: items.some((item) => item.seq === dto.currentItemSeq) ? dto.currentItemSeq ?? null : null,
     replayUrl,
     replayPlatformName: replayUrl ? text(dto.replayPlatformName) : null,
-    playUrl: status === 'LIVE' ? acceptPlayUrl(dto.playUrl) : null,
+    playUrl: status === 'LIVE' ? resolveBusinessMediaUrl(dto.playUrl) : null,
     streamInterrupted: status === 'LIVE' && dto.streamInterrupted === true,
   }
 }

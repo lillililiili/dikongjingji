@@ -87,7 +87,7 @@ export function resolveProductExperiencePill(
     previewEnabled,
   )
   if (resolution.action === 'NAVIGATE') return { kind: 'NAVIGATE', url: resolution.url }
-  return resolution.action === 'SHOW_NOTICE' ? { kind: 'NOTICE', message: resolution.message } : { kind: 'NONE' }
+  return { kind: 'NONE' }
 }
 
 /**

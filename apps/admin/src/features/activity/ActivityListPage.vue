@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { http } from '@/core/http'
+import { errorMessage } from '@/core/http/api-error'
 import { formatYuan } from '@/core/ops/ops-common'
 import { formatDateTime } from '@/core/ui/format'
 import PagedTable from '@/core/ui/PagedTable.vue'
@@ -24,6 +25,7 @@ import {
 const router = useRouter()
 const api = createActivityApi(http)
 const cities = ref<DirectoryCity[]>([])
+const cityError = ref('')
 const list = usePagedList<OpsActivitySummary, ActivityFilters>((filters, page, size) => api.list(filters, page, size),
   { keyword: '', cityCode: '', type: '', status: '' })
 
@@ -39,8 +41,8 @@ onMounted(async () => {
   void list.load()
   try {
     cities.value = await createOrganizationApi(http).cities()
-  } catch {
-    cities.value = []
+  } catch (failure) {
+    cityError.value = errorMessage(failure)
   }
 })
 </script>
@@ -65,6 +67,7 @@ onMounted(async () => {
                    @change="list.search()">
           <el-option v-for="city in cities" :key="city.code" :label="city.name" :value="city.code" />
         </el-select>
+        <span v-if="cityError" role="alert">城市目录加载失败：{{ cityError }}</span>
       </el-form-item>
       <el-form-item label="类型">
         <el-select v-model="list.filters.type" clearable placeholder="全部" style="width: 110px" @change="list.search()">
@@ -92,6 +95,7 @@ onMounted(async () => {
       :loading="list.loading.value"
       :error="list.error.value"
       row-key="activityId"
+      origin-resource="ACTIVITY"
       empty-text="没有符合条件的活动"
       @change-page="list.changePage"
       @change-size="list.changeSize"

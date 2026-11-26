@@ -15,7 +15,6 @@ import {
   paymentRemainingMs,
 } from '../../application/enrollment-view'
 import { enrollmentApi } from '../../data/enrollment-api-client'
-import { resolveActivityPreviewCover } from '../../data/preview/activity-preview-covers'
 import {
   ENROLLMENT_PAGE_SIZE,
   type Enrollment,
@@ -77,7 +76,7 @@ const waitlistCards = computed(() => (tab.value === 'UPCOMING' ? waitlists.value
   waitlist,
   view: describeWaitlistCard(waitlist),
   title: splitTitle(waitlist.activity.title),
-  cover: waitlist.activity.coverImage?.url ?? resolveActivityPreviewCover(waitlist.activity.activityId),
+  cover: waitlist.activity.coverImage?.url ?? null,
   typeLabel: ACTIVITY_TYPE_LABELS[waitlist.activity.type],
 })))
 
@@ -95,7 +94,7 @@ const cards = computed(() => items.value.map((enrollment) => {
     paid: ACTIVITY_PREVIEW_ENABLED && enrollment.payment.status === 'PAID',
     refundable: ACTIVITY_PREVIEW_ENABLED && canRequestRefund(enrollment),
     cover: enrollment.activity.coverImage?.url
-      ?? resolveActivityPreviewCover(enrollment.activity.activityId),
+      ?? null,
     typeLabel: ACTIVITY_TYPE_LABELS[enrollment.activity.type],
     price: enrollmentPriceText(enrollment),
     unpaid: enrollment.payment.status === 'PENDING_PAYMENT',

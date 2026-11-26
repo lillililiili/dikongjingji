@@ -87,7 +87,6 @@ const stageCount = (code: MineOrderStage): number | undefined =>
                 <text class="platform-mine__name">{{ content.user.enterpriseIdentity.name }}</text>
                 <text class="platform-mine__location">{{ content.user.enterpriseIdentity.roleLabel }}</text>
               </view>
-              <button v-if="content.user.switchLabel" class="platform-mine__switch" data-testid="mine-switch-identity" @click.stop="emit('switchIdentity')">{{ content.user.switchLabel }}</button>
             </view>
             <view v-else class="platform-mine__identity">
               <view class="platform-mine__avatar">
@@ -105,14 +104,13 @@ const stageCount = (code: MineOrderStage): number | undefined =>
                   <text class="platform-mine__name">{{ content.user.displayName }}</text>
                   <text v-if="content.user.levelName" class="platform-mine__level">{{ content.user.levelName }}</text>
                 </view>
-                <!-- Wraps between the number and the city, never inside 东营 (board Mine). -->
-                <text v-if="content.user.maskedPhone" class="platform-mine__location" data-testid="mine-phone-line" :aria-label="formatMineSubline(content.user)"><text class="platform-mine__nowrap">{{ content.user.maskedPhone }} · </text><text class="platform-mine__nowrap">{{ formatMineCity(content.user.locationText) }}</text></text>
+                <text v-if="content.user.maskedPhone" class="platform-mine__location" data-testid="mine-phone-line" :aria-label="formatMineSubline(content.user)"><text class="platform-mine__detail-part">{{ content.user.maskedPhone }} ·</text> <text class="platform-mine__detail-part">{{ formatMineCity(content.user.locationText) }}</text></text>
                 <text v-else class="platform-mine__location">
                   <text v-if="content.user.certificationLabel" class="platform-mine__certification">{{ content.user.certificationLabel }} · </text>{{ formatMineCity(content.user.locationText) }}
                 </text>
               </view>
-              <button v-if="content.user.switchLabel" class="platform-mine__switch" data-testid="mine-switch-identity" @click.stop="emit('switchIdentity')">{{ content.user.switchLabel }}</button>
             </view>
+            <button v-if="content.user.switchLabel" class="platform-mine__switch" data-testid="mine-switch-identity" @click.stop="emit('switchIdentity')">{{ content.user.switchLabel }}</button>
           </view>
         </template>
 
@@ -285,6 +283,8 @@ button::after {
 
 .platform-mine__profile {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   min-height: 92px;
   padding: 15px 12px;
   align-items: center;
@@ -297,7 +297,8 @@ button::after {
 .platform-mine__identity {
   display: flex;
   min-width: 0;
-  flex: 1;
+  max-width: 100%;
+  flex: 1 1 auto;
   align-items: center;
   gap: 12px;
 }
@@ -356,12 +357,10 @@ button::after {
 }
 
 .platform-mine__name {
-  overflow: hidden;
   font-size: 19px;
   font-weight: 700;
-  line-height: 26px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.37;
+  overflow-wrap: anywhere;
 }
 
 .platform-mine__level {
@@ -377,25 +376,31 @@ button::after {
 .platform-mine__certification {
   color: #627187;
   font-size: 12px;
-  line-height: 17px;
+  line-height: 1.42;
+  overflow-wrap: anywhere;
 }
 
-.platform-mine__nowrap {
-  white-space: nowrap;
+.platform-mine__detail-part {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: top;
 }
 
 /* S5-7 the switch button (board Mine). */
 .platform-mine__switch {
+  display: flex;
   flex: none;
-  min-height: 36px;
-  margin: 0;
+  min-height: 44px;
+  margin: 0 0 0 auto;
   padding: 0 12px;
+  align-items: center;
+  justify-content: center;
   border: 1px solid #c9d3e1;
   border-radius: 999px;
   color: #202c42;
   background: #fff;
   font-size: 12px;
-  line-height: 34px;
+  line-height: 1.4;
   white-space: nowrap;
   box-sizing: border-box;
 }

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 
+import { ApiRequestError, publicRequest } from '@/shared/http/public-api-request'
+
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import {
-  AGREEMENT_BODY_PLACEHOLDER,
+  type PublishedAgreement,
   AGREEMENT_DOCS,
   AGREEMENT_DOCUMENTS,
   type AgreementDoc,
@@ -41,7 +43,24 @@ watch(current, (doc) => emit('shown', doc), { immediate: true })
 
 const update = computed(() => props.updates[current.value] ?? null)
 
-const document = computed(() => AGREEMENT_DOCUMENTS[current.value])
+type DocumentState =
+  | { kind: 'loading' | 'unpublished' | 'error' }
+  | { kind: 'published'; document: PublishedAgreement }
+
+const state = ref<DocumentState>({ kind: 'loading' })
+let revision = 0
+async function load(doc: AgreementDoc): Promise<void> {
+  const request = ++revision
+  state.value = { kind: 'loading' }
+  try {
+    const document = await publicRequest<PublishedAgreement>({ method: 'GET', url: `/api/v1/platform/agreements/${doc}` })
+    if (request === revision) state.value = { kind: 'published', document }
+  } catch (error) {
+    if (request === revision) state.value = { kind: error instanceof ApiRequestError && error.status === 404 ? 'unpublished' : 'error' }
+  }
+}
+watch(current, (doc) => { void load(doc) }, { immediate: true })
+const document = computed(() => state.value.kind === 'published' ? state.value.document : null)
 
 function pick(doc: AgreementDoc): void {
   current.value = doc
@@ -62,24 +81,18 @@ function pick(doc: AgreementDoc): void {
     <view class="agreement__body">
       <view class="agreement__card agreement__card--lead">
         <view class="agreement__title-line">
-          <text class="agreement__title" data-testid="agreement-title">{{ document.title }}</text>
-          <text class="agreement__sample">示例</text>
+          <text class="agreement__title" data-testid="agreement-title">{{ document?.title ?? AGREEMENT_DOCUMENTS[current].title }}</text>
         </view>
-        <view class="agreement__meta">
+        <view v-if="document" class="agreement__meta">
           <view class="agreement__meta-item">
             <text class="agreement__meta-key">版本</text>
             <text class="agreement__meta-value">{{ document.version }}</text>
           </view>
           <view class="agreement__meta-item">
-            <text class="agreement__meta-key">更新日期</text>
-            <text class="agreement__meta-value">{{ document.updatedOn }}</text>
-          </view>
-          <view class="agreement__meta-item">
-            <text class="agreement__meta-key">生效日期</text>
-            <text class="agreement__meta-value">{{ document.effectiveOn }}</text>
+            <text class="agreement__meta-key">发布日期</text>
+            <text class="agreement__meta-value">{{ document.publishedOn }}</text>
           </view>
         </view>
-        <text class="agreement__meta-note">版本和日期为示例，以正式发布的协议为准</text>
         <button
           v-if="update"
           class="agreement__update"
@@ -92,11 +105,19 @@ function pick(doc: AgreementDoc): void {
         </button>
       </view>
 
-      <view class="agreement__card agreement__sections">
-        <view v-for="section in document.sections" :key="section" class="agreement__section">
-          <text class="agreement__section-title">{{ section }}</text>
-          <text class="agreement__section-body" data-testid="agreement-placeholder">{{ AGREEMENT_BODY_PLACEHOLDER }}</text>
+      <view v-if="document" class="agreement__card agreement__sections">
+        <view v-for="(section, index) in document.sections" :key="index" class="agreement__section">
+          <text class="agreement__section-title">{{ section.title }}</text>
+          <text class="agreement__section-body">{{ section.body }}</text>
         </view>
+      </view>
+      <view v-else class="agreement__card agreement__sections" aria-live="polite">
+        <text v-if="state.kind === 'loading'">正在加载协议…</text>
+        <template v-else-if="state.kind === 'error'">
+          <text>协议加载失败</text>
+          <button data-testid="agreement-retry" @click="load(current)">重新加载</button>
+        </template>
+        <text v-else data-testid="agreement-unpublished">协议正文尚未发布</text>
       </view>
 
       <button class="agreement__card agreement__contact" data-testid="agreement-contact" @click="emit('contactPlatform')">
@@ -119,7 +140,6 @@ function pick(doc: AgreementDoc): void {
           @click="pick(doc)"
         >
           <text class="agreement__sheet-name">{{ AGREEMENT_DOCUMENTS[doc].title }}</text>
-          <text class="agreement__sheet-version">{{ AGREEMENT_DOCUMENTS[doc].version }}</text>
           <LineIcon v-if="doc === current" :d="CHECK" :size="18" color="#ff6a00" :stroke-width="2.6" />
         </button>
       </view>
@@ -232,18 +252,10 @@ button::after {
   line-height: 28px;
 }
 
-/* Sample data says so quietly (R5 #14). */
-.agreement__sample {
-  flex-shrink: 0;
-  color: #738096;
-  font-size: 11px;
-  line-height: 16px;
-}
-
 .agreement__meta {
   display: grid;
   padding: 10px 0;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   border-radius: 10px;
   background: #f5f7fc;
 }
@@ -269,13 +281,6 @@ button::after {
   white-space: nowrap;
 }
 
-.agreement__meta-note {
-  margin-top: -4px;
-  color: #738096;
-  font-size: 12px;
-  line-height: 17px;
-}
-
 .agreement__sections {
   padding: 16px 14px;
   gap: 16px;
@@ -294,6 +299,7 @@ button::after {
 }
 
 .agreement__section-body {
+  white-space: pre-wrap;
   color: #738096;
   font-size: 14px;
   line-height: 22px;
@@ -365,10 +371,4 @@ button::after {
   font-weight: 500;
 }
 
-.agreement__sheet-version {
-  flex-shrink: 0;
-  color: #738096;
-  font-size: 13px;
-  line-height: 18px;
-}
 </style>

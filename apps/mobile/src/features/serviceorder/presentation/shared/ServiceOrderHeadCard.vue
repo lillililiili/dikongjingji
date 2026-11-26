@@ -3,7 +3,6 @@ import LineIcon from '@/shared/ui/LineIcon.vue'
 import QualificationBadge from '@/shared/ui/QualificationBadge.vue'
 
 import { describeServiceOrderCustomer } from '../../application/service-order-format'
-import { resolveServiceOrderPreviewCover } from '../../data/preview/serviceorder-preview-covers'
 import type { ServiceOrder } from '../../domain/service-order'
 
 // The white card at the top of OrderService and PlanConfirm: the demand's scene photo, the title,
@@ -16,14 +15,12 @@ const emit = defineEmits<{
   provider: [providerId: string]
 }>()
 
-const cover = resolveServiceOrderPreviewCover(props.order.type)
 const customer = describeServiceOrderCustomer(props.order.customer)
 </script>
 
 <template>
   <view class="so-head" data-testid="service-order-head-card">
-    <image v-if="cover" class="so-head__image" :src="cover" mode="aspectFill" />
-    <view v-else class="so-head__image so-head__image--icon">
+    <view class="so-head__image so-head__image--icon">
       <LineIcon name="doc" :size="28" color="#91a0b4" :stroke-width="1.6" />
     </view>
     <view class="so-head__copy">

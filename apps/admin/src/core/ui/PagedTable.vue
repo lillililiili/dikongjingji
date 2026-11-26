@@ -1,4 +1,5 @@
 <script setup lang="ts" generic="T extends object">
+import DataOriginColumn from '@/core/ops/DataOriginColumn.vue'
 /**
  * 分页表格：el-table + el-pagination，带加载中、出错重试和空状态。列由默认插槽给出（el-table-column）。
  * 数据和页码来自 usePagedList，这个组件只负责显示和转发翻页。
@@ -11,6 +12,7 @@ defineProps<{
   loading: boolean
   error: string
   rowKey: string
+  originResource?: string
   emptyText?: string
 }>()
 
@@ -42,8 +44,9 @@ const emit = defineEmits<{
       stripe
     >
       <slot />
+      <DataOriginColumn v-if="originResource" :resource="originResource" :items="items" :row-key="rowKey" />
     </el-table>
-    <div class="paged-table__footer">
+    <div v-if="!error" class="paged-table__footer">
       <el-pagination
         :current-page="page"
         :page-size="size"

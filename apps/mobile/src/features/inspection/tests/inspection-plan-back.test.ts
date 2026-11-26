@@ -60,7 +60,7 @@ function mountPlanPage(): { bindings: PlanBindings; pressBack: BackPressHandler 
       inspectionPlanApi: {},
     },
     // 2026-11-20: the per-category service picture.
-    '../../../data/inspection-service-images': { inspectionServiceImage: () => '' },
+    '../../../../../shared/http/business-media': { resolveBusinessMediaUrl: () => null },
     '../../../domain/service-flow/plan': planDomain,
     '../../../navigation/inspection-routes': inspectionRoutes,
     '../../shared/inspection-cancellation-ui': {},

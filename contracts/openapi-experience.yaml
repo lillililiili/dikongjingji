@@ -1,9 +1,12 @@
 openapi: 3.1.0
 info:
   title: Experience and Venue Catalog API
-  version: 1.5.0
+  version: 1.5.1
   description: |-
+    1.5.1 exposes database-backed development media at /api/v1/dev-media/; production media uses HTTPS.
+
     2026-11-24（接口和字段不变）：场馆运营机构资质没审核通过（身份迁移 V013）时，场馆列表里没有、详情 404、不能再约；已有的预约、改期、退款、核销照常。
+
     1.0.0: read-only catalog for the home "体验" channel (docs/redesign/03-App实现任务计划.md §8):
     online experience items, the venues of a city, a venue's projects, sessions and devices. These five routes stay public.
 
@@ -931,8 +934,8 @@ components:
       properties:
         url:
           type: string
-          format: uri
-          description: Controlled HTTPS address only
+          format: uri-reference
+          description: Controlled HTTPS URL or, for development fixtures, a same-origin /api/v1/dev-media/ reference.
         alt:
           type: string
     ExperienceType:
@@ -1894,6 +1897,7 @@ components:
         - productId
         - simulationTemplate
         - trialMinutes
+        - video
       properties:
         experienceId:
           type: string
@@ -1923,6 +1927,11 @@ components:
             - $ref: "#/components/schemas/SimulationTemplate"
             - type: "null"
           description: 只有仿真有；没配模板的仿真不能玩
+        video:
+          description: 录播项目配置的媒体，缺少媒体时为空。
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
         trialMinutes:
           type:
             - integer

@@ -2,11 +2,8 @@
 import { computed, ref, watch } from 'vue'
 
 import { ACTIVITY_PREVIEW_ENABLED } from '@/features/activity/application/activity-preview'
-import { resolveActivityPreviewCover } from '@/features/activity/data/preview/activity-preview-covers'
 import { buildActivityDetailUrl } from '@/features/activity/navigation/activity-routes'
 import { CONTENT_PREVIEW_ENABLED } from '@/features/content/application/content-preview'
-import { resolveArticlePreviewCover } from '@/features/content/data/preview/content-preview-covers'
-import { resolveVideoPreviewCover } from '@/features/content/data/preview/content-preview-videos'
 import { buildContentArticleUrl, buildContentVideoUrl } from '@/features/content/navigation/content-routes'
 import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
@@ -30,7 +27,6 @@ import {
 } from '../../application/merchant-view'
 import { mallApi } from '../../data/mall-api-client'
 import { mallMerchantApi } from '../../data/merchant-api-client'
-import { resolveMallPreviewCover } from '../../data/preview/mall-preview-covers'
 import type { MallProductCard } from '../../domain/mall'
 import type { MallMerchantActivity, MallMerchantContent, MallMerchantPage } from '../../domain/merchant'
 import { buildMallProductUrl } from '../../navigation/mall-routes'
@@ -124,18 +120,15 @@ async function loadGoods(requested = requestVersion): Promise<void> {
 }
 
 function coverOfProduct(product: MallProductCard): string | null {
-  return product.coverImage?.url ?? resolveMallPreviewCover(product.productId)?.url ?? null
+  return product.coverImage?.url ?? null
 }
 
 function coverOfActivity(activity: MallMerchantActivity): string | null {
-  return activity.coverImage?.url ?? resolveActivityPreviewCover(activity.activityId) ?? null
+  return activity.coverImage?.url ?? null
 }
 
 function coverOfContent(content: MallMerchantContent): string | null {
-  if (content.coverImage) return content.coverImage.url
-  return content.kind === 'VIDEO'
-    ? resolveVideoPreviewCover(content.contentId)?.url ?? null
-    : resolveArticlePreviewCover(content.contentId)?.url ?? null
+  return content.coverImage?.url ?? null
 }
 
 // 活动卡进活动详情、内容卡进图文或视频详情；那些页面没开时卡片不能点。

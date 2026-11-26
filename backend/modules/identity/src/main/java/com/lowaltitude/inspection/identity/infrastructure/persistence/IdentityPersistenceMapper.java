@@ -74,7 +74,7 @@ public interface IdentityPersistenceMapper
               LEFT JOIN identity_organization_member m
                 ON m.user_id = u.id
                AND m.organization_id = u.default_organization_id
-             WHERE u.login_name = #{loginName}
+             WHERE u.login_name = #{loginName} AND u.registered_via = 'PASSWORD'
             """)
     Optional<PersistedIdentityUser> findUserByLoginName(@Param("loginName") String loginName);
 

@@ -57,6 +57,7 @@ onMounted(() => {
     description="已开通、筹备中的城市出现在 App 城市面板（照原型 CitySheet 分两组）；未开通的只能搜索到。"
     traced
   >
+    <template #actions><el-button @click="$router.push('/cities/map-places')">地图地点</el-button></template>
     <el-form class="filters" inline @submit.prevent="list.search()">
       <el-form-item label="城市">
         <el-input

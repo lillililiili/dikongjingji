@@ -1,3 +1,4 @@
+import { businessImage, resolveBusinessMediaUrl } from '../../../shared/http/business-media'
 import type { PublicApiHttpClient } from '@/shared/http/public-api-request'
 
 import type {
@@ -20,7 +21,6 @@ import type {
   ContentVideoOrientation,
   ContentVideoSummary,
 } from '../domain/content'
-import { isMediaUrl } from '../../../shared/http/media-url'
 
 interface MediaDto {
   url: string
@@ -121,7 +121,7 @@ const REF_TYPES: readonly ContentRefType[] = ['INSPECTION_SERVICE', 'PRO_SERVICE
 
 // The server only hands out HTTPS pictures; this keeps a bad row away from an <image> anyway.
 export function toImage(media: MediaDto | null): ContentImage | null {
-  return media && isMediaUrl(media.url) ? { url: media.url, alt: media.alt } : null
+  return businessImage(media)
 }
 
 const ORIENTATIONS: readonly ContentVideoOrientation[] = ['PORTRAIT', 'LANDSCAPE']
@@ -170,11 +170,10 @@ function toTopicCard(dto: TopicCardDto): ContentTopicCard {
   }
 }
 
-// (1.3.0) A picture block keeps only an HTTPS address; without one (no licensed picture yet) it stays
-// with url null so a preview build can draw the board's picture in its place.
+// Preserve the description even when a picture has no usable URL.
 function toBlockImage(dto: BlockImageDto | null | undefined): ContentBlockImage | null {
   if (!dto) return null
-  const url = dto.url && isMediaUrl(dto.url) ? dto.url : null
+  const url = resolveBusinessMediaUrl(dto.url)
   return { url, alt: dto.alt?.trim() || '', caption: dto.caption?.trim() || null }
 }
 

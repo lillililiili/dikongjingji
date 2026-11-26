@@ -53,17 +53,16 @@ const RULES = SETTINGS_RULE_DOCS.map((doc) => ({ doc, d: AGREEMENT_ICONS[doc] })
         <view class="about__card">
           <view class="about__row about__row--static">
             <text class="about__row-title">App 备案号</text>
-            <text class="about__row-value" data-testid="about-filing">[备案号待确认]</text>
+            <text class="about__row-value" data-testid="about-filing">暂未公布</text>
           </view>
           <view class="about__row about__row--static">
             <text class="about__row-title">运营主体</text>
-            <text class="about__row-value">[运营主体待确认]</text>
+            <text class="about__row-value">暂未公布</text>
           </view>
         </view>
       </view>
     </view>
 
-    <text class="about__copyright">Copyright © 2026 [运营主体待确认]</text>
   </view>
 </template>
 

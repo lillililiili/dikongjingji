@@ -32,9 +32,9 @@ const lastNote = ref<string | null>(null)
 
 // Board ExpPick `ways`: what each way is, its colours and its line icon.
 const WAY_STYLES = {
-  SIMULATION: { kind: '不连接真实设备', price: '免费', tone: 'green', bg: '#e2f6ed', ink: '#11804a', d: 'M4 5h16v11H4zM8 20h8M12 16v4M10 8.5l4 2.5-4 2.5z' },
-  RECORDED_DEMO: { kind: '厂家录制视频', price: '免费', tone: 'blue', bg: '#e6f0ff', ink: '#1d63c4', d: 'M5 5h14v14H5zM10 9l5 3-5 3z' },
-  VENUE: { kind: '真机 · 工作人员陪同', price: '看场次', tone: 'orange', bg: '#fff0e3', ink: '#ba470b', d: 'M4 20h16M6 20V9l6-4 6 4v11M10 20v-5h4v5' },
+  SIMULATION: { bg: '#e2f6ed', ink: '#11804a', d: 'M4 5h16v11H4zM8 20h8M12 16v4M10 8.5l4 2.5-4 2.5z' },
+  RECORDED_DEMO: { bg: '#e6f0ff', ink: '#1d63c4', d: 'M5 5h14v14H5zM10 9l5 3-5 3z' },
+  VENUE: { bg: '#fff0e3', ink: '#ba470b', d: 'M4 20h16M6 20V9l6-4 6 4v11M10 20v-5h4v5' },
 } as const
 
 const ways = computed(() => props.view.pills.map((pill) => ({ pill, style: WAY_STYLES[pill.way] })))
@@ -132,17 +132,12 @@ defineExpose({ openPicker })
             <view class="pick__copy">
               <view class="pick__name-row">
                 <text class="pick__name">{{ way.pill.label }}</text>
-                <text :class="['pick__kind', `pick__kind--${way.style.tone}`]">{{ way.style.kind }}</text>
               </view>
               <text class="pick__desc">{{ way.pill.title }}</text>
               <text v-if="way.pill.meta" class="pick__meta">{{ way.pill.meta }}</text>
             </view>
-            <text :class="['pick__price', { 'pick__price--paid': way.pill.way === 'VENUE' }]">{{ way.style.price }}</text>
           </button>
-          <view class="pick__fine">
-            <text>几种方式在页面和记录中分别标注，不混称“真机体验”。</text>
-            <text>到馆体验按场馆标价单独付费，与商品订单分开。</text>
-          </view>
+          <text v-if="view.venueId" class="pick__fine">到馆场次和价格可在场馆页查看。</text>
         </view>
       </view>
     </template>
@@ -336,27 +331,9 @@ defineExpose({ openPicker })
   white-space: nowrap;
 }
 
-.pick__kind {
-  padding: 1px 6px;
-  border-radius: 6px;
-  font-size: 11px;
-  white-space: nowrap;
-}
 
-.pick__kind--green {
-  color: #11804a;
-  background: #e2f6ed;
-}
 
-.pick__kind--blue {
-  color: #1d63c4;
-  background: #e6f0ff;
-}
 
-.pick__kind--orange {
-  color: #ba470b;
-  background: #fff0e3;
-}
 
 .pick__desc {
   color: #536178;
@@ -369,17 +346,7 @@ defineExpose({ openPicker })
   font-size: 12px;
 }
 
-.pick__price {
-  align-self: center;
-  color: #11804a;
-  font-size: 14px;
-  font-weight: 700;
-  white-space: nowrap;
-}
 
-.pick__price--paid {
-  color: #e85400;
-}
 
 .pick__fine {
   display: flex;

@@ -1,0 +1,147 @@
+openapi: 3.1.0
+info:
+  title: 线上体验运营
+  version: 1.0.0
+  description: 平台运营维护体验项目。公开读取、客户记录及试用见 openapi-experience.yaml，实际课程试听见 openapi-course.yaml。
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/ops/experience-items:
+    get:
+      operationId: listOpsExperienceItems
+      parameters:
+        - {in: query, name: keyword, schema: {type: string, maxLength: 60}}
+        - {in: query, name: status, schema: {$ref: '#/components/schemas/Status'}}
+        - {in: query, name: type, schema: {$ref: '#/components/schemas/Type'}}
+        - {in: query, name: page, schema: {type: integer, minimum: 1, default: 1}}
+        - {in: query, name: size, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+      responses:
+        '200':
+          description: 项目按排序值、ID 排序。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [page, size, total, hasMore, items]
+                properties:
+                  page: {type: integer}
+                  size: {type: integer}
+                  total: {type: integer}
+                  hasMore: {type: boolean}
+                  items: {type: array, items: {$ref: '#/components/schemas/Item'}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /api/v1/ops/experience-items/choices/{target}:
+    get:
+      operationId: listOnlineExperienceChoices
+      parameters:
+        - {in: path, name: target, required: true, schema: {type: string, enum: [PRODUCT, COURSE, VIDEO]}}
+        - {in: query, name: keyword, schema: {type: string, maxLength: 60}}
+      responses:
+        '200':
+          description: 最多 40 个已发布商品、已上架在线课程或带 HTTPS 素材的已发布视频；视频可选用其素材地址。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: {type: string, format: uuid}
+                    name: {type: string}
+                    mediaUrl: {type: [string, 'null']}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /api/v1/ops/experience-items/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/ItemId'}
+    get:
+      operationId: getOpsExperienceItem
+      responses:
+        '200': {$ref: '#/components/responses/Item'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    put:
+      operationId: saveOpsExperienceItem
+      description: 新建时使用客户端生成的固定 UUID、草稿和空版本。编辑提交读取时的版本和原课程 ID；版本和课程关联在同一事务中校验，结果可用 GET 读取确认。已发布后不能转回草稿。下架保留历史记录和课程关联；已有记录读取开始时的项目快照。迁移前历史按迁移时状态回填。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - {$ref: '#/components/schemas/Fields'}
+                - type: object
+                  properties:
+                    previousCourseId: {type: [string, 'null'], format: uuid}
+      responses:
+        '200': {$ref: '#/components/responses/Item'}
+        '400': {description: 字段格式无效，或字段与项目类型不符。}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {description: 版本、课程绑定或状态冲突，重新获取项目。}
+        '422': {description: 发布缺少介绍、封面或类型必需字段，见 details.missing；或关联商品无效。}
+  /api/v1/ops/experience-items/{id}/changes:
+    parameters:
+      - {$ref: '#/components/parameters/ItemId'}
+    get:
+      operationId: getOpsExperienceItemChanges
+      responses:
+        '200':
+          description: 运营操作按项目版本倒序。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    version: {type: integer}
+                    action: {type: string, enum: [CREATE, UPDATE, PUBLISH, OFFLINE]}
+                    operatorName: {type: string}
+                    changedAt: {type: string, format: date-time}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+  parameters:
+    ItemId: {in: path, name: id, required: true, schema: {type: string, format: uuid}}
+  responses:
+    Unauthorized: {description: 登录失效。}
+    Forbidden: {description: 需要平台运营权限。}
+    NotFound: {description: 项目不存在。}
+    Item:
+      description: 体验项目当前内容及版本。
+      content: {application/json: {schema: {$ref: '#/components/schemas/Item'}}}
+  schemas:
+    Type: {type: string, enum: [SIMULATION, RECORDED_DEMO, SOFTWARE_TRIAL, COURSE_TRIAL]}
+    Status: {type: string, enum: [DRAFT, PUBLISHED, OFFLINE]}
+    Fields:
+      type: object
+      required: [type, title, loginRequired, sortOrder, status]
+      properties:
+        type: {$ref: '#/components/schemas/Type'}
+        title: {type: string, minLength: 1, maxLength: 120}
+        summary: {type: [string, 'null'], maxLength: 200}
+        coverUrl: {type: [string, 'null'], maxLength: 500}
+        loginRequired: {type: boolean}
+        sortOrder: {type: integer, minimum: 0, maximum: 100000}
+        status: {$ref: '#/components/schemas/Status'}
+        version: {type: [integer, 'null'], minimum: 0}
+        productId: {type: [string, 'null'], format: uuid}
+        simulationTemplate: {enum: [ROBOT_OBSTACLE, DRONE_HOVER, null]}
+        trialMinutes: {type: [integer, 'null'], minimum: 1, maximum: 43200}
+        videoUrl: {type: [string, 'null'], maxLength: 500}
+        courseId: {type: [string, 'null'], format: uuid}
+    Item:
+      allOf:
+        - {$ref: '#/components/schemas/Fields'}
+        - type: object
+          required: [id, version]
+          properties:
+            id: {type: string, format: uuid}
+            productName: {type: [string, 'null']}
+            courseName: {type: [string, 'null']}

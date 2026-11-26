@@ -18,10 +18,11 @@ import {
 } from './inspection-catalog-api'
 import { priceModeLabel, serviceStatus, SERVICE_STATUS_OPTIONS } from './inspection-catalog-rules'
 import InspectionCategoryPanel from './InspectionCategoryPanel.vue'
+import PortalContentPanel from '@/features/page-content/PortalContentPanel.vue'
 
 const router = useRouter()
 const api = createInspectionCatalogApi(http)
-const tab = ref<'services' | 'categories'>('services')
+const tab = ref<'services' | 'categories' | 'portal'>('services')
 const categories = ref<OpsInspectionCategory[]>([])
 const list = usePagedList<OpsInspectionServiceRow, InspectionServiceFilters>(
   (filters, page, size) => api.list(filters, page, size), { keyword: '', categoryCode: '', status: '' })
@@ -96,6 +97,7 @@ onMounted(() => {
           :loading="list.loading.value"
           :error="list.error.value"
           row-key="serviceId"
+          origin-resource="INSPECTION"
           empty-text="没有符合条件的巡检服务"
           @change-page="list.changePage"
           @change-size="list.changeSize"
@@ -136,6 +138,9 @@ onMounted(() => {
 
       <el-tab-pane label="类目" name="categories">
         <InspectionCategoryPanel :api="api" :categories="categories" @changed="loadCategories" />
+      </el-tab-pane>
+      <el-tab-pane label="入口配置" name="portal" lazy>
+        <PortalContentPanel :categories="categories" />
       </el-tab-pane>
     </el-tabs>
   </PageSection>

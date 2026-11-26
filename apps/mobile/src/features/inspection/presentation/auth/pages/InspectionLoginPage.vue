@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from 'vue'
 import { onBackPress, onLoad, onReady } from '@dcloudio/uni-app'
 
 import { ACCOUNT_PREVIEW_ENABLED } from '@/features/account/application/account-preview'
+import { loginAfterPasswordUpdate } from '@/features/account/application/account-host'
 import { currentLoginDevice } from '@/features/account/application/login-device'
 import { identityAccountApi } from '@/features/account/data/identity-account-api-client'
+import PersonalPasswordForm from '@/features/account/presentation/security/PersonalPasswordForm.vue'
 import { codeButtonText, digitsOnly, inputValue, isPhoneNumber, isSmsCode } from '@/features/account/domain/identity-account'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 
@@ -16,6 +18,7 @@ import LineIcon from '@/shared/ui/LineIcon.vue'
 import { undoNeedlessKeyboardPan, watchH5KeyboardViewport } from '@/shared/ui/keyboard-viewport'
 import {
   completeBookingAuthenticationRecovery,
+  clearBookingAuthSession,
   saveBookingAuthSession,
 } from '../../../application/service-flow/booking-auth-context'
 import { inspectionAuthApi } from '../../../data/service-flow/uni-booking-http-client'
@@ -24,10 +27,17 @@ import { describeLoginResume } from '../login-resume'
 
 interface LoginRouteQuery {
   returnUrl?: string
+  notice?: string
 }
 
 const loginName = ref('')
 const password = ref('')
+const useNumericUsername = ref(false)
+watch(loginName, () => { useNumericUsername.value = false })
+const postSignup = ref<'offer' | 'setup' | null>(null)
+const setupSession = ref('')
+const recoveringPassword = ref(false)
+const passwordUpdated = ref(false)
 const returnUrl = ref('/pages/home/index')
 const isSubmitting = ref(false)
 const errorMessage = ref('')
@@ -35,10 +45,7 @@ const errorMessage = ref('')
 const agreementAccepted = ref(false)
 const resumeAction = computed(() => describeLoginResume(returnUrl.value))
 
-// Board Login (S5-8): preview builds sign in with the phone number and a code (another number than
-// the one on this phone; 本机号码一键登录 needs the carriers' service, which is not connected). A number
-// that has no account yet gets one. The account-and-password form stays for accounts made by the
-// platform; public builds only have it.
+// Preview builds also support SMS sign-in. Public builds use account and password.
 const mode = ref<'phone' | 'password'>(ACCOUNT_PREVIEW_ENABLED ? 'phone' : 'password')
 const phone = ref('')
 const code = ref('')
@@ -103,7 +110,12 @@ async function submitPhoneLogin(): Promise<void> {
       currentLoginDevice(cityStore.currentCity?.code ?? null))
     saveBookingAuthSession(result)
     completeBookingAuthenticationRecovery()
-    if (result.registered) uni.showToast({ title: '已为这个手机号开通账号', icon: 'none' })
+    if (result.registered) {
+      setupSession.value = result.accessToken
+      postSignup.value = 'offer'
+      code.value = ''
+      return
+    }
     continueToProtectedPage()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '登录失败，请重试'
@@ -112,13 +124,11 @@ async function submitPhoneLogin(): Promise<void> {
   }
 }
 
-function useCarrierLogin(): void {
-  uni.showToast({ title: '本机号码一键登录需要运营商认证服务，暂未开通，请用验证码登录', icon: 'none' })
-}
-
 // The account form is drawn only after switching to it (S5-8), so its fields get the plain-typing
 // attributes then, the same way the page sets them when it is first drawn.
 function switchMode(next: 'phone' | 'password'): void {
+  password.value = ''
+  useNumericUsername.value = false
   mode.value = next
   errorMessage.value = ''
   if (next !== 'password') return
@@ -137,8 +147,19 @@ function switchMode(next: 'phone' | 'password'): void {
   })
 }
 
+function openRecovery(): void {
+  password.value = ''
+  errorMessage.value = ''
+  passwordUpdated.value = false
+  recoveringPassword.value = true
+}
+
 onLoad((query: LoginRouteQuery | undefined) => {
   returnUrl.value = normalizeInspectionReturnUrl(query?.returnUrl ?? '')
+  if (ACCOUNT_PREVIEW_ENABLED && query?.notice === 'password-updated') {
+    passwordUpdated.value = true
+    switchMode('password')
+  }
 })
 
 // A login name is typed as it is: no capital first letter, no autocorrect, no spell check. uni-app's
@@ -184,7 +205,7 @@ async function submitLogin(): Promise<void> {
   if (isSubmitting.value) return
   const normalizedLoginName = loginName.value.trim()
   if (!normalizedLoginName || !password.value) {
-    errorMessage.value = '请输入用户名和密码'
+    errorMessage.value = ACCOUNT_PREVIEW_ENABLED ? '请输入手机号或用户名和密码' : '请输入用户名和密码'
     return
   }
   if (!agreementAccepted.value) {
@@ -195,13 +216,10 @@ async function submitLogin(): Promise<void> {
   isSubmitting.value = true
   errorMessage.value = ''
   try {
-    const response = await inspectionAuthApi.login(
-      normalizedLoginName,
-      password.value,
-      ACCOUNT_PREVIEW_ENABLED
-        ? { ...currentLoginDevice(cityStore.currentCity?.code ?? null) }
-        : undefined,
-    )
+    const device = ACCOUNT_PREVIEW_ENABLED ? currentLoginDevice(cityStore.currentCity?.code ?? null) : undefined
+    const response = device && !useNumericUsername.value && isPhoneNumber(normalizedLoginName)
+      ? await identityAccountApi.loginWithPhonePassword(normalizedLoginName, password.value, device)
+      : await inspectionAuthApi.login(normalizedLoginName, password.value, device ? { ...device } : undefined)
     saveBookingAuthSession(response)
     completeBookingAuthenticationRecovery()
     continueToProtectedPage()
@@ -234,16 +252,44 @@ function openAgreement(doc: AgreementDoc): void {
 }
 
 function exitLogin(): void {
+  if (recoveringPassword.value) {
+    recoveringPassword.value = false
+    return
+  }
+  if (postSignup.value) {
+    continueToProtectedPage()
+    return
+  }
   completeBookingAuthenticationRecovery()
   uni.reLaunch({ url: '/pages/home/index' })
+}
+
+function reauthenticate(): void {
+  clearBookingAuthSession()
+  postSignup.value = null
+  setupSession.value = ''
+  errorMessage.value = '登录已过期，请重新验证手机号'
 }
 </script>
 
 <template>
   <view :class="['inspection-login', { 'inspection-login--phone': mode === 'phone' }]">
-    <AppPageHeader class="inspection-login__header" title="登录" test-id="login" @back="exitLogin" />
+    <AppPageHeader class="inspection-login__header" :title="recoveringPassword ? '找回密码' : postSignup ? '账号安全' : '登录'" test-id="login" @back="exitLogin" />
 
-    <main class="inspection-login__content">
+    <main v-if="recoveringPassword" class="inspection-login__content">
+      <PersonalPasswordForm class="inspection-login__setup" :token="null" :initial-phone="isPhoneNumber(loginName.trim()) ? loginName.trim() : ''" @signed-out="loginAfterPasswordUpdate(returnUrl)" />
+    </main>
+    <main v-else-if="postSignup" class="inspection-login__content">
+      <view v-if="postSignup === 'offer'" class="inspection-login__form" data-testid="login-setup-offer">
+        <text class="inspection-login__form-title">账号已注册</text>
+        <text class="inspection-login__hint">设置密码后，下次可以用手机号和密码登录。</text>
+        <button class="inspection-login__submit" data-testid="login-setup-start" @click="postSignup = 'setup'">设置密码</button>
+      </view>
+      <PersonalPasswordForm v-else class="inspection-login__setup" :token="setupSession" setup-only @saved="continueToProtectedPage" @unauthorized="reauthenticate" />
+      <button class="inspection-login__other" data-testid="login-setup-skip" @click="continueToProtectedPage">以后再说</button>
+    </main>
+    <main v-else class="inspection-login__content">
+      <text v-if="passwordUpdated" class="inspection-login__resume" role="status" data-testid="login-password-updated">密码已更新，请重新登录</text>
       <view v-if="resumeAction" class="inspection-login__resume" data-testid="login-resume">
         <text class="inspection-login__resume-title">登录后继续：{{ resumeAction }}</text>
         <text class="inspection-login__resume-text">登录成功后自动回到原操作</text>
@@ -251,6 +297,7 @@ function exitLogin(): void {
 
       <view v-if="mode === 'phone'" class="inspection-login__form" data-testid="login-phone-form">
         <text class="inspection-login__form-title">验证码登录</text>
+        <text class="inspection-login__hint">未注册的手机号验证后自动注册</text>
         <view class="inspection-login__input inspection-login__input--soft">
           <text class="inspection-login__prefix">+86</text>
           <view class="inspection-login__divider" />
@@ -295,7 +342,6 @@ function exitLogin(): void {
         >
           {{ isSubmitting ? '正在登录…' : '登录' }}
         </button>
-        <button class="inspection-login__switch" data-testid="login-carrier" @click="useCarrierLogin">使用本机号码一键登录</button>
       </view>
 
       <view v-else class="inspection-login__form">
@@ -306,9 +352,10 @@ function exitLogin(): void {
             v-model="loginName"
             type="text"
             maxlength="80"
-            placeholder="请输入用户名"
+            :placeholder="ACCOUNT_PREVIEW_ENABLED ? '请输入手机号或用户名' : '请输入用户名'"
             placeholder-class="inspection-login__placeholder"
-            aria-label="用户名"
+            :aria-label="ACCOUNT_PREVIEW_ENABLED ? '手机号或用户名' : '用户名'"
+            data-testid="login-password-name"
             confirm-type="next"
           />
         </view>
@@ -322,13 +369,18 @@ function exitLogin(): void {
             placeholder="请输入密码"
             placeholder-class="inspection-login__placeholder"
             aria-label="密码"
+            data-testid="login-password-value"
             confirm-type="done"
             @confirm="submitLogin"
           />
         </view>
+        <button v-if="ACCOUNT_PREVIEW_ENABLED && isPhoneNumber(loginName.trim())" class="inspection-login__other" data-testid="login-numeric-username" :disabled="isSubmitting" @click="useNumericUsername = !useNumericUsername">
+          {{ useNumericUsername ? '改为按手机号登录' : '使用此号码作为用户名登录' }}
+        </button>
         <text v-if="errorMessage" class="inspection-login__error">{{ errorMessage }}</text>
         <button
           class="inspection-login__submit"
+          data-testid="login-password-submit"
           :disabled="isSubmitting"
           @click="submitLogin"
         >
@@ -349,28 +401,30 @@ function exitLogin(): void {
         <text class="inspection-login__agreement-text">我已阅读并同意<text class="inspection-login__link" @click.stop="openAgreement('USER_AGREEMENT')">《用户协议》</text><text class="inspection-login__link" @click.stop="openAgreement('PRIVACY_POLICY')">《隐私政策》</text><text class="inspection-login__link" @click.stop="openAgreement('CHILD_PRIVACY_RULES')">《儿童个人信息保护规则》</text></text>
       </view>
 
-      <button
-        v-if="ACCOUNT_PREVIEW_ENABLED"
-        class="inspection-login__other"
-        data-testid="login-switch-mode"
-        @click="switchMode(mode === 'phone' ? 'password' : 'phone')"
-      >
-        {{ mode === 'phone' ? '账号密码登录' : '验证码登录' }}
-      </button>
+      <view v-if="ACCOUNT_PREVIEW_ENABLED" class="inspection-login__links">
+        <button class="inspection-login__other" data-testid="login-switch-mode" :disabled="isSubmitting" @click="switchMode(mode === 'phone' ? 'password' : 'phone')">
+          {{ mode === 'phone' ? '账号密码登录' : '验证码登录' }}
+        </button>
+        <button v-if="mode === 'password'" class="inspection-login__other" data-testid="login-register" :disabled="isSubmitting" @click="switchMode('phone')">注册账号</button>
+        <button v-if="mode === 'password'" class="inspection-login__other" data-testid="login-forgot" :disabled="isSubmitting" @click="openRecovery">忘记密码</button>
+      </view>
       <button class="inspection-login__browse" data-testid="login-browse" @click="exitLogin">先随便看看</button>
     </main>
   </view>
 </template>
 
 <style scoped>
-/* Sizes and colours follow the 2026-11-14 prototype board Login (390 wide). One-tap login with the
-   phone number is not built; the existing account login keeps the board's layout. */
+/* Sizes and colours follow the 2026-11-14 prototype board Login (390 wide). */
 .inspection-login { display: flex; min-height: 100vh; flex-direction: column; color: #202c42; background: #f5f7fc; }
 .inspection-login__content { display: flex; width: 100%; max-width: 600px; min-height: 0; margin: 0 auto; padding: 8px 16px calc(24px + env(safe-area-inset-bottom)); flex: 1; flex-direction: column; box-sizing: border-box; }
 .inspection-login__resume { display: flex; padding: 10px 12px; flex-direction: column; gap: 2px; border: 1px solid #ffd8b8; border-radius: 12px; background: #fff0e3; }
 .inspection-login__resume-title { font-size: 13px; font-weight: 500; line-height: 18px; }
 .inspection-login__resume-text { color: #627187; font-size: 12px; line-height: 17px; }
 .inspection-login__form { display: flex; flex-direction: column; }
+.inspection-login__hint { display: block; color: #627187; font-size: 14px; line-height: 20px; margin-bottom: 10px; }
+.inspection-login__setup { padding-top: 22px; }
+.inspection-login__links { display: flex; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+.inspection-login__links .inspection-login__other { margin: 0; }
 .inspection-login__form-title { margin: 28px 0 16px; font-size: 22px; font-weight: 700; line-height: 30px; }
 .inspection-login__input { display: flex; height: 50px; padding: 0 14px; align-items: center; gap: 10px; border-radius: 12px; background: #fff; box-sizing: border-box; }
 .inspection-login__input + .inspection-login__input { margin-top: 12px; }
@@ -392,10 +446,9 @@ function exitLogin(): void {
 .inspection-login__prefix { flex: none; color: #202c42; font-size: 15px; }
 .inspection-login__divider { width: 1px; height: 16px; flex: none; background: #dcdfe3; }
 .inspection-login__code { flex: none; min-height: 44px; margin: 0; padding: 0 10px; border: 0; color: #ba470b; background: transparent; font-size: 14px; line-height: 44px; white-space: nowrap; }
-.inspection-login__code::after, .inspection-login__switch::after, .inspection-login__other::after { border: 0; }
+.inspection-login__code::after, .inspection-login__other::after { border: 0; }
 .inspection-login__code--wait, .inspection-login__code[disabled] { color: #91a0b4; background: transparent; }
 .inspection-login__submit--off, .inspection-login__submit--off[disabled] { color: #fff; background: #c9d3e1; box-shadow: none; opacity: 1; }
-.inspection-login__switch { align-self: center; min-height: 44px; margin: 8px auto 0; padding: 0 16px; border: 0; color: #202c42; background: transparent; font-size: 15px; line-height: 44px; }
-.inspection-login__other { min-height: 40px; margin: 8px auto 0; padding: 0 16px; border: 0; color: #627187; background: transparent; font-size: 13px; line-height: 40px; }
+.inspection-login__other { min-height: 44px; margin: 8px auto 0; padding: 0 16px; border: 0; color: #202c42; background: transparent; font-size: 15px; line-height: 44px; }
 .inspection-login__browse { min-height: 44px; margin: auto auto 0; padding: 0 16px; border: 0; color: #627187; background: transparent; font-size: 14px; line-height: 44px; }
 </style>

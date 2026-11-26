@@ -1,8 +1,10 @@
 openapi: "3.1.0"
 info:
   title: "Course API"
-  version: "1.1.0"
+  version: "1.1.1"
   description: |-
+    1.1.1 exposes database-backed development media at /api/v1/dev-media/; production media uses HTTPS.
+
     1.1.0：课程详情和试听新增可空 simulationItemId，供试听后进入对应的仿真。
 
     2026-11-24（接口和字段不变）：开课机构资质没审核通过（身份迁移 V013）时，课程列表里没有、详情和试听 404、不能再买；已经开通的照常能学、能退款。
@@ -32,7 +34,7 @@ info:
       自提核销）后自动开通，来源订单见 bundle。已经开通着同一门课时不重复开通。附带的课程不能单独退款，跟着商品订单的售后走。
     - 学习：要开通且没过期。拿播放地址（getCourseLessonPlayback）记“开始学这一节”；第一次开始一节非试听课时之后不能在线退款。
       播完（completeCourseLesson）记“学完这一节”，要先拿过这一节的播放地址；重看不重复计。播放地址只给受控 HTTPS 地址，
-      没有时为 null（开发环境没有视频存储，预览构建播放由画板图片合成的示例视频）。
+      没有时为 null（开发种子的课时从服务端返回可播放的本地媒体）。
     - 试听：trial 为 true 的课时不买、不登录也能看（getCourseTrial），看试听不记进度。体验中心的“课程试听”入口按 experienceItemId 找到课程。
     - 退款：自己买的、开通着、付款后 7 天内、还没开始学任何非试听课时，可以申请全额退款（提交即退，原路退回，进度见 refund）；
       退款后课程关闭（REFUNDED）。超过 7 天或已经开始学的不能在线退（refundability.blockedReason），联系客服协商。
@@ -535,7 +537,8 @@ components:
       properties:
         url:
           type: "string"
-          description: "受控 HTTPS 地址"
+          format: uri-reference
+          description: Controlled HTTPS URL or, for development fixtures, a same-origin /api/v1/dev-media/ reference.
         alt:
           type: "string"
     CoursePrice:
@@ -918,7 +921,8 @@ components:
           type:
             - "string"
             - "null"
-          description: "受控 HTTPS 地址；没有视频存储时为 null"
+          format: uri-reference
+          description: Controlled HTTPS URL or, for development fixtures, a same-origin /api/v1/dev-media/ reference.
     CourseTrial:
       type: "object"
       additionalProperties: false
@@ -1330,7 +1334,8 @@ components:
           type:
             - "string"
             - "null"
-          description: "受控 HTTPS 地址；没有视频存储时为 null（预览构建播放示例视频）"
+          format: uri-reference
+          description: Controlled HTTPS URL or, for development fixtures, a same-origin /api/v1/dev-media/ reference.
         durationSeconds:
           type: "integer"
           minimum: 1

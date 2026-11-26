@@ -1,3 +1,4 @@
+import { setMediaApiBase } from '../../../../shared/http/business-media'
 import { createBookingUuid } from '../../application/service-flow/booking-crypto'
 import { rewriteDemoMedia } from '../../../../shared/http/media-url'
 import { createCityDirectoryApi } from '../../../../shared/city/data/city-directory-api'
@@ -55,6 +56,7 @@ export async function resolveInspectionApiRequestUrl(path: string): Promise<stri
   if (!configuredBaseUrl) throw new ApiRequestError('缺少 VITE_INSPECTION_API_BASE_URL，无法连接巡检服务', 0, 'API_BASE_URL_MISSING')
   const baseUrl = await resolveInspectionApiBaseUrl(configuredBaseUrl)
   assertAllowedApiBaseUrl(baseUrl)
+  setMediaApiBase(baseUrl)
   return `${baseUrl.replace(/\/$/, '')}${path}`
 }
 
@@ -167,12 +169,16 @@ async function renewLogin(): Promise<string | null> {
       method: 'POST',
       data: { refreshToken },
     })
+    // A password change or a new login can finish before this response arrives.
+    if (readBookingRefreshToken() !== refreshToken) return null
     saveBookingAuthSession(renewed)
     return renewed.accessToken
   } catch (error) {
     // Offline: the login may still be renewable later, keep it. Any answer from the server means the
     // refresh token is spent, expired or withdrawn: the login is over.
-    if (!(error instanceof ApiRequestError) || error.code !== 'NETWORK_ERROR') clearBookingAuthSession()
+    if (readBookingRefreshToken() === refreshToken && (!(error instanceof ApiRequestError) || error.code !== 'NETWORK_ERROR')) {
+      clearBookingAuthSession()
+    }
     return null
   }
 }

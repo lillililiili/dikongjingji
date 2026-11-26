@@ -17,6 +17,7 @@ export interface ContentEditor<V extends Editable> {
   busy: Ref<boolean>
   error: Ref<string>
   changes: Ref<OpsChange[]>
+  changesError: Ref<string>
   changesLoading: Ref<boolean>
   load: (id: string) => Promise<V | null>
   refreshChanges: (id: string) => Promise<void>
@@ -34,14 +35,17 @@ export function useContentEditor<V extends Editable>(
   const busy = ref(false)
   const error = ref('')
   const changes = ref<OpsChange[]>([])
+  const changesError = ref('')
   const changesLoading = ref(false)
 
   async function refreshChanges(id: string): Promise<void> {
     changesLoading.value = true
+    changesError.value = ''
     try {
       changes.value = await readChanges(id)
-    } catch {
+    } catch (failure) {
       changes.value = []
+      changesError.value = errorMessage(failure)
     } finally {
       changesLoading.value = false
     }
@@ -84,5 +88,5 @@ export function useContentEditor<V extends Editable>(
     }
   }
 
-  return { entity, loading, busy, error, changes, changesLoading, load, refreshChanges, run }
+  return { entity, loading, busy, error, changes, changesError, changesLoading, load, refreshChanges, run }
 }

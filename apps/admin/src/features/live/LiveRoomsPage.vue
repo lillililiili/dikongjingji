@@ -179,6 +179,7 @@ onMounted(() => {
           :loading="list.loading.value"
           :error="list.error.value"
           row-key="roomId"
+          origin-resource="LIVE"
           empty-text="没有符合条件的直播间"
           @change-page="list.changePage"
           @change-size="list.changeSize"

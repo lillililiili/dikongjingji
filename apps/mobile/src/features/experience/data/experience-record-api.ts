@@ -1,7 +1,7 @@
+import { businessImage } from '../../../shared/http/business-media'
 import type { ExperienceImage } from '../domain/experience'
 import type { ExperienceRecord, ExperienceRecordPage } from '../domain/experience-record'
 import type { SimulationResult } from '../domain/simulation'
-import { isMediaUrl } from '../../../shared/http/media-url'
 
 type RecordRequest = <T>(input: {
   url: string
@@ -33,7 +33,7 @@ export interface ExperienceRecordApi {
 }
 
 function toImage(asset: ExperienceImage | null | undefined): ExperienceImage | null {
-  return asset && isMediaUrl(asset.url) ? { url: asset.url, alt: asset.alt } : null
+  return businessImage(asset)
 }
 
 export function toExperienceRecord(dto: RecordDto): ExperienceRecord {

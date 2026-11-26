@@ -446,6 +446,10 @@
       }
     },
     {
+      "path": "pages/experience/recorded",
+      "style": { "navigationBarTitleText": "录播演示" }
+    },
+    {
       "path": "pages/experience/simulation",
       "style": {
         "navigationBarTitleText": "虚拟仿真",
@@ -611,6 +615,13 @@
       }
     },
     {
+      "path": "pages/mine/password",
+      "style": {
+        "navigationBarTitleText": "登录密码",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/mine/devices",
       "style": {
         "navigationBarTitleText": "登录设备管理",
@@ -685,6 +696,13 @@
       "style": {
         "navigationBarTitleText": "搜索订单",
         "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/place/destination",
+      "style": {
+        "navigationStyle": "default",
+        "navigationBarTitleText": "地点位置"
       }
     },
     {

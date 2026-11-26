@@ -182,7 +182,7 @@ public class CourseOpsService {
         String title = OpsText.required(draft.title(), MAX_TITLE, "title");
         String subtitle = OpsText.optional(draft.subtitle(), MAX_SUBTITLE, "subtitle");
         requireOrganization(draft.organizationId());
-        String cover = OpsText.httpsUrl(draft.coverUrl(), "coverUrl");
+        String cover = OpsText.mediaUrl(draft.coverUrl(), row.coverUrl(), "coverUrl");
         List<String> gallery = gallery(draft.galleryUrls());
         String ageNote = OpsText.optional(draft.ageNote(), MAX_AGE_NOTE, "ageNote");
         String instructorName = OpsText.optional(draft.instructorName(), MAX_INSTRUCTOR_NAME, "instructorName");
@@ -266,7 +266,7 @@ public class CourseOpsService {
             throw new IllegalArgumentException("too many chapters");
         }
         List<LessonRow> existing = courses.findLessons(List.of(courseId));
-        Set<UUID> existingLessons = existing.stream().map(LessonRow::id).collect(Collectors.toSet());
+        Map<UUID, LessonRow> existingLessons = existing.stream().collect(Collectors.toMap(LessonRow::id, lesson -> lesson));
         Set<UUID> existingChapters = mapper.findChapters(courseId).stream().map(ChapterRow::id)
                 .collect(Collectors.toSet());
         Set<UUID> keptLessons = new LinkedHashSet<>();
@@ -288,13 +288,14 @@ public class CourseOpsService {
                         || lesson.durationSeconds() < 1 || lesson.durationSeconds() > MAX_DURATION_SECONDS) {
                     throw new IllegalArgumentException("lesson is invalid");
                 }
-                if (lesson.lessonId() != null && (!existingLessons.contains(lesson.lessonId())
+                if (lesson.lessonId() != null && (!existingLessons.containsKey(lesson.lessonId())
                         || !keptLessons.add(lesson.lessonId()))) {
                     throw new IllegalArgumentException("lessonId is not a lesson of this course");
                 }
+                LessonRow previous = lesson.lessonId() == null ? null : existingLessons.get(lesson.lessonId());
                 lessons.add(new LessonDraft(lesson.lessonId(), OpsText.required(lesson.title(), MAX_LESSON_TITLE,
                         "lesson title"), lesson.durationSeconds(), lesson.trial(),
-                        OpsText.httpsUrl(lesson.videoUrl(), "videoUrl")));
+                        OpsText.mediaUrl(lesson.videoUrl(), previous == null ? null : previous.videoUrl(), "videoUrl")));
                 lessonTotal++;
             }
             normalized.add(new ChapterDraft(chapter.chapterId(), chapterTitle, lessons));
@@ -306,7 +307,7 @@ public class CourseOpsService {
             throw new OpsException(CourseOpsError.VERSION_CONFLICT);
         }
         Map<UUID, Integer> learners = learners(courseId);
-        for (UUID removed : existingLessons) {
+        for (UUID removed : existingLessons.keySet()) {
             if (!keptLessons.contains(removed) && learners.getOrDefault(removed, 0) > 0) {
                 throw new OpsException(CourseOpsError.LESSON_IN_USE);
             }

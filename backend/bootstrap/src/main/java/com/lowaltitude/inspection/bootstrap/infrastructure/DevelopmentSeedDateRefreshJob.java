@@ -10,6 +10,7 @@ import org.flywaydb.core.Flyway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -23,6 +24,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Profile("dev")
+@DemoDataEnabled
+@ConditionalOnBooleanProperty(prefix = "platform.demo-data", name = "refresh-at-midnight")
 @ConditionalOnProperty(prefix = "spring.datasource", name = "url")
 public class DevelopmentSeedDateRefreshJob {
 

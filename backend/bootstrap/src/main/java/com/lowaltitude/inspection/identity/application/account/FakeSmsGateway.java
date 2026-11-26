@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * 本机模拟短信（S5-8，只在 identity.sms.provider = fake 时装配，application-dev.yml 打开）：不发真实短信，
- * 把内容写进日志（号码打码）和开发表 identity_dev_sms_outbox，开发和 E2E 从表里读验证码。
+ * 把内容写入 identity_dev_sms_outbox，开发与 E2E 从本地发件箱读取。
  */
 public final class FakeSmsGateway implements AccountPorts.SmsGateway {
 
@@ -27,7 +27,7 @@ public final class FakeSmsGateway implements AccountPorts.SmsGateway {
     @Override
     public void send(String phone, String content) {
         mapper.insertDevSms(phone, content, OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC));
-        LOG.info("[fake-sms] to {}: {}", PhoneNumbers.mask(phone), content);
+        LOG.info("[fake-sms] queued for {}", PhoneNumbers.mask(phone));
     }
 
     /** 没有配置短信服务商时：一律不可用（发送验证码返回 503），不假装发出。 */

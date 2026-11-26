@@ -1,3 +1,4 @@
+import { businessImage, resolveDiscoveryVideoUrl } from '../../../shared/http/business-media'
 import type { PublicApiHttpClient } from '@/shared/http/public-api-request'
 
 import type { ExperienceItemDetail } from '../domain/experience-record'
@@ -16,7 +17,6 @@ import type {
   VenueInfoItem,
   VenueSession,
 } from '../domain/experience'
-import { isMediaUrl } from '../../../shared/http/media-url'
 
 interface MediaAssetDto {
   url: string
@@ -41,6 +41,7 @@ interface ExperienceItemDetailDto {
   productId?: string | null
   simulationTemplate?: ExperienceItemDetail['simulationTemplate']
   trialMinutes?: number | null
+  video?: MediaAssetDto | null
 }
 
 interface ExperienceItemDto {
@@ -145,9 +146,7 @@ export interface ExperienceApi {
 
 // The server already filters images to HTTPS; this keeps a bad row from reaching an <image> tag anyway.
 function toImage(asset: MediaAssetDto | null): ExperienceImage | null {
-  return asset && isMediaUrl(asset.url)
-    ? { url: asset.url, alt: asset.alt }
-    : null
+  return businessImage(asset)
 }
 
 // Also used by the home recommend block, which receives the same card shape.
@@ -283,6 +282,7 @@ export function createExperienceApi(http: PublicApiHttpClient): ExperienceApi {
         productId: dto.productId ?? null,
         simulationTemplate: dto.simulationTemplate ?? null,
         trialMinutes: dto.trialMinutes ?? null,
+        videoUrl: resolveDiscoveryVideoUrl(dto.video?.url),
       }
     },
 

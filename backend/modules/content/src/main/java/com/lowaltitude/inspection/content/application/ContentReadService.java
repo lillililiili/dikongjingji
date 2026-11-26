@@ -13,6 +13,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+import com.lowaltitude.inspection.media.DevelopmentMediaPath;
+
 import com.lowaltitude.inspection.content.infrastructure.persistence.ContentMapper;
 import com.lowaltitude.inspection.content.infrastructure.persistence.ContentMapper.ArticleRow;
 import com.lowaltitude.inspection.content.infrastructure.persistence.ContentMapper.BlockItemRow;
@@ -205,6 +207,9 @@ public class ContentReadService {
 
     /** 只认带主机名的 HTTPS 地址（图片和视频的播放地址），其余为 null。 */
     static String secureUrl(String url) {
+        if (DevelopmentMediaPath.matches(url)) {
+            return url;
+        }
         if (url == null || url.isBlank()) {
             return null;
         }

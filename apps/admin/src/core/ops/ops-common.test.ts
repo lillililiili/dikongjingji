@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { ApiRequestError } from '@/core/http/api-error'
 
-import { isHttpsUrl, mediaProblem, uploadedFileName } from './media-api'
+import { isHttpsUrl, isRetainedMediaUrl, mediaProblem, uploadedFileName } from './media-api'
 import { actionLabel, describeMissing, missingFields, minorToYuanText, yuanToMinor } from './ops-common'
 
 describe('上线前必填项', () => {
@@ -32,6 +32,17 @@ describe('金额', () => {
 })
 
 describe('素材', () => {
+  it('仅允许保留该记录已有的开发媒体，新增或替换使用 HTTPS', () => {
+    const cover = '/api/v1/dev-media/images/preview/course-flight.jpg'
+    expect(isRetainedMediaUrl(cover, cover)).toBe(true)
+    const inspection = '/api/v1/dev-media/images/inspection/detail-report-cover.png'
+    expect(isRetainedMediaUrl(inspection, inspection)).toBe(true)
+    expect(isRetainedMediaUrl(inspection, null)).toBe(false)
+    expect(isRetainedMediaUrl(cover, null)).toBe(false)
+    expect(isRetainedMediaUrl(cover, '/api/v1/dev-media/images/home/hero-world.jpg')).toBe(false)
+    expect(isRetainedMediaUrl('https://cdn.example.org/cover.jpg', cover)).toBe(true)
+  })
+
   it('只收 https 受控地址', () => {
     expect(isHttpsUrl('https://cdn.example.com/a.jpg')).toBe(true)
     expect(isHttpsUrl('http://cdn.example.com/a.jpg')).toBe(false)

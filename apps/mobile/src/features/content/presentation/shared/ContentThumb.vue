@@ -2,9 +2,6 @@
 import type { ContentImage } from '../../domain/content'
 import type { Tone } from '../../application/content-view'
 
-// The picture of an article or activity: the server's picture, or on preview builds the board's
-// (the page passes either in). Only when there is neither is it a block in the kind's tint, with
-// the title in it when one is given. "示例" is written next to the title by the page, not here.
 defineProps<{
   image: (ContentImage & { cutout?: boolean }) | null
   tone: Tone

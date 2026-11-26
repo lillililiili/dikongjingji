@@ -1,11 +1,9 @@
 import type {
-  InspectionCategoryCode,
   InspectionPortalCategory,
   InspectionPortalContent,
-  InspectionPortalHero,
   InspectionPortalHotService,
 } from '../../domain/inspection-portal-content'
-import { inspectionServiceImage } from '../inspection-service-images'
+import { resolveBusinessMediaUrl } from '../../../../shared/http/business-media'
 import {
   priceModesForFilter,
   type CatalogFilterOptions,
@@ -93,23 +91,7 @@ interface FilterOptionsDto {
 }
 
 const CITY_NOT_ENABLED_CODE = 'INS_CATALOG_CITY_NOT_ENABLED'
-const DEFAULT_HERO_IMAGE = '/static/images/inspection/inspection-hero-v1.png'
-
-/** Shown where the city has no inspection service yet, so the entry page keeps its headline. */
-const CLOSED_CITY_HERO: InspectionPortalHero = {
-  title: '专业巡检',
-  accent: '隐患早发现',
-  description: '无人机与智能设备，为您提供安全高效的巡检服务',
-  highlights: [],
-  imageUrl: DEFAULT_HERO_IMAGE,
-}
-
-const PORTAL_CATEGORY_CODES = new Set<InspectionCategoryCode>([
-  'POWER', 'PHOTOVOLTAIC', 'OIL_GAS', 'THERMAL',
-  'PARK', 'EQUIPMENT', 'PERIODIC',
-])
-
-const PORTAL_CATEGORY_IMAGES: Record<Exclude<InspectionCategoryCode, 'MORE'>, string> = {
+const PORTAL_CATEGORY_IMAGES: Record<string, string> = {
   POWER: '/static/images/inspection/category-power.webp',
   PHOTOVOLTAIC: '/static/images/inspection/category-photovoltaic.webp',
   OIL_GAS: '/static/images/inspection/category-oil-gas.webp',
@@ -119,12 +101,8 @@ const PORTAL_CATEGORY_IMAGES: Record<Exclude<InspectionCategoryCode, 'MORE'>, st
   PERIODIC: '/static/images/inspection/category-periodic.webp',
 }
 
-type BusinessPortalCategory = InspectionPortalCategory & {
-  code: Exclude<InspectionCategoryCode, 'MORE'>
-}
-
 function serviceImage(service: CatalogServiceDto): string {
-  return inspectionServiceImage({ coverUrl: service.coverImage?.url, categoryCode: service.category.code })
+  return resolveBusinessMediaUrl(service.coverImage?.url) ?? ''
 }
 
 export function toCatalogService(service: CatalogServiceDto): InspectionCatalogService {
@@ -154,14 +132,13 @@ export function toCatalogService(service: CatalogServiceDto): InspectionCatalogS
   }
 }
 
-function toPortalCategory(category: CategoryDto): BusinessPortalCategory | null {
-  if (!PORTAL_CATEGORY_CODES.has(category.code as InspectionCategoryCode)) return null
-  const code = category.code as Exclude<InspectionCategoryCode, 'MORE'>
+function toPortalCategory(category: CategoryDto): InspectionPortalCategory {
+  const code = category.code
   return {
     code,
     name: category.name,
     subtitle: category.subtitle ?? '',
-    imageUrl: PORTAL_CATEGORY_IMAGES[code],
+    imageUrl: PORTAL_CATEGORY_IMAGES[code] ?? '',
   }
 }
 
@@ -256,10 +233,8 @@ export function createInspectionCatalogApi(http: InspectionCatalogHttpClient) {
         })
       } catch (error) {
         if (!isCityNotEnabled(error)) throw error
-        // A city that is not open is not a failure: the page keeps its headline and has
-        // nothing to list, as it did before the portal had its own endpoint.
         return {
-          hero: CLOSED_CITY_HERO,
+          hero: null,
           categories: [],
           guarantees: [],
           hotServices: [],
@@ -273,12 +248,9 @@ export function createInspectionCatalogApi(http: InspectionCatalogHttpClient) {
           accent: portal.hero.highlightedText ?? '',
           description: portal.hero.subtitle,
           highlights: portal.hero.sellingPoints,
-          imageUrl: portal.hero.image?.url ?? DEFAULT_HERO_IMAGE,
+          imageUrl: resolveBusinessMediaUrl(portal.hero.image?.url) ?? '',
         },
-        categories: portal.categories.flatMap((category) => {
-          const mapped = toPortalCategory(category)
-          return mapped ? [mapped] : []
-        }),
+        categories: portal.categories.map(toPortalCategory),
         guarantees: portal.guarantees.map((item) => ({
           code: item.code,
           title: item.title,
@@ -290,6 +262,7 @@ export function createInspectionCatalogApi(http: InspectionCatalogHttpClient) {
         processSteps: portal.processSteps.map((step) => ({
           code: step.code,
           title: step.title,
+          ...(step.subtitle ? { description: step.subtitle } : {}),
           icon: '',
         })),
       }

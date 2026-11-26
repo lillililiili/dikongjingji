@@ -43,7 +43,7 @@ public final class OpsMediaController {
         return ResponseEntity.status(201).body(service.upload(file.getBytes(), actor));
     }
 
-    /** 预览：带登录取回（开发环境的本机文件没有能打开的公开地址）；不缓存，不嗅探类型。 */
+    /** 运营预览也可访问草稿素材，要求登录且不缓存。 */
     @GetMapping(MEDIA + "/{fileName}")
     public ResponseEntity<byte[]> content(Authentication authentication, @PathVariable String fileName) {
         actors.operator(authentication);

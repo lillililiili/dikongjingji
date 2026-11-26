@@ -13,6 +13,13 @@ function apiReturning(body: unknown) {
 const page = (items: unknown[]) => ({ page: 1, size: 20, total: items.length, hasMore: false, items })
 
 describe('experience api', () => {
+  it('uses only the recording supplied with the published experience detail', async () => {
+    const url = 'https://media.example.com/experience.mp4'
+    const { api, request } = apiReturning({ experienceId: 'recording', type: 'RECORDED_DEMO', video: {url} })
+    expect((await api.loadExperienceItem('recording')).videoUrl).toBe(url)
+    request.mockResolvedValueOnce({experienceId: 'recording', type: 'RECORDED_DEMO', video: null})
+    expect((await api.loadExperienceItem('recording')).videoUrl).toBeNull()
+  })
   it('lists online items, with the type only when one is chosen', async () => {
     const { api, request } = apiReturning(page([{
       experienceId: 'b1000000-0000-4000-8000-000000000001',

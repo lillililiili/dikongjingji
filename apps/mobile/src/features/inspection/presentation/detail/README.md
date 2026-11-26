@@ -32,11 +32,13 @@
 
 ## 资产清单
 
+下表列出开发库关联的图片。服务详情、交付样例与评价都展示接口返回的图片地址，未配置图片的项目保留文字。全部样图及其种子位置见[开发媒体清单](../../../../../../../docs/ops/授权图片替换-清单.md)。
+
 | 用途 | 资产 | 来源 | 比例 | 当前状态 |
 | --- | --- | --- | --- | --- |
-| 服务头图 | `/static/images/inspection/service-power-line.webp` | 仓库现有巡检资产 | 4:3 | development 可用，生产授权待确认 |
-| 评价现场图 | `/static/images/inspection/inspection-hero-v1.png` | 仓库现有巡检资产 | 约 2.7:1 | development 可用，生产授权待确认 |
-| 评价设备图 | `/static/images/inspection/service-power-line.webp` | 仓库现有巡检资产 | 4:3 | development 可用，生产授权待确认 |
+| 服务头图 | `/api/v1/dev-media/images/inspection/service-power-line.webp` | 仓库现有巡检资产 | 4:3 | development 可用，生产授权待确认 |
+| 评价现场图 | `/api/v1/dev-media/images/inspection/inspection-hero-v1.png` | 仓库现有巡检资产 | 约 2.7:1 | development 可用，生产授权待确认 |
+| 评价设备图 | `/api/v1/dev-media/images/inspection/service-power-line.webp` | 仓库现有巡检资产 | 4:3 | development 可用，生产授权待确认 |
 | 图标 | `@dcloudio/uni-ui` 的 `uni-icons` | 项目既有依赖 | 矢量 | 可用 |
 
 本阶段不从 PDF 截取图片、文字、按钮或评价报告缩略图，也不生成未经用户单独确认的新图片。

@@ -17,6 +17,8 @@ import java.util.stream.Collectors;
 
 import com.lowaltitude.inspection.bootstrap.api.ApiError;
 import com.lowaltitude.inspection.bootstrap.api.GlobalExceptionHandler;
+import com.lowaltitude.inspection.bootstrap.security.PersonalPasswordController;
+import com.lowaltitude.inspection.bootstrap.security.PersonalPasswordService;
 import com.lowaltitude.inspection.bootstrap.security.PhoneAuthenticationController;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.annotation.AnnotatedElementUtils;
@@ -26,8 +28,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.yaml.snakeyaml.Yaml;
 
 /**
- * 契约 openapi-identity-account.yaml 1.0.0 和实现逐项对照：每个路由都在契约里（反过来也一样），除了发码、验证码登录和
- * 凭据下载都要登录；返回对象的字段与 schema 的 properties 一致且都是必有；请求体的字段名一致；
+ * 逐项对照身份契约与实现的路由、认证范围、请求和响应字段；
  * 业务错误码与全局异常处理给出的一致，并且声明在处理器回答的状态码下。
  */
 class IdentityAccountOpenApiContractTest {
@@ -35,11 +36,14 @@ class IdentityAccountOpenApiContractTest {
     private static final Path CONTRACT = Path.of("..", "..", "contracts", "openapi-identity-account.yaml");
     private static final Set<String> PUBLIC = Set.of(
             "POST /api/v1/auth/sms-codes", "POST /api/v1/auth/phone-login",
+            "POST /api/v1/auth/phone-password-login",
+            "POST /api/v1/auth/password-reset-codes", "POST /api/v1/auth/password-reset",
             "GET /api/v1/account/data-exports/{exportId}/file");
 
     private static final Map<String, Class<? extends Record>> RESPONSES = Map.ofEntries(
             Map.entry("SmsCodeSent", AccountViews.SmsCodeSentView.class),
             Map.entry("PhoneLoginResponse", PhoneAuthenticationController.PhoneLoginResponse.class),
+            Map.entry("PersonalPasswordState", PersonalPasswordService.PasswordState.class),
             Map.entry("PhoneChangeTicket", AccountViews.PhoneChangeTicketView.class),
             Map.entry("PhoneBinding", AccountViews.PhoneBindingView.class),
             Map.entry("Session", AccountViews.SessionView.class),
@@ -64,6 +68,10 @@ class IdentityAccountOpenApiContractTest {
     private static final Map<String, Class<? extends Record>> REQUESTS = Map.ofEntries(
             Map.entry("LoginCodeRequest", PhoneAuthenticationController.LoginCodeRequest.class),
             Map.entry("PhoneLoginRequest", PhoneAuthenticationController.PhoneLoginRequest.class),
+            Map.entry("PhonePasswordLogin", PersonalPasswordController.PhonePasswordRequest.class),
+            Map.entry("PasswordSetup", PersonalPasswordController.SetupRequest.class),
+            Map.entry("PasswordChange", PersonalPasswordController.ChangeRequest.class),
+            Map.entry("PasswordReset", PersonalPasswordController.ResetRequest.class),
             Map.entry("AccountCodeRequest", AccountController.AccountCodeRequest.class),
             Map.entry("CodeOnly", AccountController.CodeOnly.class),
             Map.entry("PhoneChangeRequest", AccountController.PhoneChangeRequest.class),
@@ -78,7 +86,7 @@ class IdentityAccountOpenApiContractTest {
     @Test
     void versionOneDeclaresBearerJwtAndNoGlobalSecurity() {
         Map<String, Object> root = root();
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.0.0");
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.1.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");
@@ -116,6 +124,8 @@ class IdentityAccountOpenApiContractTest {
     @Test
     void requestFieldsMatchWhatTheControllersRead() {
         Map<String, Object> schemas = schemas();
+        assertThat(components(PersonalPasswordController.ResetCodeRequest.class))
+                .containsExactlyElementsOf(components(PhoneAuthenticationController.LoginCodeRequest.class));
         REQUESTS.forEach((name, type) -> {
             Map<String, Object> schema = map(schemas.get(name));
             assertThat(schema).as(name).isNotNull();
@@ -158,7 +168,7 @@ class IdentityAccountOpenApiContractTest {
     private static List<String> routes() {
         List<String> routes = new ArrayList<>();
         for (Class<?> controller : List.of(AccountController.class, EnterpriseController.class,
-                PhoneAuthenticationController.class)) {
+                PhoneAuthenticationController.class, PersonalPasswordController.class)) {
             for (Method method : controller.getDeclaredMethods()) {
                 RequestMapping mapping = AnnotatedElementUtils.findMergedAnnotation(method, RequestMapping.class);
                 if (mapping != null) {

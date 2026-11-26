@@ -50,13 +50,16 @@ const organizationApi = createOrganizationApi(http)
 const activityId = computed(() => (typeof route.params.activityId === 'string' ? route.params.activityId : ''))
 const activity = ref<OpsActivity | null>(null)
 const changes = ref<OpsChange[]>([])
+const changesError = ref('')
+const rejectedMissing = ref('')
 const loading = ref(false)
 const loadError = ref('')
 const busy = ref(false)
 const formRef = ref<FormInstance>()
 const form = reactive<ActivityForm>(emptyActivityForm())
-const rules = activityRules(() => form)
+const rules = activityRules(() => form, () => activity.value?.coverUrl)
 const cities = ref<DirectoryCity[]>([])
+const cityError = ref('')
 const organizerOptions = ref<Array<{ id: string, name: string }>>([])
 const searchingOrganizers = ref(false)
 const sessionDialog = reactive<{ open: boolean, session: OpsActivitySession | null }>({ open: false, session: null })
@@ -73,6 +76,7 @@ function remember(id: string, name: string | null): void {
 }
 
 function show(next: OpsActivity): void {
+  rejectedMissing.value = ''
   activity.value = next
   Object.assign(form, activityFormOf(next))
   remember(next.organizer.organizationId, next.organizer.name)
@@ -82,10 +86,12 @@ function show(next: OpsActivity): void {
 
 async function loadChanges(): Promise<void> {
   if (!activityId.value) return
+  changesError.value = ''
   try {
     changes.value = await api.changes(activityId.value)
-  } catch {
+  } catch (failure) {
     changes.value = []
+    changesError.value = errorMessage(failure)
   }
 }
 
@@ -131,6 +137,7 @@ async function run(action: () => Promise<OpsActivity>, done: string): Promise<bo
     return true
   } catch (failure) {
     const missing = describeMissing(failure, PUBLISH_FIELD_LABELS)
+    rejectedMissing.value = missing ?? ''
     showError(missing ? new Error(missing) : failure)
     return false
   } finally {
@@ -250,8 +257,8 @@ onMounted(async () => {
   void load()
   try {
     cities.value = await organizationApi.cities()
-  } catch {
-    cities.value = []
+  } catch (failure) {
+    cityError.value = errorMessage(failure)
   }
   void searchOrganizers('')
 })
@@ -281,8 +288,8 @@ onMounted(async () => {
         <el-tag :type="statusTag(activity.status)">{{ labelOf(ACTIVITY_STATUS_OPTIONS, activity.status) }}</el-tag>
         <span>第一次上线：{{ formatDateTime(activity.firstPublishedAt) }}</span>
         <span>最后修改：{{ formatDateTime(activity.updatedAt) }}</span>
-        <el-alert v-if="activity.status !== 'PUBLISHED' && missingText" type="warning" :closable="false" show-icon
-                  :title="`上线前还差：${missingText}`" />
+        <el-alert v-if="rejectedMissing || missingText" type="warning" :closable="false" show-icon
+                  :title="rejectedMissing || `请补全活动资料：${missingText}`" />
         <el-alert v-if="locked" type="info" :closable="false" show-icon
                   title="已有报名：收费方式、主办机构、城市不能再改；单价改了只影响以后的报名。" />
       </div>
@@ -319,6 +326,7 @@ onMounted(async () => {
             <el-option v-for="city in cities" :key="city.code" :label="`${city.name}（${city.provinceName}）`"
                        :value="city.code" />
           </el-select>
+          <span v-if="cityError" role="alert">城市目录加载失败：{{ cityError }}</span>
         </el-form-item>
         <el-form-item label="地点名称" prop="venueName">
           <el-input v-model="form.venueName" :maxlength="LIMITS.venueName" show-word-limit />
@@ -436,7 +444,7 @@ onMounted(async () => {
         </el-table>
 
         <h2 class="activity-edit__heading">改动记录</h2>
-        <ChangeLogTable :changes="changes" :subject-labels="CHANGE_SUBJECT_LABELS" />
+        <ChangeLogTable :changes="changes" :error="changesError" :subject-labels="CHANGE_SUBJECT_LABELS" />
       </template>
     </div>
   </PageSection>

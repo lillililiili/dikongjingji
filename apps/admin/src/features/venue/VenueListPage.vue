@@ -31,6 +31,7 @@ onMounted(() => {
     traced
   >
     <template #actions>
+      <el-button @click="router.push({ name: 'online-experiences' })">线上体验项目</el-button>
       <el-button type="primary" @click="router.push({ name: 'venue-new' })">新建场馆</el-button>
     </template>
 
@@ -62,6 +63,7 @@ onMounted(() => {
       :loading="list.loading.value"
       :error="list.error.value"
       row-key="venueId"
+      origin-resource="VENUE"
       empty-text="没有符合条件的场馆"
       @change-page="list.changePage"
       @change-size="list.changeSize"

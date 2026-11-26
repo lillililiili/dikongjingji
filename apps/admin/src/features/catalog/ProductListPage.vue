@@ -119,6 +119,7 @@ onMounted(() => {
       :loading="list.loading.value"
       :error="list.error.value"
       row-key="productId"
+      :origin-resource="merchant ? undefined : 'PRODUCT'"
       empty-text="没有符合条件的商品"
       @change-page="list.changePage"
       @change-size="list.changeSize"

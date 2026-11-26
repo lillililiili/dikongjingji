@@ -75,7 +75,7 @@ class CourseOpenApiContractTest {
 
     @Test
     void contractIsVersionOneAndDeclaresBearerJwt() {
-        assertThat(CourseContract.map(contract.root().get("info")).get("version")).isEqualTo("1.1.0");
+        assertThat(CourseContract.map(contract.root().get("info")).get("version")).isEqualTo("1.1.1");
         assertThat(CourseContract.map(CourseContract.map(contract.root().get("components")).get("securitySchemes"))
                 .get("bearerAuth")).isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(contract.root()).doesNotContainKey("security");

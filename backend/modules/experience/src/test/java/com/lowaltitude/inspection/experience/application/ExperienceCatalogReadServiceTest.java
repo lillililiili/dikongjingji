@@ -61,7 +61,7 @@ class ExperienceCatalogReadServiceTest {
         UUID simulation = UUID.fromString("b1000000-0000-4000-8000-000000000001");
         UUID product = UUID.fromString("c2000000-0000-4000-8000-000000000101");
         store.itemDetail = new ExperienceItemDetailRow(
-                simulation, "SIMULATION", "机器人避障模拟", "约 3 分钟", null, false, product, "ROBOT_OBSTACLE", null);
+                simulation, "SIMULATION", "机器人避障模拟", "约 3 分钟", null, false, product, "ROBOT_OBSTACLE", null, null);
 
         ExperienceItemDetailView item = service.findExperienceItem(simulation);
 
@@ -73,7 +73,7 @@ class ExperienceCatalogReadServiceTest {
         assertInvalid(() -> service.findExperienceItem(null));
 
         store.itemDetail = new ExperienceItemDetailRow(
-                simulation, "SOFTWARE_TRIAL", "图形化编程软件试用", null, null, true, null, null, 25);
+                simulation, "SOFTWARE_TRIAL", "图形化编程软件试用", null, null, true, null, null, 25, null);
         assertThat(service.findExperienceItem(simulation).trialMinutes()).isEqualTo(25);
         assertThat(service.findExperienceItem(simulation).simulationTemplate()).isNull();
     }
@@ -82,11 +82,11 @@ class ExperienceCatalogReadServiceTest {
     void courseLinksRequireAPublishedSimulationWithATemplate() {
         UUID id = UUID.randomUUID();
         assertThat(service.isPlayableSimulation(id)).isFalse();
-        store.itemDetail = new ExperienceItemDetailRow(id, "SIMULATION", "仿真", null, null, false, null, null, null);
+        store.itemDetail = new ExperienceItemDetailRow(id, "SIMULATION", "仿真", null, null, false, null, null, null, null);
         assertThat(service.isPlayableSimulation(id)).isFalse();
-        store.itemDetail = new ExperienceItemDetailRow(id, "COURSE_TRIAL", "试听", null, null, false, null, null, 10);
+        store.itemDetail = new ExperienceItemDetailRow(id, "COURSE_TRIAL", "试听", null, null, false, null, null, 10, null);
         assertThat(service.isPlayableSimulation(id)).isFalse();
-        store.itemDetail = new ExperienceItemDetailRow(id, "SIMULATION", "仿真", null, null, false, null, "DRONE_HOVER", null);
+        store.itemDetail = new ExperienceItemDetailRow(id, "SIMULATION", "仿真", null, null, false, null, "DRONE_HOVER", null, null);
         assertThat(service.isPlayableSimulation(id)).isTrue();
     }
 

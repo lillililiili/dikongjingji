@@ -1,0 +1,56 @@
+openapi: 3.1.0
+info:
+  title: 运营资源来源
+  version: 1.0.0
+paths:
+  /api/v1/ops/data-origins/{resource}:
+    get:
+      operationId: getOpsResourceOrigins
+      summary: 按当前页的资源 ID 查询来源和变更记录
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: resource
+          required: true
+          schema:
+            type: string
+            enum: [PRODUCT, ACTIVITY, VENUE, COURSE, CONTENT, TOPIC, PRO_SERVICE, INSPECTION, LIVE]
+        - in: query
+          name: ids
+          required: true
+          style: form
+          explode: false
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 50
+            items: { type: string, format: uuid }
+      responses:
+        '200':
+          description: 每个存在的资源返回一条，调用方按 ID 匹配。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, origin, hasRecordedChanges]
+                  properties:
+                    id: { type: string, format: uuid }
+                    origin:
+                      type: string
+                      enum: [DEVELOPMENT_SEED, RECORDED_CREATION, UNVERIFIED]
+                      description: 用已执行的开发种子与固定 ID 核对示例，用业务创建日志或业务幂等键确认录入来源。
+                    hasRecordedChanges:
+                      type: boolean
+                      description: 已有修改、发布、下架或子资源变更记录。
+        '400': { description: 资源类型、ID 格式或数量有误 }
+        '401': { description: 需要登录 }
+        '403': { description: 需要平台运营权限 }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

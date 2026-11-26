@@ -114,6 +114,7 @@ class CourseServiceTest {
         when(mapper.findCourse(FLY)).thenReturn(linked);
         when(mapper.findCourseByExperience(trialEntry)).thenReturn(linked);
         when(simulations.isPlayable(simulation)).thenReturn(true);
+        when(simulations.isPublishedCourseTrial(trialEntry)).thenReturn(true);
         assertThat(service.trial(FLY, null).simulationItemId()).isEqualTo(simulation);
         assertThat(service.trial(null, trialEntry).simulationItemId()).isEqualTo(simulation);
         assertThat(service.detail(FLY).simulationItemId()).isEqualTo(simulation);
@@ -126,6 +127,10 @@ class CourseServiceTest {
         when(mapper.findCourse(FLY)).thenReturn(online(FLY, 19900L, "LISTED", trialEntry, null));
         assertThat(service.trial(FLY, null).simulationItemId()).isNull();
         verify(simulations, never()).isPlayable(trialEntry);
+
+        when(simulations.isPublishedCourseTrial(trialEntry)).thenReturn(false);
+        assertThatThrownBy(() -> service.trial(null, trialEntry)).isInstanceOf(CourseException.class);
+        assertThat(service.trial(FLY, null).courseId()).isEqualTo(FLY);
     }
 
     @Test

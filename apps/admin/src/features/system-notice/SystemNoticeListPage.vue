@@ -3,6 +3,7 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
 
 import { http } from '@/core/http'
+import { errorMessage } from '@/core/http/api-error'
 import { newIdempotencyKey } from '@/core/http/api-client'
 import { confirmAction, showError } from '@/core/ui/feedback'
 import { formatDateTime } from '@/core/ui/format'
@@ -28,6 +29,7 @@ const directory = createOrganizationApi(http)
 const list = usePagedList<SystemNotice, Record<string, never>>((_filters, page, size) => api.list(page, size), {})
 
 const cities = ref<DirectoryCity[]>([])
+const cityError = ref('')
 const cityName = (code: string | null) => cities.value.find((city) => city.code === code)?.name ?? code ?? ''
 const agreementName = (code: string | null) => AGREEMENT_OPTIONS.find((option) => option.value === code)?.label ?? ''
 
@@ -111,7 +113,7 @@ async function withdraw(notice: SystemNotice): Promise<void> {
 
 onMounted(() => {
   void list.load()
-  directory.cities().then((loaded) => { cities.value = loaded }).catch(() => undefined)
+  directory.cities().then((loaded) => { cities.value = loaded }).catch((failure) => { cityError.value = errorMessage(failure) })
 })
 </script>
 
@@ -240,6 +242,7 @@ onMounted(() => {
         <el-select v-if="form.scope === 'CITY'" v-model="form.cityCode" filterable placeholder="选城市" style="width: 200px; margin-left: 12px">
           <el-option v-for="city in cities" :key="city.code" :label="`${city.provinceName} ${city.name}`" :value="city.code" />
         </el-select>
+        <span v-if="cityError" role="alert">城市目录加载失败：{{ cityError }}</span>
       </el-form-item>
       <el-form-item label="有效期至">
         <el-date-picker v-model="form.expiresAt" type="datetime" value-format="YYYY-MM-DDTHH:mm:ssZ" placeholder="不填一直有效" />

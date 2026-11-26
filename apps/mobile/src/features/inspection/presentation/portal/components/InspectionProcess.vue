@@ -33,6 +33,7 @@ const FALLBACK_ICON_PATH = PROCESS_ICON_PATHS.REPORT
           />
         </view>
         <text class="inspection-process__label">{{ step.title }}</text>
+        <text v-if="step.description" class="inspection-process__description">{{ step.description }}</text>
         <view v-if="index < steps.length - 1" class="inspection-process__arrow">
           <LineIcon name="chevronRight" :size="12" :stroke-width="2.4" color="#91a0b4" />
         </view>
@@ -69,6 +70,8 @@ const FALLBACK_ICON_PATH = PROCESS_ICON_PATHS.REPORT
 
 .inspection-process__steps {
   display: flex;
+  flex-wrap: wrap;
+  row-gap: 10px;
   align-items: flex-start;
 }
 
@@ -76,7 +79,7 @@ const FALLBACK_ICON_PATH = PROCESS_ICON_PATHS.REPORT
   position: relative;
   display: flex;
   min-width: 0;
-  flex: 1 1 0;
+  flex: 1 0 24%;
   flex-direction: column;
   align-items: center;
   gap: 4px;
@@ -96,7 +99,17 @@ const FALLBACK_ICON_PATH = PROCESS_ICON_PATHS.REPORT
   color: #536178;
   font-size: 12px;
   line-height: 17px;
-  white-space: nowrap;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.inspection-process__description {
+  padding: 0 4px;
+  color: #5c687c;
+  font-size: 11px;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .inspection-process__arrow {

@@ -17,6 +17,7 @@ import {
   isPhoneNumber,
   isSmsCode,
   maskPhone,
+  newPasswordError,
   sessionMeta,
 } from '../domain/identity-account'
 import {
@@ -47,6 +48,15 @@ describe('account rules (S5-7, S5-8)', () => {
     expect(maskPhone('1380')).toBe('1380')
     expect(codeButtonText(0)).toBe('获取验证码')
     expect(codeButtonText(58)).toBe('58 秒后重新获取')
+  })
+
+  it('validates personal passwords including the UTF-8 byte boundary on native and H5', () => {
+    expect(newPasswordError('a1' + '汉'.repeat(22) + '😊')).toBe('')
+    expect(newPasswordError('a1' + 'a'.repeat(60) + '😊😊')).toBe('')
+    expect(newPasswordError('a1' + '汉'.repeat(23) + '😊')).toContain('过长')
+    for (const invalid of ['12345678', 'abcdefgh', 'abc 12345', 'a1b2']) {
+      expect(newPasswordError(invalid)).not.toBe('')
+    }
   })
 
   it('describes devices, identities, orders and files in the boards words', () => {

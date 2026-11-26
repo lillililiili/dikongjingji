@@ -1,3 +1,4 @@
+import { businessImage } from '../../../shared/http/business-media'
 import type { PublicApiHttpClient } from '@/shared/http/public-api-request'
 
 import type { MallImage, MallMerchantKind } from '../domain/mall'
@@ -9,7 +10,6 @@ import type {
   MallMerchantPage,
   MallMerchantProfile,
 } from '../domain/merchant'
-import { isMediaUrl } from '../../../shared/http/media-url'
 
 interface MediaAssetDto {
   url: string
@@ -70,7 +70,7 @@ function oneOf<T extends string>(values: readonly T[], value: unknown): T | null
 
 // Only HTTPS pictures reach an <image>, as elsewhere in the mall.
 function toImage(asset: MediaAssetDto | null | undefined): MallImage | null {
-  return asset && isMediaUrl(asset.url) ? { url: asset.url, alt: asset.alt } : null
+  return businessImage(asset)
 }
 
 const text = (value: string | null | undefined): string | null => {

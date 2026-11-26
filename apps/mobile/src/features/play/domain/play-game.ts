@@ -17,35 +17,6 @@ export interface PlayGame {
 export const PLAY_BOARD_SIZE = 5
 export const PLAY_START_CELL = 0
 
-export const PLAY_GAMES: readonly PlayGame[] = [
-  {
-    id: 'robot-maze',
-    title: '机器人迷宫',
-    subtitle: '转个弯，和小伙伴一起找到出口',
-    skillLabel: '逻辑启蒙 · 避障闯关',
-    tone: 'VIOLET',
-    avatar: 'ROBOT',
-    walls: [6, 7, 8, 13, 16, 18],
-    stars: [2, 10, 22],
-    goal: 24,
-  },
-  {
-    id: 'drone-route',
-    title: '无人机寻星',
-    subtitle: '规划路线，把沿途星星带回基地',
-    skillLabel: '路线规划 · 寻星挑战',
-    tone: 'SKY',
-    avatar: 'DRONE',
-    walls: [6, 8, 11, 13, 18],
-    stars: [4, 12, 20],
-    goal: 24,
-  },
-]
-
-export function findPlayGame(id: string | undefined): PlayGame | undefined {
-  return PLAY_GAMES.find((game) => game.id === id)
-}
-
 export type PlayDirection = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'
 
 export type PlayOutcome =

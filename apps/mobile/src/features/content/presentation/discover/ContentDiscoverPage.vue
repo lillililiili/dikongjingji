@@ -2,7 +2,6 @@
 import { computed, ref, watch } from 'vue'
 
 import { activityApi } from '@/features/activity/data/activity-api-client'
-import { resolveActivityPreviewCover } from '@/features/activity/data/preview/activity-preview-covers'
 import type { ActivityCard } from '@/features/activity/domain/activity'
 import {
   ACTIVITY_TYPE_LABELS,
@@ -47,7 +46,6 @@ import {
   type DiscoverFeedState,
 } from '../../application/discover-feed'
 import { contentApi } from '../../data/content-api-client'
-import { resolveArticlePreviewCover, resolveTopicPreviewCover } from '../../data/preview/content-preview-covers'
 import {
   DISCOVER_CHANNELS,
   type ContentArticleCard,
@@ -178,19 +176,16 @@ function articleSub(article: ContentArticleCard): string {
   return article.author.name
 }
 
-// Pictures: the server's, otherwise on preview builds the board's (content-preview-covers.ts).
 function articleImage(article: ContentArticleCard): (ContentImage & { cutout?: boolean }) | null {
-  return article.coverImage ?? resolveArticlePreviewCover(article.articleId)
+  return article.coverImage ?? null
 }
 
 function topicImage(topic: ContentTopicCard): ContentImage | null {
-  return topic.coverImage ?? resolveTopicPreviewCover(topic.topicId)
+  return topic.coverImage ?? null
 }
 
 function activityImage(card: ActivityCard): ContentImage | null {
-  if (card.coverImage) return card.coverImage
-  const url = resolveActivityPreviewCover(card.activityId)
-  return url ? { url, alt: card.title } : null
+  return card.coverImage
 }
 
 // Icons copied from the board Discover.

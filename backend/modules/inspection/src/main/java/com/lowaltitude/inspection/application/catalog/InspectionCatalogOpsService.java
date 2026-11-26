@@ -228,7 +228,7 @@ public class InspectionCatalogOpsService {
     @Transactional
     public ServiceDetailView createService(ServiceDraft draft, UUID operatorId, String operatorName) {
         String operator = OpsText.operatorName(operatorName);
-        Normalized service = normalize(draft, Map.of());
+        Normalized service = normalize(draft, null, Map.of());
         UUID id = UUID.randomUUID();
         String serviceNo = "INS-SVC-" + id.toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
         OffsetDateTime at = now();
@@ -250,7 +250,7 @@ public class InspectionCatalogOpsService {
             throw new OpsException(InspectionCatalogOpsError.VERSION_CONFLICT);
         }
         ServiceDetailView current = detail(row);
-        Normalized next = normalize(draft, currentCodes(current));
+        Normalized next = normalize(draft, current.coverUrl(), currentCodes(current));
         if (ServiceStatus.valueOf(row.status()) == ServiceStatus.ACTIVE) {
             requireComplete(next.completeness());
         }
@@ -317,7 +317,7 @@ public class InspectionCatalogOpsService {
 
     // ---- 整理输入 ----
 
-    private Normalized normalize(ServiceDraft draft, Map<String, Set<String>> existingCodes) {
+    private Normalized normalize(ServiceDraft draft, String existingCover, Map<String, Set<String>> existingCodes) {
         Objects.requireNonNull(draft, "draft");
         if (draft.providerId() == null) {
             throw new IllegalArgumentException("provider is required");
@@ -337,7 +337,7 @@ public class InspectionCatalogOpsService {
             }
             categoryName = category.name();
         }
-        String coverUrl = OpsText.httpsUrl(draft.coverUrl(), "coverUrl");
+        String coverUrl = OpsText.mediaUrl(draft.coverUrl(), existingCover, "coverUrl");
         PriceMode mode = OpsText.optionalEnum(PriceMode.class, draft.priceMode(), "priceMode");
         Long amount = null;
         String unitCode = null;

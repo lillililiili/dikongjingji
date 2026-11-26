@@ -1,10 +1,11 @@
 import { randomInt, randomUUID } from 'node:crypto'
 
+import { testAdmin as admin, testContainer, testDatabase, testFiles, testPayment } from './support/test-stack'
 import { expect, test, type APIResponse, type Page } from '@playwright/test'
 
 import { API, BUYER, CITY, apiLogin, psql } from './support/trade-fixtures'
 
-const admin = process.env.ADMIN_BASE_URL ?? 'http://127.0.0.1:17430'
+
 // 口令与验证码不写入 Playwright 截图和 trace。测试使用开发短信、独立数据库及真实业务接口。
 test.use({ trace: 'off', screenshot: 'off', actionTimeout: 15_000 })
 
@@ -37,12 +38,14 @@ function rememberSession(ids: Set<string>, token: string) {
 test('商家从登录页申请入驻，经平台审核后上架商品，客户在 H5 可购买，下架后失效', async ({ browser, page, request, baseURL }) => {
   test.setTimeout(180_000)
   const operatorPassword = process.env.DEV_OPERATOR_PASSWORD
-  const database = process.env.E2E_PG_CONTAINER
-  test.skip(!operatorPassword || !database, '需本地独立开发库 E2E_PG_CONTAINER 和运营账号 DEV_OPERATOR_PASSWORD')
+  test.skip(!operatorPassword, '需独立测试库及运营账号 DEV_OPERATOR_PASSWORD')
   for (const url of [admin, API, baseURL!]) expect(['127.0.0.1', 'localhost']).toContain(new URL(url).hostname)
   expect((await request.get(`${API}/actuator/health`)).ok(), '开发后端未就绪').toBe(true)
   // 复用 S6 按本次创建的 ID 清理数据库与本机附件的工具。加载时会读取数据库开始时间。
-  process.env.PG_CONTAINER = database
+  process.env.PG_CONTAINER = testContainer
+  process.env.PG_DB = testDatabase
+  process.env.S6_JAVA_TMPDIR = testFiles
+  process.env.FAKE_WECHAT_URL = testPayment
   process.env.BASE_URL = API
   const fixture = require('../../../infra/scripts/s6-rehearsal/lib.cjs') as {
     PNG: Buffer; PDF: Buffer; fakeCreditCode(): string

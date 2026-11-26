@@ -1,3 +1,4 @@
+import { resolveBusinessMediaUrl } from '../../../shared/http/business-media'
 import {
   RENTAL_INQUIRY_STATUSES,
   RENTAL_ORDER_STATUSES,
@@ -225,7 +226,7 @@ export function toOfferView(dto: MallProductDto, offerId: string): RentalOfferVi
     productId: dto.productId,
     productName: dto.name,
     skuName: offer.skuName ?? '',
-    coverUrl: dto.coverImage?.url ?? null,
+    coverUrl: resolveBusinessMediaUrl(dto.coverImage?.url),
     merchantName: offer.merchant?.name ?? '',
     amountMinor: offer.amountMinor ?? null,
     unit: toUnit(offer.unit),
@@ -299,7 +300,7 @@ export function toRentalInquiry(dto: RentalInquiryDto): RentalInquiry {
       productId: dto.item?.productId ?? '',
       productName: dto.item?.productName ?? '',
       skuName: dto.item?.skuName ?? '',
-      coverUrl: dto.item?.coverUrl ?? null,
+      coverUrl: resolveBusinessMediaUrl(dto.item?.coverUrl),
       referenceAmountMinor: dto.item?.referenceAmountMinor ?? null,
       referenceUnit: toUnit(dto.item?.referenceUnit),
     },

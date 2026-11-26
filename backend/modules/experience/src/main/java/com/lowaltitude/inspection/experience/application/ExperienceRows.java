@@ -29,7 +29,8 @@ public final class ExperienceRows {
             boolean loginRequired,
             UUID productId,
             String simulationTemplate,
-            Integer trialMinutes
+            Integer trialMinutes,
+            String videoUrl
     ) {
     }
 

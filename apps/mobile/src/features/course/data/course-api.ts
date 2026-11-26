@@ -1,3 +1,4 @@
+import { resolveBusinessMediaUrl } from '../../../shared/http/business-media'
 import {
   COURSE_TOPICS,
   type CourseCard,
@@ -39,10 +40,6 @@ type Dto = Record<string, any>
 const text = (value: unknown): string | null => (typeof value === 'string' && value.trim() ? value.trim() : null)
 const int = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0)
 const intOrNull = (value: unknown): number | null => (typeof value === 'number' && Number.isFinite(value) ? Math.floor(value) : null)
-const httpsOnly = (value: unknown): string | null => {
-  const url = text(value)
-  return url && /^https:\/\/\S+$/i.test(url) ? url : null
-}
 const oneOf = <T extends string>(value: unknown, values: readonly T[], fallback: T): T =>
   typeof value === 'string' && (values as readonly string[]).includes(value) ? value as T : fallback
 const list = (value: unknown): Dto[] => (Array.isArray(value) ? value.filter((item) => item && typeof item === 'object') : [])
@@ -54,7 +51,7 @@ const REFUND_STATUSES: readonly CourseRefundStatus[] = ['REQUESTED', 'PROCESSING
 const REFUND_BLOCKS: readonly CourseRefundBlock[] = ['BUNDLED', 'NOT_ACTIVE', 'STARTED', 'WINDOW_PASSED']
 
 function toImage(dto: Dto | null | undefined): CourseImage | null {
-  const url = httpsOnly(dto?.url)
+  const url = resolveBusinessMediaUrl(dto?.url)
   return url ? { url, alt: text(dto?.alt) ?? '' } : null
 }
 
@@ -232,7 +229,7 @@ function toTrial(dto: Dto): CourseTrial {
       chapterTitle: text(lesson.chapterTitle) ?? '',
       title: text(lesson.title) ?? '',
       durationSeconds: int(lesson.durationSeconds),
-      playUrl: httpsOnly(lesson.playUrl),
+      playUrl: resolveBusinessMediaUrl(lesson.playUrl),
     })),
   }
 }
@@ -321,7 +318,7 @@ export function createCourseApi(request: CourseRequest): CourseApi {
       return {
         enrollmentId: String(dto.enrollmentId),
         lessonId: String(dto.lessonId),
-        playUrl: httpsOnly(dto.playUrl),
+        playUrl: resolveBusinessMediaUrl(dto.playUrl),
         durationSeconds: int(dto.durationSeconds),
         refundability: toRefundability(dto.refundability),
       }

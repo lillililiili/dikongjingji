@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { buildShareLink, describeShareSubtitle } from '../../../shared/share/share-link'
-import { AGREEMENT_BODY_PLACEHOLDER, AGREEMENT_DOCS, AGREEMENT_DOCUMENTS } from '../domain/agreement'
+import { AGREEMENT_DOCS, AGREEMENT_DOCUMENTS } from '../domain/agreement'
 import { buildAgreementUrl, parseAgreementDoc } from '../navigation/settings-routes'
 
 describe('agreement routes', () => {
@@ -12,10 +12,9 @@ describe('agreement routes', () => {
     expect(parseAgreementDoc(undefined)).toBe('PRIVACY_POLICY')
   })
 
-  it('has the five documents of design assumption 22 with placeholder text', () => {
+  it('has the five documents of design assumption 22 by their stable names', () => {
     expect(AGREEMENT_DOCS.map((doc) => AGREEMENT_DOCUMENTS[doc].title))
       .toEqual(['隐私政策', '用户协议', '儿童个人信息保护规则', '平台交易协议', '报名须知与照片使用说明'])
-    expect(AGREEMENT_BODY_PLACEHOLDER).toBe('[协议正文待确认]')
   })
 })
 

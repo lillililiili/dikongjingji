@@ -48,6 +48,7 @@
                 ]
             },
             "ios" : {
+                "urlschemewhitelist" : [ "iosamap", "baidumap", "qqmap", "maps" ],
                 "dSYMs" : false
             }
         },

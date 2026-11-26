@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { businessImage } from './business-media'
 import { isMediaUrl, rewriteDemoMedia } from './media-url'
 
 describe('picture addresses', () => {
@@ -17,5 +18,9 @@ describe('picture addresses', () => {
     expect(rewritten).toEqual({ items: [{ url: 'http://192.168.1.9:19420/api/v1/mall/media/products/a.png', name: 'a', n: null }] })
     expect(isMediaUrl(rewritten.items[0].url)).toBe(true)
     expect(isMediaUrl('http://192.168.1.10:19420/a.png')).toBe(false)
+    // The mappers go through businessImage: it has to pass what the demo rewrite produced (ops pictures too).
+    const ops = rewriteDemoMedia({ url: 'https://media.demo.localhost/api/v1/dev/ops-media/cover-1.png' }, 'http://192.168.1.9:19420/api/v1/activities', true)
+    expect(businessImage({ url: ops.url, alt: '封面' })).toEqual({ url: 'http://192.168.1.9:19420/api/v1/dev/ops-media/cover-1.png', alt: '封面' })
+    expect(businessImage({ url: 'http://192.168.1.10:19420/api/v1/dev/ops-media/cover-1.png', alt: '' })).toBeNull()
   })
 })

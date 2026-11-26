@@ -104,7 +104,7 @@ public class ProServiceOpsService {
     @Transactional
     public DetailView create(ServiceDraft draft, UUID operatorId, String operatorName) {
         String operator = OpsText.operatorName(operatorName);
-        Normalized next = normalize(draft);
+        Normalized next = normalize(draft, null);
         UUID id = UUID.randomUUID();
         OffsetDateTime at = now();
         if (mapper.insertService(id, next.fields(), at) != 1) {
@@ -126,7 +126,7 @@ public class ProServiceOpsService {
             throw new OpsException(ProServiceOpsError.VERSION_CONFLICT);
         }
         DetailView current = detail(row);
-        Normalized next = normalize(draft);
+        Normalized next = normalize(draft, row.coverUrl());
         if (Status.valueOf(row.status()) == Status.PUBLISHED) {
             requireComplete(true, next.cities().size(), next.facets().size(), next.lists().get("STEP").size());
         }
@@ -219,7 +219,7 @@ public class ProServiceOpsService {
 
     // ---- 整理输入 ----
 
-    private Normalized normalize(ServiceDraft draft) {
+    private Normalized normalize(ServiceDraft draft, String existingCover) {
         Objects.requireNonNull(draft, "draft");
         if (draft.providerId() == null) {
             throw new IllegalArgumentException("provider is required");
@@ -246,7 +246,7 @@ public class ProServiceOpsService {
                 throw new IllegalArgumentException("priceNote is required");
             }
         }
-        String coverUrl = OpsText.httpsUrl(draft.coverUrl(), "coverUrl");
+        String coverUrl = OpsText.mediaUrl(draft.coverUrl(), existingCover, "coverUrl");
         int sortOrder = draft.sortOrder() == null ? 0 : draft.sortOrder();
         if (sortOrder < 0 || sortOrder > MAX_SORT_ORDER) {
             throw new IllegalArgumentException("sortOrder is invalid");

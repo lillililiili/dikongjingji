@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
+import { testApi as API } from './support/test-stack'
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
 import { purgeFreeEnrollments } from './support/activity-fixtures'
@@ -11,7 +12,7 @@ import { databaseAvailable } from './support/trade-fixtures'
 // 只有“已签到”“已过期”两种凭证样子用接口桩，因为签到要等到场次当天。
 // 每条用例开始前把这个账号名下待参加的报名取消、把子女删掉，再把这个账号的免费报名（连同凭证、记录）和删掉的子女
 // 从数据库清掉（有本地开发数据库容器时），所以可以反复跑，也不会在“已取消”里越积越多。
-const API = 'http://127.0.0.1:18420'
+
 const visualOutput = resolve(__dirname, '../../../.planning/activity-enroll/visual')
 const OPEN_DAY_ID = 'a2000000-0000-4000-8000-000000000005'
 const OPEN_DAY_SESSION = 'a3000000-0000-4000-8000-000000000502'
@@ -300,7 +301,7 @@ test.describe('免费活动报名', () => {
     // 协议正文还没有（G1 起打开协议页，正文是占位）；回来后勾选不变。
     await page.getByTestId('activity-enroll-notice').click()
     await expect(page.getByTestId('agreement-title')).toHaveText('报名须知与照片使用说明')
-    await expect(page.getByTestId('agreement-placeholder').first()).toHaveText('[协议正文待确认]')
+    await expect(page.getByTestId('agreement-unpublished')).toHaveText('协议正文尚未发布')
     await page.getByTestId('agreement-back').click()
     await expect(page.getByTestId('activity-enroll-count')).toHaveText('已选 2 人')
     await page.getByTestId('activity-enroll-agree').click()

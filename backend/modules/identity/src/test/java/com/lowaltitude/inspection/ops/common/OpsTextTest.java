@@ -23,6 +23,20 @@ class OpsTextTest {
     }
 
     @Test
+    void anEditorCanKeepButCannotIntroduceADevelopmentMediaReference() {
+        String original = "/api/v1/dev-media/images/preview/course-flight.jpg";
+        assertThat(OpsText.mediaUrl(original, original, "coverUrl")).isEqualTo(original);
+        assertThat(OpsText.mediaUrl(null, original, "coverUrl")).isNull();
+        assertThat(OpsText.mediaUrl("https://cdn.example.com/new.jpg", original, "coverUrl"))
+                .isEqualTo("https://cdn.example.com/new.jpg");
+        assertThatThrownBy(() -> OpsText.mediaUrl(original, null, "coverUrl")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> OpsText.mediaUrl("/api/v1/dev-media/images/preview/private.jpg", original, "coverUrl"))
+                .isInstanceOf(IllegalArgumentException.class);
+        String outside = "/api/v1/dev-media/images/preview/../other.png";
+        assertThatThrownBy(() -> OpsText.mediaUrl(outside, outside, "coverUrl")).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void onlyHttpsAddressesWithAHostAreAccepted() {
         assertThat(OpsText.httpsUrl(" https://cdn.example.com/a.jpg ", "coverUrl"))
                 .isEqualTo("https://cdn.example.com/a.jpg");

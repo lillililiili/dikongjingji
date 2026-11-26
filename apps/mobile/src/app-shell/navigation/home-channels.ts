@@ -46,7 +46,7 @@ export const PLAY_GAMES_PATH = '/pages/play/index'
 
 // The two games work without a server, but the entry stays out of public builds until the user accepts them
 // (release switch PLAY, src/app-shell/release/release-features.json).
-const PLAY_GAMES_TARGET: HomeEntryTarget = {
+export const PLAY_GAMES_TARGET: HomeEntryTarget = {
   type: 'PAGE',
   url: PLAY_GAMES_PATH,
   publiclyAvailable: __RELEASE_FEATURE_PLAY__,

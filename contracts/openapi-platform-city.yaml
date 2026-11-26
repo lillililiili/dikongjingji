@@ -104,6 +104,7 @@ components:
       properties:
         hotCities:
           type: array
+          description: 按有记录的搜索选择次数降序取前六名；无记录时为空数组。演示库可显式启用示例热度。
           items:
             $ref: '#/components/schemas/City'
         provinces:

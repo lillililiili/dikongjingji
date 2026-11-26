@@ -1,12 +1,4 @@
-export type InspectionCategoryCode =
-  | 'POWER'
-  | 'PHOTOVOLTAIC'
-  | 'OIL_GAS'
-  | 'THERMAL'
-  | 'PARK'
-  | 'EQUIPMENT'
-  | 'PERIODIC'
-  | 'MORE'
+export type InspectionCategoryCode = string
 
 export type InspectionVisualTone =
   | 'blue'
@@ -58,6 +50,7 @@ export interface InspectionPortalHotService {
 export interface InspectionPortalProcessStep {
   code: string
   title: string
+  description?: string
   icon: string
 }
 

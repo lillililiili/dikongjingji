@@ -1,8 +1,10 @@
 openapi: "3.1.0"
 info:
   title: "Content API"
-  version: "1.3.0"
+  version: "1.3.1"
   description: |-
+    1.3.1 exposes database-backed development media at /api/v1/dev-media/; production media uses HTTPS.
+
     1.0.0（步骤 H1，docs/redesign/03-App实现任务计划.md §27）：发现页的图文内容（案例、知识）和专题。公开只读，不需要登录。
 
     规则：
@@ -27,7 +29,7 @@ info:
     - 视频详情和竖屏视频流（GET /api/v1/content/videos，游标翻页，从指定的一条开始往下；RECOMMEND 是这个城市的全部视频，
       FOLLOWING 只有关注的机构发布的、要登录）。每条带点赞数、评论数（只数没隐藏的），以及当前账号是否点过赞、是否关注了发布机构
       （不登录都是 false）。“内容中提到”的第一项是视频挂的入口。播放地址只给带主机名的 HTTPS 地址，没有时为 null
-      （开发环境没有视频存储，预览构建用 App 内的示例视频）。不做推荐算法、播放量和收藏。
+      （开发种子通过服务端的本地媒体接口播放示例视频）。不做推荐算法、播放量和收藏。
     - 要登录的写操作（任何登录账号）：点赞 / 取消（PUT / DELETE，天然幂等）、关注 / 取消关注发布机构（只能关注发布过内容的机构）、
       发评论（≤ 200 字，带 Idempotency-Key；同一账号 60 秒内最多 3 条，超了 429；过关键词过滤，命中 422，直接显示，不先审）、
       举报评论（同一账号对同一条只记一次，记进客服反馈，类型“内容有误”）。
@@ -705,8 +707,8 @@ components:
           type:
             - "string"
             - "null"
-          format: "uri"
-          description: "只给带主机名的 HTTPS 地址；没有时为 null"
+          format: uri-reference
+          description: Controlled HTTPS URL or, for development fixtures, a same-origin /api/v1/dev-media/ reference.
         caption:
           type:
             - "string"
@@ -931,7 +933,8 @@ components:
       properties:
         url:
           type: "string"
-          format: "uri"
+          format: uri-reference
+          description: Controlled HTTPS URL or, for development fixtures, a same-origin /api/v1/dev-media/ reference.
         alt:
           type: "string"
     ContentAuthor:
@@ -1127,8 +1130,8 @@ components:
           type:
             - "string"
             - "null"
-          format: "uri"
-          description: "带主机名的 HTTPS 地址；没有授权图片时为 null"
+          format: uri-reference
+          description: Controlled HTTPS URL or, for development fixtures, a same-origin /api/v1/dev-media/ reference.
         alt:
           type: "string"
           maxLength: 60

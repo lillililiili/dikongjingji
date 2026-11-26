@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isDevelopmentMediaUrl } from '../../../../shared/http/business-media'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { contentLinkedApis } from '@/features/content/data/content-linked-apis'
@@ -26,7 +27,6 @@ import {
 } from '../../application/live-room-session'
 import { chatLines, formatElapsed, formatLiveCount, hostAvatarColor, hostInitial } from '../../application/live-view'
 import { liveApi } from '../../data/live-api-client'
-import { isSamplePlayUrl, resolveLivePreviewCover } from '../../data/preview/live-preview-covers'
 import { LIVE_COMMENT_LIMIT, LIVE_COMMENT_POLL_MS, type LiveComment, type LiveRoom } from '../../domain/live'
 import { buildLiveNoticeUrl, buildLiveRoomUrl } from '../../navigation/live-routes'
 
@@ -76,10 +76,10 @@ const roomStyle = computed((): Record<string, string> => (keyboard.value
 const pageUrl = computed(() => buildLiveRoomUrl(props.roomId, props.cityCode))
 const live = computed(() => room.value?.status === 'LIVE')
 const picture = computed(() => (room.value
-  ? room.value.coverUrl ?? resolveLivePreviewCover(room.value.roomId)?.url ?? null
+  ? room.value.coverUrl ?? null
   : null))
 const playUrl = computed(() => (live.value && !room.value?.streamInterrupted ? room.value?.playUrl ?? null : null))
-const sample = computed(() => isSamplePlayUrl(playUrl.value))
+const sample = computed(() => isDevelopmentMediaUrl(playUrl.value))
 const pin = computed(() => currentLiveItem(items.value, room.value?.currentItemSeq ?? null))
 const lines = computed(() => chatLines(feed.value.items, mine.value))
 const at = computed(() => liveRooms.value.indexOf(props.roomId))

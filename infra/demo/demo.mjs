@@ -68,6 +68,10 @@ function backendEnv(host) {
   return {
     ...env, ...readEnv(file('wechat/backend.env')),
     SPRING_PROFILES_ACTIVE: 'dev',
+    // 演示库是独立的库，要装开发示例数据和 dev-operator（默认关，见 AGENTS.md“日常维护库”一条）。
+    PLATFORM_DEMO_DATA_ENABLED: 'true',
+    // 开发示例图片、样片由后端从这个目录读（/api/v1/dev-media/…）；后端的工作目录不在仓库里，要给绝对路径。
+    DEV_MEDIA_ROOT: path.join(REPO, 'apps/mobile/src/static'),
     INSPECTION_DB_URL: `jdbc:postgresql://127.0.0.1:${PORTS.postgres}/${env.INSPECTION_DB_NAME}`,
     INSPECTION_REDIS_HOST: '127.0.0.1', INSPECTION_MINIO_ENABLED: 'true', INSPECTION_MINIO_ENDPOINT: `http://127.0.0.1:${PORTS.minio}`,
     MALL_MEDIA_DIR: area('mall-media'), MALL_MEDIA_PUBLIC_BASE_URL: `${MEDIA_ORIGIN}/api/v1/mall/media`,

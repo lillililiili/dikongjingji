@@ -15,7 +15,6 @@ import { MALL_PREVIEW_ENABLED } from '../../../mall/application/mall-preview'
 import { buildMallProductUrl } from '../../../mall/navigation/mall-routes'
 import { experienceApi } from '../../data/experience-api-client'
 import { buildVenueDetailUrl } from '../../navigation/experience-routes'
-import { resolveExperiencePreviewCover } from '../../data/preview/experience-preview-covers'
 import {
   EXPERIENCE_PAGE_SIZE,
   type VenueDevice,
@@ -171,9 +170,9 @@ onReachBottom(() => {
         >
           <view :class="['venue-devices__cover', `venue-devices__cover--${device.category.toLowerCase()}`]">
             <image
-              v-if="device.image?.url ?? resolveExperiencePreviewCover(device.deviceId)"
+              v-if="device.image?.url"
               class="venue-devices__image"
-              :src="device.image?.url ?? resolveExperiencePreviewCover(device.deviceId) ?? ''"
+              :src="device.image?.url ?? ''"
               :alt="device.name"
               mode="aspectFill"
               lazy-load

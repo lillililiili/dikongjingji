@@ -7,6 +7,15 @@ test.skip(
 )
 
 test.describe('公开构建', () => {
+  test('关闭个人账号预览时只展示原有用户名登录', async ({ page }) => {
+    await page.goto('/#/pages/service/inspection/login')
+    await expect(page.getByTestId('login-password-name').locator('input')).toBeVisible()
+    await expect(page.getByTestId('login-password-submit')).toBeVisible()
+    await expect(page.getByTestId('login-switch-mode')).toHaveCount(0)
+    await expect(page.getByText('注册账号', { exact: true })).toHaveCount(0)
+    await expect(page.getByText('忘记密码', { exact: true })).toHaveCount(0)
+  })
+
   test('PUB-ART 趣玩深链加载项目自绘图标', async ({ page }) => {
     await page.goto('/#/pages/play/index')
     await expect(page.getByTestId('play-games')).toBeVisible()

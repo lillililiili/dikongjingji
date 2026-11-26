@@ -41,11 +41,11 @@ describe('related content API (1.1.0)', () => {
 })
 
 describe('相关内容 rows', () => {
-  it('writes the kind line and uses the server picture first, else the preview one', () => {
+  it('writes the kind line and uses only the server picture', () => {
     const rows = toRelatedContentRows([
       articleCard({ coverImage: { url: 'https://media.example.com/a.jpg', alt: '园区外景' }, sample: false }),
       articleCard({ articleId: TIPS, kind: 'KNOWLEDGE', sponsored: true, sample: true }),
-    ], true)
+    ])
 
     expect(rows[0]).toMatchObject({
       kindLine: '案例',
@@ -53,18 +53,13 @@ describe('相关内容 rows', () => {
       image: { url: 'https://media.example.com/a.jpg', alt: '园区外景', cutout: false },
     })
     expect(rows[1].kindLine).toBe('知识 · 广告 · 示例')
-    // The board's picture of the sample article, a product shot drawn whole.
-    expect(rows[1].image).toEqual({
-      url: '/static/images/preview/content-robot-kit.jpg',
-      alt: '编程机器人探索套装',
-      cutout: true,
-    })
+    expect(rows[1].image).toBeNull()
     expect(rows[1].tone).toEqual({ background: '#fff0e3', color: '#ba470b' })
   })
 
   it('has no picture on public builds or for an unknown article, and opens the article page', () => {
-    expect(toRelatedContentRows([articleCard({ articleId: TIPS })], false)[0].image).toBeNull()
-    const unknown = toRelatedContentRows([articleCard({ articleId: 'f3000000-0000-4000-8000-000000000099' })], true)[0]
+    expect(toRelatedContentRows([articleCard({ articleId: TIPS })])[0].image).toBeNull()
+    const unknown = toRelatedContentRows([articleCard({ articleId: 'f3000000-0000-4000-8000-000000000099' })])[0]
     expect(unknown.image).toBeNull()
     expect(unknown.tone).toEqual({ background: '#e2f6ed', color: '#11804a' })
     expect(relatedContentArticleUrl({ articleId: TIPS }, CITY))

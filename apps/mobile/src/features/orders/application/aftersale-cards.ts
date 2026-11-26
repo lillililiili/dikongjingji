@@ -9,7 +9,6 @@ import { formatTradeAmount } from '../../trade/application/order-view'
 import type { Aftersale } from '../../trade/domain/aftersale'
 import { buildAftersaleApplyUrl, buildAftersaleDetailUrl } from '../../trade/navigation/aftersale-routes'
 import { buildGoodsOrderUrl } from '../../trade/navigation/trade-routes'
-import { resolveMallPreviewCover } from '../../mall/data/preview/mall-preview-covers'
 import type { MyOrderCardAction, MyOrderCardView } from './my-order-cards'
 
 /**
@@ -57,7 +56,7 @@ export function describeAftersaleCard(aftersale: Aftersale): MyOrderCardView {
     head: aftersale.merchant.name,
     headMuted: true,
     status: { text: status.text, tone: status.tone },
-    cover: first ? first.coverImage?.url ?? resolveMallPreviewCover(first.productId)?.url ?? null : null,
+    cover: first ? first.coverImage?.url ?? null : null,
     coverAlt: first?.productName ?? '',
     title: goods.name,
     titleTail: '',

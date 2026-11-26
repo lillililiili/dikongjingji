@@ -1,3 +1,4 @@
+import { resolveBusinessMediaUrl } from '../../../shared/http/business-media'
 import type { PublicApiHttpClient } from '@/shared/http/public-api-request'
 
 import type {
@@ -14,7 +15,6 @@ import type {
   ProviderPage,
   ProviderProfile,
 } from '../domain/proservice'
-import { isMediaUrl } from '../../../shared/http/media-url'
 
 interface PriceDto {
   mode: ProServicePrice['mode']
@@ -102,9 +102,6 @@ export interface ProServiceApi {
 }
 
 // The server only hands out HTTPS pictures; this keeps a bad row away from an <image> anyway.
-function toCoverUrl(url: string | null): string | null {
-  return url && isMediaUrl(url) ? url : null
-}
 
 function toPrice(dto: PriceDto): ProServicePrice {
   // A starting price without an amount cannot be shown as one; it reads as 按项目报价 then.
@@ -134,7 +131,7 @@ export function toProServiceCard(dto: CardDto): ProServiceCard {
     summary: dto.summary,
     tags: [...dto.tags],
     price: toPrice(dto.price),
-    coverUrl: toCoverUrl(dto.coverUrl),
+    coverUrl: resolveBusinessMediaUrl(dto.coverUrl),
     sample: dto.sample,
   }
 }
@@ -188,7 +185,7 @@ export function createProServiceApi(http: PublicApiHttpClient): ProServiceApi {
         title: dto.title,
         summary: dto.summary,
         price: toPrice(dto.price),
-        coverUrl: toCoverUrl(dto.coverUrl),
+        coverUrl: resolveBusinessMediaUrl(dto.coverUrl),
         sample: dto.sample,
         capabilities: [...dto.capabilities],
         priceRows: copyLines(dto.priceRows),

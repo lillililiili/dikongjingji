@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import mallRouteSource from '../../../pages/mall/index.vue?raw'
 import { createPlatformFeatureGateway } from '../application/platform-feature-gateway'
 import type { PlatformFeatureIntent } from '../domain/platform-feature-intent'
 import mallPageSource from '../presentation/mall/PlatformMallPage.vue?raw'
@@ -57,13 +56,6 @@ describe('platform header location behavior', () => {
     expect(locationFeedbackGateway.resolve(intent).action).toBe('SHOW_NEXT_PHASE')
   })
 
-  it('wires emitted intents to the route feedback handlers in Mall', () => {
-    for (const source of [mallRouteSource]) {
-      expect(source).toContain("OPEN_LOCATION: 'NEXT_PHASE'")
-      expect(source).toContain('@intent="handleIntent"')
-    }
-  })
-
   it('shows the current city weather or its unknown icon below every shared city header', () => {
     expect(headerSource).toContain('weather: PlatformWeatherPresentation')
     expect(headerSource).toMatch(
@@ -76,11 +68,7 @@ describe('platform header location behavior', () => {
       expect(source).toContain(':weather="weather"')
     }
 
-    for (const source of [mallRouteSource]) {
-      expect(source).toContain('createCurrentCityWeatherLoader')
-      expect(source).toContain('weatherLoader.load(currentCityStore.currentCity)')
-      expect(source).toContain(':weather="weather"')
-    }
+
   })
 
   it('keeps the shared header close to the Mall hero without scaling content', () => {

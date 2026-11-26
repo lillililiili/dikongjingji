@@ -1,0 +1,124 @@
+openapi: 3.1.0
+info:
+  title: 趣玩关卡运营
+  version: 1.0.0
+  description: >
+    仅允许平台运营。草稿独立于已发布版本。保存草稿或切换发布状态需携带当前 version，
+    每次成功的写入均更新版本与操作记录。公开读取见 openapi-platform-resources.yaml。
+security: [{bearer: []}]
+paths:
+  /api/v1/ops/experience/play-games:
+    get:
+      operationId: listPlayGameDrafts
+      responses:
+        '200':
+          description: 所有关卡草稿，按顺序后按稳定 ID 排序。
+          content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Game'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      operationId: createPlayGameDraft
+      requestBody: {$ref: '#/components/requestBodies/Draft'}
+      responses:
+        '201': {$ref: '#/components/responses/Game'}
+        '400': {description: 关卡字段不合法}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /api/v1/ops/experience/play-games/{id}:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    put:
+      operationId: editPlayGameDraft
+      requestBody: {$ref: '#/components/requestBodies/Draft'}
+      responses:
+        '200': {$ref: '#/components/responses/Game'}
+        '400': {description: 缺少 version 或字段不合法}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {description: 关卡不存在}
+        '409': {description: 版本冲突 OPS_VERSION_CONFLICT}
+  /api/v1/ops/experience/play-games/{id}/publish:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      operationId: publishPlayGame
+      requestBody: {$ref: '#/components/requestBodies/Version'}
+      responses:
+        '200': {$ref: '#/components/responses/Game'}
+        '400': {description: 缺少版本}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {description: 关卡不存在}
+        '409': {description: 版本冲突 OPS_VERSION_CONFLICT}
+        '422': {description: 棋盘不满足发布规则 OPS_GAME_BOARD_INVALID，details.board 给出原因}
+  /api/v1/ops/experience/play-games/{id}/offline:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      operationId: offlinePlayGame
+      requestBody: {$ref: '#/components/requestBodies/Version'}
+      responses:
+        '200': {$ref: '#/components/responses/Game'}
+        '400': {description: 缺少版本}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {description: 关卡不存在}
+        '409': {description: 版本冲突或已经下架}
+  /api/v1/ops/experience/play-games/{id}/changes:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    get:
+      operationId: readPlayGameHistory
+      responses:
+        '200':
+          description: 按版本倒序返回改动记录
+          content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Change'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+components:
+  securitySchemes:
+    bearer: {type: http, scheme: bearer}
+  parameters:
+    Id: {name: id, in: path, required: true, schema: {type: string, maxLength: 60}}
+  requestBodies:
+    Draft:
+      required: true
+      content: {application/json: {schema: {$ref: '#/components/schemas/Draft'}}}
+    Version:
+      required: true
+      content:
+        application/json:
+          schema: {type: object, required: [version], properties: {version: {type: integer, minimum: 0}}}
+  responses:
+    Unauthorized: {description: 未登录}
+    Forbidden: {description: 非平台运营}
+    Game: {description: 保存后的关卡状态, content: {application/json: {schema: {$ref: '#/components/schemas/Game'}}}}
+  schemas:
+    Draft:
+      type: object
+      required: [title, subtitle, skillLabel, tone, avatar, board, sortOrder]
+      properties:
+        title: {type: string, minLength: 1, maxLength: 100}
+        subtitle: {type: string, minLength: 1, maxLength: 180}
+        skillLabel: {type: string, minLength: 1, maxLength: 100}
+        tone: {type: string, enum: [SKY,VIOLET]}
+        avatar: {type: string, enum: [DRONE,ROBOT]}
+        board:
+          type: string
+          pattern: '^[.WSG]{25}$'
+          description: 行优先的 5×5 棋盘。点号为空地，W 为墙，S 为星星，G 为终点。发布时必须从左上空地沿上下左右到达全部星星和唯一终点。
+        sortOrder: {type: integer, minimum: 0}
+        version: {type: integer, minimum: 0, description: 更新时必传}
+    Game:
+      allOf:
+        - {$ref: '#/components/schemas/Draft'}
+        - type: object
+          required: [id,version,published,publishedVersion]
+          properties:
+            id: {type: string}
+            published: {type: boolean}
+            publishedVersion: {type: [integer,'null'], description: 最近发布时的版本}
+    Change:
+      type: object
+      required: [version,action,operatorName,changedAt]
+      properties:
+        version: {type: integer}
+        action: {type: string,enum: [CREATE,EDIT,PUBLISH,OFFLINE]}
+        operatorName: {type: string}
+        changedAt: {type: string,format: date-time}

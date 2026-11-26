@@ -27,6 +27,7 @@ public interface ExperienceRecordMapper {
                    trial_minutes
             FROM experience_item
             WHERE id = #{experienceId}
+            FOR SHARE
             """)
     RecordableItemRow findItem(@Param("experienceId") UUID experienceId);
 
@@ -166,12 +167,12 @@ public interface ExperienceRecordMapper {
     /** 列的顺序就是 RecordRow 构造参数的顺序。 */
     String RECORD_COLUMNS = """
             SELECT r.id record_id,
-                   i.id experience_id,
-                   i.type,
-                   i.title,
-                   i.cover_url,
-                   i.product_id,
-                   i.simulation_template,
+                   r.experience_id,
+                   r.item_snapshot->>'type' AS type,
+                   r.item_snapshot->>'title' AS title,
+                   r.item_snapshot->>'coverUrl' AS cover_url,
+                   (r.item_snapshot->>'productId')::uuid AS product_id,
+                   r.item_snapshot->>'simulationTemplate' AS simulation_template,
                    r.kind,
                    r.started_at,
                    r.ended_at,
@@ -184,6 +185,5 @@ public interface ExperienceRecordMapper {
                    r.mistakes,
                    r.request_hash
             FROM experience_record r
-            JOIN experience_item i ON i.id = r.experience_id
             """;
 }

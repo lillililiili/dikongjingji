@@ -12,6 +12,8 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 
+import com.lowaltitude.inspection.media.DevelopmentMediaPath;
+
 import com.lowaltitude.inspection.experience.application.ExperienceRecordException.Error;
 import com.lowaltitude.inspection.experience.application.ExperienceRecordRows.RecordRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRecordRows.RecordableItemRow;
@@ -66,6 +68,10 @@ public final class ExperienceRecordService {
                 || command.levelsCompleted() == null || command.levelsTotal() == null || command.mistakes() == null) {
             throw new IllegalArgumentException("simulation result is incomplete");
         }
+        return transactions.execute(status -> saveSimulation(accountId, idempotencyKey, command));
+    }
+
+    private RecordResult saveSimulation(UUID accountId, UUID idempotencyKey, SimulationResultCommand command) {
         String requestHash = hash(command);
         RecordRow replayed = mapper.findRecordByKey(accountId, idempotencyKey);
         if (replayed != null) {
@@ -104,13 +110,13 @@ public final class ExperienceRecordService {
         if (experienceId == null) {
             throw new IllegalArgumentException("experienceId is required");
         }
-        RecordableItemRow item = requireItem(experienceId);
-        ExperienceType type = ExperienceType.valueOf(item.type());
-        if (type != ExperienceType.SOFTWARE_TRIAL && type != ExperienceType.COURSE_TRIAL
-                || item.trialMinutes() == null || item.trialMinutes() <= 0) {
-            throw new ExperienceRecordException(Error.NOT_RECORDABLE);
-        }
         return transactions.execute(status -> {
+            RecordableItemRow item = requireItem(experienceId);
+            ExperienceType type = ExperienceType.valueOf(item.type());
+            if (type != ExperienceType.SOFTWARE_TRIAL && type != ExperienceType.COURSE_TRIAL
+                    || item.trialMinutes() == null || item.trialMinutes() <= 0) {
+                throw new ExperienceRecordException(Error.NOT_RECORDABLE);
+            }
             mapper.lockTrialStart("experience-trial:" + accountId + ":" + experienceId);
             OffsetDateTime now = OffsetDateTime.now(clock);
             RecordRow active = mapper.findActiveTrial(accountId, experienceId, now);
@@ -242,6 +248,9 @@ public final class ExperienceRecordService {
     }
 
     private static ExperienceMediaView secureMedia(String url, String alt) {
+        if (DevelopmentMediaPath.matches(url)) {
+            return new ExperienceMediaView(url, alt);
+        }
         if (url == null || url.isBlank()) {
             return null;
         }

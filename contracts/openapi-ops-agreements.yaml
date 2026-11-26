@@ -1,0 +1,134 @@
+openapi: 3.1.0
+info:
+  title: 平台协议运营
+  version: 1.0.0
+  description: 平台运营维护草稿。发布锁定正文，App 按北京时间展示已经生效的最新版本；操作、内容和版本同事务保存。
+security: [{ bearerAuth: [] }]
+paths:
+  /api/v1/ops/agreements:
+    get:
+      operationId: listOpsAgreements
+      parameters:
+        - { name: doc, in: query, schema: { $ref: '#/components/schemas/Type' } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: 版本列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page, size, total, hasMore]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Header' } }
+                  page: { type: integer }
+                  size: { type: integer }
+                  total: { type: integer }
+                  hasMore: { type: boolean }
+        default: { $ref: '#/components/responses/Failure' }
+    post:
+      operationId: createAgreementDraft
+      requestBody: { $ref: '#/components/requestBodies/Draft' }
+      responses:
+        '201': { $ref: '#/components/responses/Detail' }
+        default: { $ref: '#/components/responses/Failure' }
+  /api/v1/ops/agreements/{id}:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    get:
+      operationId: readOpsAgreement
+      responses:
+        '200': { $ref: '#/components/responses/Detail' }
+        default: { $ref: '#/components/responses/Failure' }
+    put:
+      operationId: updateAgreementDraft
+      requestBody: { $ref: '#/components/requestBodies/Draft' }
+      responses:
+        '200': { $ref: '#/components/responses/Detail' }
+        default: { $ref: '#/components/responses/Failure' }
+  /api/v1/ops/agreements/{id}/publish:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    post:
+      operationId: publishAgreement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision]
+              properties: { revision: { type: integer, minimum: 0 } }
+      responses:
+        '200': { $ref: '#/components/responses/Detail' }
+        default: { $ref: '#/components/responses/Failure' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    Id: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+  requestBodies:
+    Draft:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [doc, title, version, sections]
+            properties:
+              doc: { $ref: '#/components/schemas/Type' }
+              title: { type: string, minLength: 1, maxLength: 160 }
+              version: { type: string, minLength: 1, maxLength: 40 }
+              effectiveOn: { type: [string, 'null'], format: date }
+              revision: { type: integer, minimum: 0, description: 更新草稿时必填 }
+              sections: { type: array, maxItems: 80, items: { $ref: '#/components/schemas/Section' } }
+  responses:
+    Detail:
+      description: 版本、依次排列的章节和最新优先的操作记录
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [document, sections, history]
+            properties:
+              document: { $ref: '#/components/schemas/Header' }
+              sections: { type: array, items: { $ref: '#/components/schemas/Section' } }
+              history:
+                type: array
+                items:
+                  type: object
+                  required: [revision, action, operatorName, changedAt]
+                  properties:
+                    revision: { type: integer }
+                    action: { enum: [CREATE, UPDATE, PUBLISH] }
+                    operatorName: { type: string }
+                    changedAt: { type: string, format: date-time }
+    Failure:
+      description: 400 参数错误，401 未登录，403 非平台运营，404 版本不存在，409 编辑版本、已发布版本或唯一键冲突，422 发布所需信息不全
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, message]
+            properties:
+              code: { type: string }
+              message: { type: string }
+              traceId: { type: string }
+  schemas:
+    Type: { enum: [USER_AGREEMENT, PRIVACY_POLICY, CHILD_PRIVACY_RULES, TRADE_AGREEMENT, ENROLLMENT_NOTICE] }
+    Section:
+      type: object
+      required: [title, body]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        body: { type: string, minLength: 1, maxLength: 20000 }
+    Header:
+      type: object
+      required: [id, doc, title, version, status, revision, effectiveOn]
+      properties:
+        id: { type: string, format: uuid }
+        doc: { $ref: '#/components/schemas/Type' }
+        title: { type: string }
+        version: { type: string }
+        revision: { type: integer, minimum: 0 }
+        effectiveOn: { type: [string, 'null'], format: date }
+        status: { enum: [DRAFT, SCHEDULED, EFFECTIVE, ARCHIVED] }

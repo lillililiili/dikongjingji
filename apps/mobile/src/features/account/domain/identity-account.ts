@@ -33,6 +33,27 @@ export interface PhoneLoginResult extends LoginToken {
   registered: boolean
 }
 
+export interface PersonalPasswordStatus {
+  eligible: boolean
+  hasPassword: boolean
+  canSetWithoutCode: boolean
+}
+
+export function newPasswordError(password: string): string {
+  const characters = Array.from(password)
+  if (characters.length < 8 || characters.length > 64 || /[\s\u0000-\u001f\u007f-\u009f]/.test(password)
+      || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+    return '密码需为 8–64 位，包含字母和数字，不能含空格'
+  }
+  // Count UTF-8 bytes on H5 and native JS engines, including surrogate pairs.
+  let bytes = 0
+  for (const char of characters) {
+    const point = char.codePointAt(0)!
+    bytes += point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4
+  }
+  return bytes > 72 ? '密码过长，请减少汉字或表情字符' : ''
+}
+
 export interface LoginDevice {
   deviceKey: string | null
   deviceName: string | null

@@ -3,7 +3,7 @@ import { computed } from 'vue'
 
 import type { InspectionOrderSummary } from '@/features/inspection/domain/service-flow/order-center'
 import QualificationBadge from '@/shared/ui/QualificationBadge.vue'
-import { inspectionServiceImage } from '../../../data/inspection-service-images'
+import { resolveBusinessMediaUrl } from '../../../../../shared/http/business-media'
 import {
   formatInspectionOrderAmount,
   getInspectionOrderActionLabel,
@@ -27,10 +27,7 @@ const emit = defineEmits<{
   pay: [order: InspectionOrderSummary, nodeNo: number]
 }>()
 
-const picture = computed(() => inspectionServiceImage({
-  coverUrl: props.order.serviceCoverUrl,
-  title: props.order.serviceTitle,
-}))
+const picture = computed(() => (resolveBusinessMediaUrl(props.order.serviceCoverUrl) ?? ''))
 const stageColour = computed(() => getInspectionOrderStageColour(props.order.stage))
 const showFulfillment = computed(() => hasInspectionOrderFulfillmentAction(props.order))
 const urgent = computed(() => isInspectionOrderActionUrgent(props.order.stage))
@@ -60,7 +57,7 @@ const stageText = computed(() => payment.value?.stageText ?? getInspectionOrderS
       >{{ stageText }}</text>
     </view>
     <view class="inspection-order-card__main">
-      <image class="inspection-order-card__image" :src="picture" mode="aspectFill" />
+      <image v-if="picture" class="inspection-order-card__image" :src="picture" mode="aspectFill" />
       <view class="inspection-order-card__body">
         <view class="inspection-order-card__title-line">
           <text class="inspection-order-card__title">{{ props.order.serviceTitle }}</text>

@@ -105,7 +105,7 @@ describe('先体验，再决定', () => {
     expect(resolveProductExperiencePill(view.pills[0], '370500', true))
       .toEqual({ kind: 'NAVIGATE', url: `/pages/experience/simulation?experienceId=${view.pills[0].targetId}` })
     expect(resolveProductExperiencePill(view.pills[1], '370500', true))
-      .toEqual({ kind: 'NOTICE', message: '录播演示即将开放' })
+      .toEqual({ kind: 'NAVIGATE', url: `/pages/experience/recorded?experienceId=${DEMO}` })
     expect(resolveProductExperiencePill(view.pills[0], '370500', false)).toEqual({ kind: 'NONE' })
     expect(productExperienceVenueDevicesUrl(view, '370500'))
       .toBe(`/pages/venue/devices?venueId=${VENUE}&cityCode=370500`)

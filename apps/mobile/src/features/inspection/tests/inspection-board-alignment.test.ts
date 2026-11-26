@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  inspectionCategoryFromText,
-  inspectionDetailHeroImage,
-  inspectionServiceImage,
-} from '../data/inspection-service-images'
 import { describeLoginResume } from '../presentation/auth/login-resume'
 import {
   categoryBadgeColour,
@@ -16,29 +11,6 @@ import { toFileRows } from '../presentation/delivery/delivery-view'
 import type { InspectionDelivery } from '../data/service-flow/inspection-plan-api'
 
 // 2026-11-20 prototype alignment (docs/redesign/06 R2, R4).
-describe('service pictures by category', () => {
-  it('keeps a server cover and otherwise picks the category picture', () => {
-    expect(inspectionServiceImage({ coverUrl: 'https://cdn.example.com/a.png', categoryCode: 'OIL_GAS' }))
-      .toBe('https://cdn.example.com/a.png')
-    expect(inspectionServiceImage({ categoryCode: 'OIL_GAS' })).toBe('/static/images/inspection/service-oil-gas.webp')
-    expect(inspectionServiceImage({ categoryCode: 'PHOTOVOLTAIC' })).toBe('/static/images/inspection/service-photovoltaic.webp')
-    expect(inspectionServiceImage({ categoryCode: 'PARK' })).toBe('/static/images/inspection/service-park.webp')
-  })
-
-  it('reads the category from the title where a snapshot has no code, never the old tower picture', () => {
-    expect(inspectionCategoryFromText('燃气管道巡检服务')).toBe('OIL_GAS')
-    expect(inspectionCategoryFromText('光伏电站巡检服务')).toBe('PHOTOVOLTAIC')
-    expect(inspectionCategoryFromText('变电站智能巡检')).toBe('SUBSTATION')
-    expect(inspectionCategoryFromText('电力输电线路无人机巡检')).toBe('POWER')
-    expect(inspectionServiceImage({ title: '园区综合巡检服务' })).toBe('/static/images/inspection/service-park.webp')
-    expect(inspectionServiceImage({ title: '未知服务' })).not.toContain('inspection-hero-v1')
-  })
-
-  it('gives the 热力 detail head the board picture', () => {
-    expect(inspectionDetailHeroImage('THERMAL')).toBe('/static/images/inspection/category-park.webp')
-    expect(inspectionDetailHeroImage('POWER')).toBe('/static/images/inspection/service-power-line.webp')
-  })
-})
 
 describe('detail page board details', () => {
   it('names and colours the badge by category', () => {

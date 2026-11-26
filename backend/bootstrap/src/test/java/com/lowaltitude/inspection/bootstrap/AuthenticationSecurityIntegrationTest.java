@@ -70,6 +70,9 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest
 @AutoConfigureMockMvc
 @MockBean({
+        com.lowaltitude.inspection.infrastructure.persistence.PlatformMapPlaceMapper.class,
+        com.lowaltitude.inspection.support.infrastructure.persistence.AgreementMapper.class,
+        com.lowaltitude.inspection.experience.infrastructure.persistence.PlayGameMapper.class,
         // S3-1 运营端
         com.lowaltitude.inspection.application.city.CityOperationsService.class,
         com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class,

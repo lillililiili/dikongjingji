@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ApiRequestError } from '@/shared/http/public-api-request'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import LineIcon from '@/shared/ui/LineIcon.vue'
@@ -20,7 +21,6 @@ import { uploadLocalResult } from '../../application/simulation-sync'
 import { experienceApi } from '../../data/experience-api-client'
 import { experienceRecordApi } from '../../data/experience-record-api-client'
 import { localSimulationResults } from '../../data/local-simulation-results'
-import { simulationScenePicture } from '../../data/preview/simulation-preview-pictures'
 import type { ExperienceItemDetail } from '../../domain/experience-record'
 import {
   BLOCK_COLOURS,
@@ -75,7 +75,7 @@ let stepTimer: ReturnType<typeof setTimeout> | null = null
 
 const template = computed(() => session.value?.template ?? null)
 const title = computed(() => item.value?.title ?? '虚拟仿真')
-const scene = computed(() => item.value?.coverImage?.url ?? simulationScenePicture(template.value))
+const scene = computed(() => item.value?.coverImage?.url ?? null)
 const clockText = computed(() => formatSimulationClock(startedAt.value ? now.value - startedAt.value.getTime() : 0))
 const palette = computed(() => (template.value ? PALETTE[template.value] : []))
 const full = computed(() => (session.value?.program.length ?? 0) >= MAX_PROGRAM_BLOCKS)
@@ -147,8 +147,8 @@ async function load(): Promise<void> {
     now.value = Date.now()
     resetScene()
     state.value = { kind: 'ready' }
-  } catch {
-    state.value = { kind: 'error' }
+  } catch (error) {
+    state.value = { kind: error instanceof ApiRequestError && error.status === 404 ? 'unplayable' : 'error' }
   }
 }
 

@@ -40,7 +40,10 @@ public class CoursePortsConfiguration {
 
     @Bean
     CoursePorts.Simulations courseSimulations(ExperienceCatalogReadService catalog) {
-        return catalog::isPlayableSimulation;
+        return new CoursePorts.Simulations() {
+            public boolean isPlayable(UUID id) { return catalog.isPlayableSimulation(id); }
+            public boolean isPublishedCourseTrial(UUID id) { return catalog.isPublishedCourseTrial(id); }
+        };
     }
 
     @Bean

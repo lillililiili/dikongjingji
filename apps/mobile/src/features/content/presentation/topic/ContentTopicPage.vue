@@ -22,7 +22,6 @@ import {
 } from '../../application/content-view'
 import { contentApi } from '../../data/content-api-client'
 import { contentLinkedApis } from '../../data/content-linked-apis'
-import { resolveArticlePreviewCover, resolveTopicPreviewCover } from '../../data/preview/content-preview-covers'
 import type { ContentArticleCard, ContentTopic } from '../../domain/content'
 import { buildContentTopicUrl } from '../../navigation/content-routes'
 import ContentThumb from '../shared/ContentThumb.vue'
@@ -56,9 +55,8 @@ const merchantItems = ref<TopicMerchantView[] | null>(null)
 let requestVersion = 0
 
 const topic = computed(() => (state.value.kind === 'ready' ? state.value.topic : null))
-// Pictures: the server's, otherwise on preview builds the board's (content-preview-covers.ts).
-const heroImage = computed(() => (topic.value ? topic.value.coverImage ?? resolveTopicPreviewCover(topic.value.topicId) : null))
-const articleImage = (article: ContentArticleCard) => article.coverImage ?? resolveArticlePreviewCover(article.articleId)
+const heroImage = computed(() => (topic.value ? topic.value.coverImage ?? null : null))
+const articleImage = (article: ContentArticleCard) => article.coverImage ?? null
 const CHEVRON = 'M9 6l6 6-6 6'
 const INFO = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01'
 

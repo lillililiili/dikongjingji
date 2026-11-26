@@ -201,7 +201,7 @@ import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import IconTile from '@/shared/ui/IconTile.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
-import { inspectionServiceImage } from '../../../data/inspection-service-images'
+import { resolveBusinessMediaUrl } from '../../../../../shared/http/business-media'
 import { formatMonthDayTime } from '../../shared/service-flow-format'
 import {
   inspectionBookingApi,
@@ -369,7 +369,7 @@ const statusCopy = computed(() => {
 const copied = ref(false)
 const SLOT_LABELS: Record<string, string> = { MORNING: '上午', AFTERNOON: '下午', EVENING: '晚上' }
 const servicePicture = computed(() => reservation.value
-  ? inspectionServiceImage({ coverUrl: reservation.value.serviceCoverUrl, title: reservation.value.serviceTitle })
+  ? (resolveBusinessMediaUrl(reservation.value.serviceCoverUrl) ?? '')
   : '')
 const detailRows = computed(() => {
   const current = reservation.value

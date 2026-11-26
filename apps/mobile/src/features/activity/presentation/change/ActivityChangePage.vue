@@ -8,7 +8,6 @@ import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import { describeChange, formatSessionRef } from '../../application/change-view'
 import { enrollmentApi } from '../../data/enrollment-api-client'
-import { resolveActivityPreviewCover } from '../../data/preview/activity-preview-covers'
 import type { ChangeDetail, Enrollment } from '../../domain/enrollment'
 import { formatActivityAmount, formatActivityDay, formatActivityTime } from '../shared/activity-format'
 import { contactOrganizer } from './contact-organizer'
@@ -66,7 +65,7 @@ const newSessionCheckIn = computed(() => {
 const coverUrl = computed(() => {
   const current = detail.value
   if (!current) return null
-  return current.coverImage?.url ?? (enrollment.value ? resolveActivityPreviewCover(enrollment.value.activity.activityId) : null)
+  return current.coverImage?.url ?? null
 })
 const applySummary = computed(() => {
   const current = detail.value

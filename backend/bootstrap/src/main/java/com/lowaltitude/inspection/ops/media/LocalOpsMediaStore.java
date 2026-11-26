@@ -5,11 +5,12 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import org.springframework.core.io.FileSystemResource;
 
 /**
  * 运营端素材的本机文件实现，只给开发环境用（application-dev.yml 的 ops.media.local-dir）：模拟对象存储。
- * 地址是配置的 HTTPS 前缀加键（开发默认是一个不存在的主机，App 里打不开；运营端经 GET /api/v1/ops/media/{fileName}
- * 带登录取回预览）。只认 OpsMediaService 生成的键，解析后的路径必须落在配置目录里；先写临时文件再改名。
+ * 地址是配置的 HTTPS 前缀加键。App 在本机开发时用公开展示图接口读取已发布的图片；运营仍可带登录预览自己的工作素材。
+ * 只认 OpsMediaService 生成的键，解析后的路径必须落在配置目录里；先写临时文件再改名。
  */
 public final class LocalOpsMediaStore implements OpsMediaStore {
 
@@ -54,6 +55,14 @@ public final class LocalOpsMediaStore implements OpsMediaStore {
     public String publicUrl(String key) {
         resolve(key);
         return publicBaseUrl + "/" + key;
+    }
+
+    FileSystemResource localResource(String key) throws IOException {
+        Path path = resolve(key);
+        if (!Files.isRegularFile(path) || !path.toRealPath().startsWith(root.toRealPath())) {
+            return null;
+        }
+        return new FileSystemResource(path);
     }
 
     Path resolve(String key) {

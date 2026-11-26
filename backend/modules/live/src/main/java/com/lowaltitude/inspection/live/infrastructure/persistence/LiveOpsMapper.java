@@ -33,9 +33,9 @@ public interface LiveOpsMapper {
                    r.stream_id,
                    r.replay_url,
                    r.replay_platform_name,
-                   r.viewer_count,
-                   r.like_count,
-                   r.comment_count,
+                   CASE WHEN platform_demo_metrics() THEN r.viewer_count ELSE r.recorded_viewer_count END AS viewer_count,
+                   CASE WHEN platform_demo_metrics() THEN r.like_count ELSE r.recorded_like_count END AS like_count,
+                   CASE WHEN platform_demo_metrics() THEN r.comment_count ELSE r.recorded_comment_count END AS comment_count,
                    r.version,
                    r.created_at
               FROM live_room r

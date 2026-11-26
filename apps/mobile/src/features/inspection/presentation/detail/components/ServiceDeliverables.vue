@@ -6,6 +6,10 @@ import { deliverableIcon } from '../detail-line-icons'
 defineProps<{
   items: readonly DetailCapability[]
 }>()
+
+function previewSample(url: string): void {
+  uni.previewImage({ urls: [url] })
+}
 </script>
 
 <template>
@@ -19,7 +23,11 @@ defineProps<{
         :key="item.code"
         class="service-deliverables__item"
       >
-        <view class="service-deliverables__icon">
+        <button v-if="item.imageUrl" role="button" class="service-deliverables__sample" :data-testid="`deliverable-sample-${item.code}`"
+          :aria-label="`查看${item.label}样图`" @click="previewSample(item.imageUrl)">
+          <image :src="item.imageUrl" mode="aspectFill" :aria-label="item.label" />
+        </button>
+        <view v-else class="service-deliverables__icon">
           <LineIcon :d="deliverableIcon(item.label)" :size="20" color="#2f80ed" />
         </view>
         <text class="service-deliverables__name">{{ item.label }}</text>
@@ -88,6 +96,17 @@ defineProps<{
   border-radius: 8px;
   background: #e6f0ff;
 }
+
+.service-deliverables__sample {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  margin: 4px 0;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.service-deliverables__sample image { display: block; width: 100%; height: 100%; }
 
 .service-deliverables__name {
   min-width: 0;

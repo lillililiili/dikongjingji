@@ -158,8 +158,9 @@ public interface InspectionCatalogOpsMapper {
                    service.category_code, service.category_name, service.cover_url, service.city_code,
                    service.price_mode, service.starting_amount_minor, service.unit_code, service.unit_label,
                    service.price_note, service.cancellation_note, service.availability, service.primary_action,
-                   service.includes_report, service.completed_count
+                   service.includes_report, metrics.completed_count
             FROM inspection_service service
+            JOIN inspection_service_metrics metrics ON metrics.service_id = service.id
             LEFT JOIN identity_organization organization ON organization.id = service.provider_id
             WHERE service.id = #{serviceId}
               AND service.status IN ('ACTIVE', 'DISABLED')

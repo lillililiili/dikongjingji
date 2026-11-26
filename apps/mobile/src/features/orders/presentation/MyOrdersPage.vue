@@ -15,7 +15,6 @@ import type { InspectionOrderSummary } from '../../inspection/domain/service-flo
 import { buildInspectionFulfillmentUrl } from '../../inspection/navigation/inspection-routes'
 import InspectionOrderCard from '../../inspection/presentation/orders/components/InspectionOrderCard.vue'
 import { openNodePayment } from '../../inspection/application/service-flow/node-payment'
-import { rentalCoverUrl } from '../../rental/application/rental-cover'
 import { RENTAL_PREVIEW_ENABLED } from '../../rental/application/rental-preview'
 import { rentalApi } from '../../rental/data/rental-api-client'
 import { SERVICE_ORDER_PREVIEW_ENABLED } from '../../serviceorder/application/serviceorder-preview'
@@ -147,7 +146,7 @@ async function loadRentalCovers(token: string): Promise<void> {
     const page = await rentalApi.listInquiries(token, 'CONFIRMED', 1, 50)
     const next: Record<string, string | null> = {}
     page.items.forEach((inquiry) => {
-      next[inquiry.inquiryId] = rentalCoverUrl(inquiry.item.coverUrl, inquiry.item.productId)
+      next[inquiry.inquiryId] = inquiry.item.coverUrl
     })
     rentalCovers.value = next
   } catch {

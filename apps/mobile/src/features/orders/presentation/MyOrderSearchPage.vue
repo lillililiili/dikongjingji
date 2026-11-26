@@ -8,7 +8,6 @@ import { enrollmentApi } from '../../activity/data/enrollment-api-client'
 import { EXPERIENCE_PREVIEW_ENABLED } from '../../experience/application/experience-preview'
 import { venueBookingApi } from '../../experience/data/venue-booking-api-client'
 import { inspectionOrderApi } from '../../inspection/data/service-flow/uni-booking-http-client'
-import { rentalCoverUrl } from '../../rental/application/rental-cover'
 import { RENTAL_PREVIEW_ENABLED } from '../../rental/application/rental-preview'
 import { rentalApi } from '../../rental/data/rental-api-client'
 import SearchHighlight from '../../search/presentation/SearchHighlight.vue'
@@ -100,7 +99,7 @@ async function loadRentalCovers(token: string): Promise<void> {
     const page = await rentalApi.listInquiries(token, 'CONFIRMED', 1, 50)
     const next: Record<string, string | null> = {}
     page.items.forEach((inquiry) => {
-      next[inquiry.inquiryId] = rentalCoverUrl(inquiry.item.coverUrl, inquiry.item.productId)
+      next[inquiry.inquiryId] = inquiry.item.coverUrl
     })
     rentalCovers.value = next
   } catch {

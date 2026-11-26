@@ -41,7 +41,7 @@ const publishing = ref(false)
 
 const articleId = computed(() => (route.params.articleId ? String(route.params.articleId) : null))
 const article = computed(() => editor.entity.value)
-const problems = computed(() => articleProblems(form))
+const problems = computed(() => articleProblems(form, editor.entity.value))
 
 watch(article, (current) => {
   if (current) Object.assign(form, articleForm(current))
@@ -162,7 +162,7 @@ onMounted(() => {
 
       <template v-if="article">
         <h3 class="article-edit__section">改动记录</h3>
-        <ChangeLogTable :changes="editor.changes.value" :loading="editor.changesLoading.value" :subject-labels="SUBJECT_LABELS" />
+        <ChangeLogTable :changes="editor.changes.value" :error="editor.changesError.value" :loading="editor.changesLoading.value" :subject-labels="SUBJECT_LABELS" />
       </template>
     </div>
   </PageSection>

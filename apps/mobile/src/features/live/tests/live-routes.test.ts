@@ -9,7 +9,6 @@ import discoverRouteSource from '../../../pages/discover/index.vue?raw'
 import { normalizeInspectionReturnUrl } from '../../inspection/navigation/inspection-routes'
 import liveFlagSource from '../application/live-preview.ts?raw'
 import { liveCityCode } from '../application/live-city'
-import { resolveLivePreviewCover } from '../data/preview/live-preview-covers'
 import {
   buildLiveNoticeUrl,
   buildLiveRoomUrl,
@@ -97,9 +96,4 @@ describe('live preview gate', () => {
     expect(discoverRouteSource).toContain('v-if="CONTENT_PREVIEW_ENABLED"')
   })
 
-  it('has board pictures for the sample rooms in preview builds only', () => {
-    expect(resolveLivePreviewCover(ROOM, true)?.url).toBe('/static/images/preview/content-park-patrol.webp')
-    expect(resolveLivePreviewCover(ROOM, false)).toBeNull()
-    expect(resolveLivePreviewCover('f4000000-0000-4000-8000-0000000000ff', true)).toBeNull()
-  })
 })

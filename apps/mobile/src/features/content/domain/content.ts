@@ -94,9 +94,7 @@ export interface ContentBlockItem {
   text: string | null
 }
 
-// (1.3.0) The picture of an IMAGE block. url is the server's controlled HTTPS address, null while the
-// content has no licensed picture: preview builds then draw the board's picture, public builds leave
-// the block out.
+// An IMAGE block carries its own media reference; a missing URL leaves the figure empty.
 export interface ContentBlockImage {
   url: string | null
   alt: string

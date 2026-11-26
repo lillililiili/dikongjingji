@@ -41,7 +41,6 @@ import { MALL_PREVIEW_ENABLED } from '../../application/mall-preview'
 import { productAfterSales } from '../../application/product-aftersales'
 import { mallApi } from '../../data/mall-api-client'
 import { CART_TAB_PATH, buildMallMerchantUrl, buildMallProductUrl } from '../../navigation/mall-routes'
-import { resolveMallPreviewCover } from '../../data/preview/mall-preview-covers'
 import type { DeliveryMode } from '../../domain/cart'
 import type { MallOffer, MallProductDetail } from '../../domain/mall'
 import type { MallBuyDeliveryLoader } from './buy-delivery'
@@ -175,12 +174,11 @@ const sellersText = computed(() => {
 const packTotal = computed(() =>
   product.value?.packItems.reduce((total, item) => total + item.quantity, 0) ?? 0,
 )
-// The server's picture when it has one, else the sample picture of a preview build.
 const cover = computed(() => {
   if (!product.value) return null
   return product.value.coverImage
     ? { url: product.value.coverImage.url, cutout: false }
-    : resolveMallPreviewCover(product.value.productId)
+    : null
 })
 const parties = computed(() => {
   const offer = shownOffer.value

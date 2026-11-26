@@ -9,7 +9,7 @@ export interface ResolveCurrentCityOptions {
   setCurrentCity(city: CurrentCity): void
   locateCityName(): Promise<string>
   loadDirectory(): Promise<CityDirectory>
-  restoreDefaultCity(): CurrentCity
+  restoreDefaultCity(): CurrentCity | Promise<CurrentCity>
 }
 
 // Location only fills an empty context: a city chosen by hand must survive tab

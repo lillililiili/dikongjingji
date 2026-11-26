@@ -81,6 +81,11 @@ services:
       dockerfile: backend/Dockerfile
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      PLATFORM_DEMO_DATA_ENABLED: ${PLATFORM_DEMO_DATA_ENABLED:-false}
+      PLATFORM_DEMO_DATA_REFRESH_AT_MIDNIGHT: ${PLATFORM_DEMO_DATA_REFRESH_AT_MIDNIGHT:-false}
+      PLATFORM_BOOTSTRAP_OPERATOR_LOGIN: ${PLATFORM_BOOTSTRAP_OPERATOR_LOGIN:-}
+      PLATFORM_BOOTSTRAP_OPERATOR_PASSWORD: ${PLATFORM_BOOTSTRAP_OPERATOR_PASSWORD:-}
+      DEV_OPERATOR_PASSWORD: ${DEV_OPERATOR_PASSWORD:-}
       INSPECTION_ENVIRONMENT: ${INSPECTION_ENVIRONMENT:?set INSPECTION_ENVIRONMENT in .env}
       INSPECTION_DB_URL: jdbc:postgresql://postgres:5432/${INSPECTION_DB_NAME:?set INSPECTION_DB_NAME in .env}
       INSPECTION_DB_USERNAME: ${INSPECTION_DB_USERNAME:?set INSPECTION_DB_USERNAME in .env}
@@ -100,6 +105,14 @@ services:
       PLATFORM_WEATHER_ENABLED: ${PLATFORM_WEATHER_ENABLED:-false}
       PLATFORM_WEATHER_API_KEY: ${PLATFORM_WEATHER_API_KEY:-}
       INSPECTION_PAYMENT_NODES_ENABLED: ${INSPECTION_PAYMENT_NODES_ENABLED:-false}
+      DEV_MEDIA_ROOT: /app/dev-media
+      OPS_MEDIA_DIR: /app/data/ops-media
+    volumes:
+      - inspection-ops-media:/app/data/ops-media
+      - ../apps/mobile/src/static/images/preview:/app/dev-media/images/preview:ro
+      - ../apps/mobile/src/static/images/home:/app/dev-media/images/home:ro
+      - ../apps/mobile/src/static/images/inspection:/app/dev-media/images/inspection:ro
+      - ../apps/mobile/src/static/videos/preview:/app/dev-media/videos/preview:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -117,6 +130,7 @@ networks:
     driver: bridge
 
 volumes:
+  inspection-ops-media:
   inspection-postgres-data:
   inspection-redis-data:
   inspection-minio-data:

@@ -8,7 +8,7 @@ import homeHost from '../../../pages/home/index.vue?raw'
 import pagesJson from '../../../pages.json?raw'
 import { moduleFlagExpression } from '../../../app-shell/release/feature-flags'
 
-const hosts = import.meta.glob(['../../../pages/mine/{phone,devices,data,permissions,org,org-members,org-invite}.vue', '../../../pages/onboarding/index.vue'], {
+const hosts = import.meta.glob(['../../../pages/mine/{phone,password,devices,data,permissions,org,org-members,org-invite}.vue', '../../../pages/onboarding/index.vue'], {
   eager: true,
   import: 'default',
   query: '?raw',
@@ -20,12 +20,12 @@ describe('account pages stay behind the ACCOUNT switch (S5-7, S5-8)', () => {
   })
 
   it('every new page renders only with the switch on', () => {
-    expect(Object.keys(hosts)).toHaveLength(8)
+    expect(Object.keys(hosts)).toHaveLength(9)
     for (const [path, source] of Object.entries(hosts)) {
       expect(source, path).toContain('ACCOUNT_PREVIEW_ENABLED')
       expect(source, path).toContain('SupportUnavailable')
     }
-    for (const page of ['phone', 'devices', 'data', 'permissions', 'org', 'org-members', 'org-invite']) {
+    for (const page of ['phone', 'password', 'devices', 'data', 'permissions', 'org', 'org-members', 'org-invite']) {
       expect(pagesJson).toContain(`"path": "pages/mine/${page}"`)
     }
     expect(pagesJson).toContain('"path": "pages/onboarding/index"')

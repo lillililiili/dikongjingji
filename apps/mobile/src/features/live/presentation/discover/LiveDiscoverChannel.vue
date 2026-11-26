@@ -15,7 +15,6 @@ import {
   splitLiveChannel,
 } from '../../application/live-view'
 import { liveApi } from '../../data/live-api-client'
-import { resolveLivePreviewCover } from '../../data/preview/live-preview-covers'
 import type { LiveRoomCard } from '../../domain/live'
 import { buildLiveNoticeUrl, liveCardUrl } from '../../navigation/live-routes'
 
@@ -40,7 +39,7 @@ const empty = computed(() => status.value === 'ready'
 const columns = computed(() => [0, 1].map((column) => sections.value.live.filter((_, index) => index % 2 === column)))
 
 function picture(card: LiveRoomCard): string | null {
-  return card.coverUrl ?? resolveLivePreviewCover(card.roomId)?.url ?? null
+  return card.coverUrl ?? null
 }
 
 async function loadReminders(scheduled: LiveRoomCard[], requested: number): Promise<void> {

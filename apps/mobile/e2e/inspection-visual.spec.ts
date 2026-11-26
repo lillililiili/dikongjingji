@@ -17,6 +17,8 @@ import {
   visit,
 } from './support/service-flow-fixtures'
 
+import { API, CITY } from './support/trade-fixtures'
+
 // 巡检各页（M01–M08）在 320 / 375 / 430 下的截图和排版检查。
 // 样式依据 2026-11-14 原型的浅色主题（计划 §12）；M01–M04 读真实后端，M05–M08 用固定的桩数据。
 const visualOutput = resolve(__dirname, '../../../.planning/inspection-theme/visual')
@@ -88,7 +90,15 @@ const screens: Screen[] = [
       await expect(page.locator('.hot-service-card').first()).toBeVisible()
     },
     async check(page) {
-      await expect(page.getByTestId('portal-guarantees')).toContainText('巡检保障')
+      const response = await page.request.get(`${API}/api/v1/inspection/portal?cityCode=${CITY}`)
+      expect(response.ok()).toBe(true)
+      const { guarantees } = await response.json() as { guarantees: Array<{ title: string }> }
+      const strip = page.getByTestId('portal-guarantees')
+      if (guarantees.length) {
+        await expect(strip.locator('.guarantee-strip__item')).toHaveText(guarantees.map(item => item.title))
+      } else {
+        await expect(strip).toHaveCount(0)
+      }
       await assertNotStacked(page, '.category-grid__name')
     },
   },

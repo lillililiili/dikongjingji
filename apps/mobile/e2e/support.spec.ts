@@ -245,11 +245,11 @@ test.describe('客服会话、设置与公共页', () => {
 
     await page.getByTestId('settings-agreement-user_agreement').click()
     await expect(page.getByTestId('agreement-title')).toHaveText('用户协议')
-    await expect(page.getByTestId('agreement-placeholder').first()).toHaveText('[协议正文待确认]')
+    await expect(page.getByTestId('agreement-unpublished')).toHaveText('协议正文尚未发布')
     await page.getByTestId('agreement-back').click()
     await page.getByTestId('settings-about').click()
     await expect(page.getByTestId('about-version')).toHaveText(/^版本 \d+\.\d+\.\d+$/)
-    await expect(page.getByTestId('about-filing')).toHaveText('[备案号待确认]')
+    await expect(page.getByTestId('about-filing')).toHaveText('暂未公布')
     await page.getByTestId('about-back').click()
     await page.getByTestId('settings-addresses').click()
     await expect(page).toHaveURL(/pages\/mine\/addresses/)
@@ -281,7 +281,7 @@ test.describe('客服会话、设置与公共页', () => {
   test('SUP-006 协议与规则：全部协议里换文档；报名和确认订单的协议链接打开同一页', async ({ page }) => {
     await page.goto('/#/pages/mine/agreement?doc=TRADE_AGREEMENT')
     await expect(page.getByTestId('agreement-title')).toHaveText('平台交易协议')
-    await expect(page.getByTestId('agreement-page')).toContainText('示例')
+    await expect(page.getByTestId('agreement-unpublished')).toBeVisible()
     await page.getByTestId('agreement-all').click()
     await expect(page.getByTestId('agreement-sheet').locator('.agreement__sheet-name'))
       .toHaveText(['隐私政策', '用户协议', '儿童个人信息保护规则', '平台交易协议', '报名须知与照片使用说明'])

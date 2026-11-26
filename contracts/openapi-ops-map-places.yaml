@@ -1,0 +1,103 @@
+openapi: 3.1.0
+info:
+  title: 城市地图地点维护
+  version: 1.0.0
+  description: 平台运营维护预约地点候选。公开搜索契约见 openapi-platform-resources.yaml。坐标均为 WGS84。
+security: [{ bearerAuth: [] }]
+paths:
+  /api/v1/ops/map-places:
+    get:
+      operationId: listOpsMapPlaces
+      parameters:
+        - { in: query, name: cityCode, schema: { type: string, pattern: '^[0-9]{6}$' } }
+        - { in: query, name: keyword, schema: { type: string, maxLength: 120 } }
+        - { in: query, name: published, schema: { type: boolean } }
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: size, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+      responses:
+        '200':
+          description: 按城市、排序、地点键分页列出，关键词匹配名称或详细地址。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [page, size, total, hasMore, items]
+                properties:
+                  page: { type: integer }
+                  size: { type: integer }
+                  total: { type: integer }
+                  hasMore: { type: boolean }
+                  items: { type: array, items: { $ref: '#/components/schemas/Place' } }
+        '400': { $ref: 'openapi-ops-city.yaml#/components/responses/BadRequest' }
+        '401': { $ref: 'openapi-ops-city.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: 'openapi-ops-city.yaml#/components/responses/Forbidden' }
+  /api/v1/ops/map-places/{id}:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    put:
+      operationId: saveOpsMapPlace
+      description: 新增时调用方生成 UUID，version 为 null。同一 UUID、同一初始内容重试只产生一条记录。编辑携带读到的 version。每次成功修改与其前后快照在同一事务提交。
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/Edit' } } }
+      responses:
+        '200':
+          description: 最新版本
+          content: { application/json: { schema: { $ref: '#/components/schemas/Place' } } }
+        '400': { $ref: 'openapi-ops-city.yaml#/components/responses/BadRequest' }
+        '401': { $ref: 'openapi-ops-city.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: 'openapi-ops-city.yaml#/components/responses/Forbidden' }
+        '404': { $ref: 'openapi-ops-city.yaml#/components/responses/NotFound' }
+        '409':
+          description: OPS_VERSION_CONFLICT，刷新记录后重新编辑。
+          content: { application/json: { schema: { $ref: 'openapi-ops-city.yaml#/components/schemas/ApiError' } } }
+  /api/v1/ops/map-places/{id}/changes:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    get:
+      operationId: getOpsMapPlaceChanges
+      responses:
+        '200':
+          description: 最近 50 次改动，版本倒序。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [version, operatorName, changedAt, previous, current]
+                  properties:
+                    version: { type: integer }
+                    operatorName: { type: string }
+                    changedAt: { type: string, format: date-time }
+                    previous: { anyOf: [{ $ref: '#/components/schemas/Place' }, { type: 'null' }] }
+                    current: { $ref: '#/components/schemas/Place' }
+        '401': { $ref: 'openapi-ops-city.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: 'openapi-ops-city.yaml#/components/responses/Forbidden' }
+        '404': { $ref: 'openapi-ops-city.yaml#/components/responses/NotFound' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    Id: { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+  schemas:
+    Edit:
+      type: object
+      required: [cityCode, name, address, latitude, longitude, sortOrder, published]
+      properties:
+        cityCode: { type: string, pattern: '^[0-9]{6}$' }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        address: { type: string, minLength: 1, maxLength: 240 }
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+        sortOrder: { type: integer, minimum: 0, maximum: 2147483647 }
+        published: { type: boolean }
+        version: { type: [integer, 'null'], minimum: 0, description: 新建时为 null }
+    Place:
+      allOf:
+        - { $ref: '#/components/schemas/Edit' }
+        - type: object
+          required: [id, cityName, sample, version]
+          properties:
+            id: { type: string, format: uuid }
+            cityName: { type: string }
+            sample: { type: boolean, description: 开发种子来源在运营编辑后仍保留 }
+            version: { type: integer, minimum: 0 }

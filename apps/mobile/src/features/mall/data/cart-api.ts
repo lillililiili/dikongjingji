@@ -1,3 +1,4 @@
+import { businessImage } from '../../../shared/http/business-media'
 import { toAddress } from '../../account/data/address-api'
 import type {
   Cart,
@@ -104,7 +105,7 @@ export function createCartApi(request: CartRequest): CartApi {
         lines: dto.lines.map((line) => ({
           ...line,
           cartItemId: line.cartItemId ?? null,
-          coverImage: line.coverImage ?? null,
+          coverImage: businessImage(line.coverImage),
         })),
         pieceCount: dto.pieceCount,
         fulfilledFrom: dto.fulfilledFrom ?? null,
@@ -125,7 +126,7 @@ function toItem(dto: CartItem): CartItem {
     productId: dto.productId,
     productName: dto.productName,
     skuName: dto.skuName,
-    coverImage: dto.coverImage ?? null,
+    coverImage: businessImage(dto.coverImage),
     merchant: dto.merchant,
     unitAmountMinor: dto.unitAmountMinor ?? null,
     quantity: dto.quantity,

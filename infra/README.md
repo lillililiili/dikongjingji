@@ -12,6 +12,29 @@
    ```
 
 所有映射端口仅绑定 `127.0.0.1`，可通过 `.env` 中的 `INSPECTION_*_PORT` 调整。PostgreSQL、Redis 和 MinIO 数据分别保存在命名卷中；它们只加入 `inspection-internal` 私有网络。MinIO 初始化容器可重复运行，只创建 `dev-inspection-quarantine` 和 `dev-inspection-private`（名称中的 `dev` 来自 `INSPECTION_ENVIRONMENT`）并对两者设置匿名访问为 `none`。
+## 独立业务回归环境
+
+业务回归会创建、变更和清理测试账号的业务记录。使用 JDK 21、Node、Docker Compose、支持 AWS SigV4 的 curl 运行以下命令。先按项目说明安装 App 和后台依赖，从仓库根目录构建后端。
+
+```powershell
+.\mvnw.cmd -pl :bootstrap -am package -DskipTests
+node infra/dev/e2e/stack.mjs up
+```
+
+保留该终端，在另一个终端运行测试。H5 在测试开始时自动启动。
+
+```powershell
+node infra/dev/e2e/stack.mjs test --list
+$env:E2E_OPS_CONTENT_TEST='1'
+node infra/dev/e2e/stack.mjs test e2e/ops-page-content.spec.ts
+```
+
+此环境使用独立的 Compose 项目 `inspection-e2e`。后端、后台、H5 和模拟微信的本机端口分别为 18428、17438、5185、17468。PostgreSQL 使用 15438 端口及 `inspection_e2e` 数据库，Redis 使用 16388，MinIO 使用 19018/19019。开发示例仅在这个测试栈显式启用。模拟微信签名文件、运营测试账号口令、数据库凭据、运营上传的素材均保存在本机忽略目录 `.runtime/e2e/` 或独立容器卷内。请保留凭据文件以便下次连接同一组卷。
+
+使用现成构建时可指定 `E2E_JAVA` 和 `E2E_BACKEND_JAR`。Compose 子网发生冲突时设置 `E2E_DOCKER_SUBNET`，使用本地兼容的 MinIO 镜像时设置 `E2E_MINIO_IMAGE`。Ctrl+C 结束启动终端中的后台、API 和模拟微信进程，再运行 `node infra/dev/e2e/stack.mjs stop` 停止测试容器，已有卷会保留。
+
+已有其他隔离验收环境可直接在 `apps/mobile` 运行 Playwright，并设置 `E2E_API_URL`（兼容 `PLAYWRIGHT_API_BASE_URL`）、`ADMIN_BASE_URL`、`PLAYWRIGHT_BASE_URL`、`E2E_FAKE_WECHAT_URL`、`E2E_PG_CONTAINER`、`E2E_PG_DATABASE`、`E2E_FILES_ROOT`。文件根目录对应测试后端的 `java.io.tmpdir`。测试库名用下划线分隔的 e2e、test、qa、stage、demo 或 restore 标明用途。后台的 `ADMIN_API_TARGET`、H5 的 `VITE_INSPECTION_API_BASE_URL` 均须指向同一个测试后端，后端的 `INSPECTION_CORS_ALLOWED_ORIGINS` 须包含实际 H5 来源。
+
 ## 局域网 Android 验收
 
 保持手机与电脑连接同一 Wi-Fi，在仓库根目录运行：

@@ -3,7 +3,6 @@ import { ref, watch } from 'vue'
 
 import type { HomeEntryTarget } from '@/app-shell/navigation/home-channels'
 
-import { resolveActivityPreviewCover } from '../../activity/data/preview/activity-preview-covers'
 import type { ActivityCard } from '../../activity/domain/activity'
 import { buildActivityDetailUrl } from '../../activity/navigation/activity-routes'
 import {
@@ -16,13 +15,10 @@ import {
 import { CONTENT_PREVIEW_ENABLED } from '../../content/application/content-preview'
 import { shortCityName } from '../../content/application/content-view'
 import { contentApi } from '../../content/data/content-api-client'
-import { resolveArticlePreviewCover } from '../../content/data/preview/content-preview-covers'
 import type { ContentArticleCard } from '../../content/domain/content'
 import { buildContentArticleUrl } from '../../content/navigation/content-routes'
-import { resolveExperiencePreviewCover } from '../../experience/data/preview/experience-preview-covers'
 import type { VenueCard } from '../../experience/domain/experience'
 import { buildVenueDetailUrl } from '../../experience/navigation/experience-routes'
-import { resolveMallPreviewCover } from '../../mall/data/preview/mall-preview-covers'
 import type { MallProductCard } from '../../mall/domain/mall'
 import { buildMallProductUrl } from '../../mall/navigation/mall-routes'
 import {
@@ -53,9 +49,11 @@ const emit = defineEmits<{
 }>()
 
 const content = ref<HomeRecommendContent>(EMPTY_HOME_RECOMMEND)
+const failed = ref(false)
 
 const loader = createHomeRecommendLoader(homeRecommendApi, {
   setContent: (next) => { content.value = next },
+  setFailed: (value) => { failed.value = value },
 })
 
 // The "城市资讯" block reads the discover feed, which only preview builds have.
@@ -70,11 +68,10 @@ watch(() => props.cityCode, (cityCode) => {
   if (CONTENT_PREVIEW_ENABLED) void cityNewsLoader.load(cityCode)
 }, { immediate: true })
 
-// The article's own picture, else the same sample picture the discover page shows for it.
+// The article's cover is supplied by the discover feed.
 function cityNewsPicture(article: ContentArticleCard): { url: string; cutout: boolean } | null {
   if (article.coverImage) return { url: article.coverImage.url, cutout: false }
-  const preview = resolveArticlePreviewCover(article.articleId)
-  return preview ? { url: preview.url, cutout: preview.cutout } : null
+  return null
 }
 
 function openCityNews(article: ContentArticleCard): void {
@@ -82,17 +79,17 @@ function openCityNews(article: ContentArticleCard): void {
 }
 
 function activityCover(card: ActivityCard): string | null {
-  return card.coverImage?.url ?? resolveActivityPreviewCover(card.activityId)
+  return card.coverImage?.url ?? null
 }
 
 function productCover(product: MallProductCard): { url: string; cutout: boolean } | null {
   return product.coverImage
     ? { url: product.coverImage.url, cutout: false }
-    : resolveMallPreviewCover(product.productId)
+    : null
 }
 
 function venueCover(venue: VenueCard): string | null {
-  return venue.coverImage?.url ?? resolveExperiencePreviewCover(venue.venueId)
+  return venue.coverImage?.url ?? null
 }
 
 function openActivity(card: ActivityCard): void {
@@ -110,6 +107,10 @@ function openVenue(venueId: string): void {
 
 <template>
   <view class="home-recommend" data-testid="home-recommend">
+    <view v-if="failed" class="home-recommend__retry" role="alert">
+      <text>推荐内容加载失败</text>
+      <button class="home-recommend__more" @click="loader.load(cityCode)">重新加载</button>
+    </view>
     <view v-if="content.today" class="home-recommend__today" data-testid="home-today">
       <view class="home-recommend__today-heading">
         <text class="home-recommend__title">今天去体验</text>
@@ -328,6 +329,14 @@ function openVenue(venueId: string): void {
 </template>
 
 <style scoped>
+.home-recommend__retry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: #fff;
+  color: #627187;
+}
 /* Sizes and colours follow the 2026-11-14 prototype board HomeFull (390 wide). */
 .home-recommend {
   display: flex;

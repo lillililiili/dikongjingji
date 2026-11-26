@@ -27,7 +27,7 @@ public interface InspectionServiceCatalogMapper {
                    service.price_note,
                    service.availability,
                    service.primary_action,
-                   service.completed_count,
+                   metrics.completed_count,
                    (
                        SELECT provider.organization_name
                        FROM identity_organization provider
@@ -41,6 +41,10 @@ public interface InspectionServiceCatalogMapper {
             FROM inspection_service service
             LEFT JOIN inspection_category category
               ON category.code = service.category_code
+            """;
+
+    String JOIN_METRICS = """
+            JOIN inspection_service_metrics metrics ON metrics.service_id = service.id
             """;
 
     /**
@@ -160,7 +164,7 @@ public interface InspectionServiceCatalogMapper {
                    NULL::double precision distance_meters
               </otherwise>
             </choose>
-            """ + FROM_SERVICE + """
+            """ + FROM_SERVICE + JOIN_METRICS + """
             LEFT JOIN inspection_service_coverage center
               ON center.service_id = service.id
              AND center.city_code = #{cityCode}
@@ -172,7 +176,7 @@ public interface InspectionServiceCatalogMapper {
               CASE WHEN #{sort} = 'COMPREHENSIVE'
                 THEN COALESCE(category.sort_order, 9999) END ASC,
               CASE WHEN #{sort} IN ('COMPREHENSIVE', 'SALES_DESC')
-                THEN service.completed_count END DESC,
+                THEN metrics.completed_count END DESC,
               CASE WHEN #{sort} IN ('PRICE_ASC', 'PRICE_DESC')
                 AND service.price_mode = 'PROJECT_QUOTE' THEN 1 ELSE 0 END ASC,
               CASE WHEN #{sort} = 'PRICE_ASC'
@@ -203,9 +207,10 @@ public interface InspectionServiceCatalogMapper {
     boolean existsVisibleInCity(@Param("cityCode") String cityCode);
 
     /** The services customers completed most often in the city; the portal shows them as 热门. */
-    @Select(CARD_COLUMNS + "NULL::double precision distance_meters\n" + FROM_SERVICE
+    @Select(CARD_COLUMNS + "NULL::double precision distance_meters\n" + FROM_SERVICE + JOIN_METRICS
             + VISIBLE_IN_CITY + """
-            ORDER BY service.completed_count DESC, service.id ASC
+              AND metrics.completed_count > 0
+            ORDER BY metrics.completed_count DESC, service.id ASC
             LIMIT #{limit}
             """)
     List<ServiceCardRow> findMostCompleted(
@@ -243,6 +248,7 @@ public interface InspectionServiceCatalogMapper {
                           WHERE own.status = 'ACTIVE'
                             AND own.city_code = #{cityCode}
                             AND own.content_type = content.content_type
+                            AND (content.content_type <> 'SCENE' OR own.item_code=content.item_code)
                       )
                   )
               )
@@ -310,7 +316,8 @@ public interface InspectionServiceCatalogMapper {
                    service.cancellation_note,
                    service.availability,
                    service.primary_action,
-                   service.completed_count,
+                   metrics.completed_count,
+                   platform_demo_metrics() AS demonstration_metrics,
                    service.provider_id,
                    organization.organization_name provider_name,
                    profile.logo_url provider_logo_url,
@@ -322,6 +329,7 @@ public interface InspectionServiceCatalogMapper {
                    stats.review_count,
                    stats.positive_rate
             FROM inspection_service service
+            JOIN inspection_service_metrics metrics ON metrics.service_id = service.id
             JOIN identity_organization organization
               ON organization.id = service.provider_id
              AND organization.organization_type = 'PROVIDER'
@@ -338,9 +346,8 @@ public interface InspectionServiceCatalogMapper {
                            count(*) FILTER (WHERE review.rating >= 4)
                            * 100.0 / NULLIF(count(*), 0)
                        )::integer positive_rate
-                FROM inspection_service_review review
+                FROM inspection_published_review review
                 WHERE review.service_id = service.id
-                  AND review.status = 'ACTIVE'
             ) stats ON true
             WHERE service.id = #{serviceId}
               AND service.status = 'ACTIVE'
@@ -424,9 +431,8 @@ public interface InspectionServiceCatalogMapper {
                    tag.tag_label label,
                    count(*) tag_count
             FROM inspection_service_review_tag tag
-            JOIN inspection_service_review review
+            JOIN inspection_published_review review
               ON review.id = tag.review_id
-             AND review.status = 'ACTIVE'
             WHERE review.service_id = #{serviceId}
             GROUP BY tag.tag_code, tag.tag_label
             ORDER BY tag_count DESC, tag.tag_code
@@ -441,9 +447,8 @@ public interface InspectionServiceCatalogMapper {
                    rating,
                    reviewed_at::date review_date,
                    content
-            FROM inspection_service_review
+            FROM inspection_published_review
             WHERE service_id = #{serviceId}
-              AND status = 'ACTIVE'
             ORDER BY reviewed_at DESC, id
             LIMIT #{limit}
             """)
@@ -522,6 +527,7 @@ public interface InspectionServiceCatalogMapper {
             String availability,
             String primaryAction,
             long completedCount,
+            boolean demonstrationMetrics,
             UUID providerId,
             String providerName,
             String providerLogoUrl,

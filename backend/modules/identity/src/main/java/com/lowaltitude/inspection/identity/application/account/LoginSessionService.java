@@ -133,7 +133,7 @@ public class LoginSessionService {
         OffsetDateTime now = now();
         List<UUID> ending = mapper.findActiveSessionIds(userId, keepSessionId);
         int revoked = mapper.revokeOtherSessions(userId, keepSessionId, reason, now);
-        RefreshTokenRevokeReason why = "CLOSED".equals(reason)
+        RefreshTokenRevokeReason why = ("CLOSED".equals(reason) || "PASSWORD_CHANGED".equals(reason))
                 ? RefreshTokenRevokeReason.ACCOUNT_CHANGED : RefreshTokenRevokeReason.LOGOUT;
         ending.forEach(id -> refreshTokens.revokeFamily(id, why, now.toInstant()));
         return revoked;

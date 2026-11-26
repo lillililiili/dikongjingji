@@ -67,14 +67,14 @@ class InspectionServiceDetailMapperSqlTest {
                 "findReviewTags",
                 new Class<?>[]{UUID.class},
                 "#{serviceId}",
-                "review.status = 'ACTIVE'",
+                "JOIN inspection_published_review review",
                 "count(*)");
         assertSelect(
                 "findReviewPreview",
                 new Class<?>[]{UUID.class, int.class},
                 "#{serviceId}",
                 "#{limit}",
-                "status = 'ACTIVE'",
+                "FROM inspection_published_review",
                 "ORDER BY reviewed_at DESC, id");
         assertSelect(
                 "findReviewImages",

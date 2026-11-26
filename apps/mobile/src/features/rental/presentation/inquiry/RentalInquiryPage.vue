@@ -7,7 +7,6 @@ import { addressApi } from '@/features/account/data/address-api-client'
 import type { Address } from '@/features/account/domain/address'
 import { ApiRequestError } from '@/shared/http/public-api-request'
 
-import { rentalCoverUrl } from '../../application/rental-cover'
 import {
   RENTAL_HANDOVER_LABELS,
   RENTAL_RETURN_LABELS,
@@ -85,7 +84,7 @@ const keyHolder = createRentalKeyHolder()
 let requestVersion = 0
 
 const offer = computed(() => (offerState.value.kind === 'ready' ? offerState.value.offer : null))
-const cover = computed(() => (offer.value ? rentalCoverUrl(offer.value.coverUrl, offer.value.productId) : null))
+const cover = computed(() => (offer.value ? offer.value.coverUrl : null))
 const startOptions = computed(() => rentalStartOptions(new Date()))
 const endDate = computed(() => rentalEndDate(draft.value.startDate, draft.value.days))
 const reference = computed(() => (offer.value ? rentalReferenceRent(offer.value, draft.value.days, draft.value.quantity) : null))

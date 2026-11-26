@@ -8,7 +8,6 @@ import LineIcon from '@/shared/ui/LineIcon.vue'
 import { formatCoursePrice, formatLessonLength } from '../../application/course-format'
 import { useCourseTrialState } from '../../application/course-trial-state'
 import { courseApi } from '../../data/course-api-client'
-import { coursePlaySource, resolveCoursePreviewCover } from '../../data/preview/course-preview-media'
 import { courseTrialSimulationUrl } from '../../navigation/course-routes'
 
 // 课程试听 (board CourseTrial, opened from 体验中心 “课程试听”, the course detail's 先试听 and
@@ -33,10 +32,10 @@ const trial = computed(() => (state.value.kind === 'ready' ? state.value.trial :
 const simulationUrl = computed(() => courseTrialSimulationUrl(trial.value?.simulationItemId ?? null, EXPERIENCE_PREVIEW_ENABLED))
 const current = computed(() => trial.value?.lessons.find((lesson) => lesson.lessonId === currentId.value) ?? trial.value?.lessons[0] ?? null)
 const source = computed(() => (trial.value && current.value
-  ? coursePlaySource(trial.value.courseId, current.value.no, current.value.playUrl)
+  ? current.value.playUrl
   : null))
 const poster = computed(() => (trial.value
-  ? trial.value.coverImage?.url ?? resolveCoursePreviewCover({ courseId: trial.value.courseId })
+  ? trial.value.coverImage?.url ?? null
   : null))
 const title = computed(() => (trial.value ? `${trial.value.title.replace(/\s*线上课$/, '')}试听` : '课程试听'))
 

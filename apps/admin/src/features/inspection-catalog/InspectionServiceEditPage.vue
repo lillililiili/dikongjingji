@@ -12,6 +12,7 @@ import { http } from '@/core/http'
 import { errorMessage } from '@/core/http/api-error'
 import ChangeLogTable from '@/core/ops/ChangeLogTable.vue'
 import MediaField from '@/core/ops/MediaField.vue'
+import DeliverableImages from '@/features/page-content/DeliverableImages.vue'
 import { describeMissing, type OpsChange } from '@/core/ops/ops-common'
 import RowListEditor from '@/core/ops/RowListEditor.vue'
 import { confirmAction, notifyRecorded, showError } from '@/core/ui/feedback'
@@ -300,6 +301,8 @@ onMounted(() => {
     </el-form>
 
     <template v-if="detail">
+      <h2 class="group">交付样图</h2>
+      <DeliverableImages :service-id="detail.serviceId" :version="detail.version" :disabled="dirty || busy" @saved="load" />
       <h2 class="group">改动记录</h2>
       <ChangeLogTable :changes="changes" :subject-labels="CHANGE_SUBJECT_LABELS" :action-labels="CHANGE_ACTION_LABELS" />
     </template>

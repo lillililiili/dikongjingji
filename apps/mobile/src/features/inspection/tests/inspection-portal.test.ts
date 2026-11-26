@@ -5,7 +5,6 @@ import guaranteeSource from '../presentation/portal/components/InspectionGuarant
 import hotServicesSource from '../presentation/portal/components/HotInspectionServices.vue?raw'
 import portalPageSource from '../presentation/portal/pages/InspectionPortalPage.vue?raw'
 import platformHomePageSource from '../presentation/platform/home/PlatformHomePage.vue?raw'
-import portalPreviewSource from '../data/preview/inspection-portal-preview?raw'
 
 import {
   buildPortalCategoryUrl,
@@ -15,9 +14,7 @@ import {
 } from '../application/portal/build-portal-navigation'
 import {
   EMPTY_PORTAL_CONTENT,
-  composePortalPreviewContent,
   createInspectionPortalContentLoader,
-  resolvePortalContent,
 } from '../application/portal/resolve-portal-content'
 import { DEVELOPMENT_PORTAL_CONTENT } from '../data/fixtures/inspection-portal.fixture'
 import type { InspectionPortalContent } from '../domain/inspection-portal-content'
@@ -195,78 +192,10 @@ describe('inspection portal navigation', () => {
 })
 
 describe('inspection portal development content boundary', () => {
-  it('uses the server scenes and steps when it has them and keeps the board 更多 after them', () => {
-    const live: InspectionPortalContent = {
-      ...fixtureContent,
-      categories: [
-        ...fixtureContent.categories,
-        { code: 'PARK', name: '园区', subtitle: '', imageUrl: '/static/images/inspection/category-park.webp' },
-      ],
-      processSteps: [
-        { code: 'REQUEST', title: '预约需求', icon: '' },
-        { code: 'REPORT', title: '报告验收', icon: '' },
-      ],
-    }
-
-    const preview = composePortalPreviewContent(true, live, DEVELOPMENT_PORTAL_CONTENT)
-
-    expect(preview.categories.map((category) => category.code)).toEqual(['POWER', 'PARK', 'MORE'])
-    expect(preview.categories.at(-1)?.name).toBe('更多')
-    expect(preview.processSteps.map((step) => step.title)).toEqual(['预约需求', '报告验收'])
-    // The server sends no guarantees yet, so the board's three stay.
-    expect(preview.guarantees.map((item) => item.title)).toEqual(['资质审核', '持证飞手', '报告可追溯'])
-  })
-
-  it('falls back to the board scenes and steps only when the server has none', () => {
-    const preview = composePortalPreviewContent(
-      true,
-      { ...fixtureContent, categories: [] },
-      DEVELOPMENT_PORTAL_CONTENT,
-    )
-
-    expect(preview.categories).toHaveLength(8)
-    expect(preview.categories.map((category) => category.name))
-      .toEqual(['电力', '光伏', '油气', '热力', '园区', '设备', '定期', '更多'])
-    expect(preview.processSteps.map((step) => step.title))
-      .toEqual(['预约需求', '确认方案', '服务履约', '报告验收'])
-  })
-
-  it('fills the approved layout only in preview mode', () => {
-    const preview = composePortalPreviewContent(
-      true,
-      fixtureContent,
-      DEVELOPMENT_PORTAL_CONTENT,
-    )
-    const production = composePortalPreviewContent(
-      false,
-      fixtureContent,
-      DEVELOPMENT_PORTAL_CONTENT,
-    )
-
-    expect(preview.categories.map((category) => category.code)).toEqual(['POWER', 'MORE'])
-    expect(preview.guarantees.map((item) => item.title))
-      .toEqual(['资质审核', '持证飞手', '报告可追溯'])
-    expect(preview.hotServices).toHaveLength(4)
-    expect(preview.processSteps).toHaveLength(4)
-    expect(preview.hero?.highlights).toEqual([
-      '专业团队',
-      '安全合规',
-      '报告清晰',
-    ])
-    expect(production).toBe(fixtureContent)
-    expect(portalPreviewSource).toContain('composePortalPreviewContent')
-    expect(portalPageSource).toContain('VITE_PLATFORM_PREVIEW_ENABLED')
-    expect(portalPageSource).toContain('composeInspectionPortalContentForRuntime')
-    expect(portalPageSource).not.toContain('data/fixtures')
-  })
-
-  it('exposes development content only in the development environment', () => {
-    expect(resolvePortalContent('development', fixtureContent)).toBe(
-      fixtureContent,
-    )
-    expect(resolvePortalContent('production', fixtureContent)).toEqual(
-      EMPTY_PORTAL_CONTENT,
-    )
+  it('renders an empty API result without adding fixture services or categories', async () => {
+    const loader = createInspectionPortalContentLoader(async () => EMPTY_PORTAL_CONTENT)
+    expect(await loader.load('370500')).toEqual({ kind: 'loaded', content: EMPTY_PORTAL_CONTENT })
+    expect(portalPageSource).not.toContain('data/preview')
   })
 
   it('uses approved image assets for every portal category', () => {
@@ -297,13 +226,14 @@ describe('inspection portal development content boundary', () => {
 })
 
 describe('inspection portal layout from the 2026-11-14 prototype (HomeSvc)', () => {
-  it('opens with the guarantee line, then the scene grid; the hero banner is gone', () => {
-    const order = ['<InspectionGuaranteeStrip', '<InspectionCategoryGrid', 'portal-request', '<HotInspectionServices', '<InspectionProcess']
+  it('shows the managed portal banner, followed by guarantees, categories and the service flow', () => {
+    const order = ['data-testid="portal-hero"', '<InspectionGuaranteeStrip', '<InspectionCategoryGrid', 'portal-request', '<HotInspectionServices', '<InspectionProcess']
       .map((marker) => portalPageSource.indexOf(marker))
 
     expect(order.every((index) => index > 0)).toBe(true)
     expect([...order].sort((left, right) => left - right)).toEqual(order)
-    expect(portalPageSource).not.toContain('InspectionHero')
+    expect(portalPageSource).toContain('{{ content.hero.title }}')
+    expect(portalPageSource).toContain(':src="content.hero.imageUrl"')
     expect(portalPageSource).not.toContain('PlatformHeroBanner')
     // The home page keeps its own banner.
     expect(platformHomePageSource).toContain('<PlatformHeroBanner')
@@ -321,7 +251,8 @@ describe('inspection portal layout from the 2026-11-14 prototype (HomeSvc)', () 
     expect(categoryGridSource).toContain('grid-template-columns: repeat(4, minmax(0, 1fr))')
     expect(categoryGridSource).toContain('width: 44px')
     expect(categoryGridSource).toContain('font-size: 13px')
-    expect(categoryGridSource).not.toContain('category-grid__subtitle')
+    expect(categoryGridSource).toContain('v-if="category.subtitle"')
+    expect(categoryGridSource).toContain('{{ category.subtitle }}')
     expect(guaranteeSource).toContain('background: #eefaf3')
     expect(guaranteeSource).toContain('font-size: 12px')
     expect(hotServicesSource).toContain('width: 156px')

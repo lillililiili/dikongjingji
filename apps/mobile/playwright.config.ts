@@ -1,7 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const baseURL =
-  process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:5182'
+import { testApi, testMobile as baseURL } from './e2e/support/test-stack'
 
 export default defineConfig({
   testDir: './e2e',
@@ -22,7 +21,8 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: 'npm run dev:h5 -- --host 127.0.0.1 --port 5182 --strictPort',
+    command: 'npm run dev:h5 -- --host 127.0.0.1 --port ' + (new URL(baseURL).port || '80') + ' --strictPort',
+    env: { VITE_INSPECTION_API_BASE_URL: testApi },
     url: baseURL,
     reuseExistingServer: true,
     timeout: 60_000,

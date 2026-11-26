@@ -6,7 +6,7 @@ import { onBackPress, onLoad, onShow } from '@dcloudio/uni-app'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 import { providerCredentialLabel } from '@/shared/ui/qualification'
-import { inspectionServiceImage } from '../../../data/inspection-service-images'
+import { resolveBusinessMediaUrl } from '../../../../../shared/http/business-media'
 import {
   createLatestRequestCoordinator,
   getPreviousInspectionPageRoute,
@@ -150,7 +150,7 @@ function showCustomerService(): void {
 
     <main v-else-if="order && plan" class="fulfillment__content">
       <FulfillmentSummaryCard
-        :cover-url="inspectionServiceImage({ coverUrl: order.serviceSnapshot.serviceCoverUrl, title: order.serviceSnapshot.serviceTitle })"
+        :cover-url="(resolveBusinessMediaUrl(order.serviceSnapshot.serviceCoverUrl) ?? '')"
         :title="order.serviceSnapshot.serviceTitle"
         :provider-name="order.provider?.name ?? ''"
         :certification-label="providerCredentialLabel(order.provider?.qualificationReviewed, order.provider?.certificationLabel) ?? ''"

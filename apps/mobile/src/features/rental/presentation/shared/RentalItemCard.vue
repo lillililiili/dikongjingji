@@ -3,7 +3,6 @@ import LineIcon from '@/shared/ui/LineIcon.vue'
 import QualificationBadge from '@/shared/ui/QualificationBadge.vue'
 import { computed } from 'vue'
 
-import { rentalCoverUrl } from '../../application/rental-cover'
 import { describeRentalLessee } from '../../application/rental-format'
 import type { RentalLessee } from '../../domain/rental'
 
@@ -19,7 +18,7 @@ const props = defineProps<{
   lessee: RentalLessee
 }>()
 
-const cover = computed(() => rentalCoverUrl(props.coverUrl, props.productId))
+const cover = computed(() => props.coverUrl)
 const lessee = computed(() => describeRentalLessee(props.lessee))
 </script>
 

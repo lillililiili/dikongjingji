@@ -1,3 +1,4 @@
+import { businessImage } from '../../../shared/http/business-media'
 import type {
   ChangeDetail,
   ChangeReason,
@@ -219,7 +220,7 @@ export function createEnrollmentApi(request: EnrollmentRequest): EnrollmentApi {
         change: toChange(dto.change),
         enrollmentId: dto.enrollmentId,
         activityTitle: dto.activityTitle,
-        coverImage: dto.coverImage ?? null,
+        coverImage: businessImage(dto.coverImage),
         organizerName: dto.organizerName,
         tickets: dto.tickets.map((ticket) => ({
           ticketId: ticket.ticketId,
@@ -334,7 +335,7 @@ function toWaitlist(dto: Waitlist): Waitlist {
       activityId: dto.activity.activityId,
       type: dto.activity.type,
       title: dto.activity.title,
-      coverImage: dto.activity.coverImage ?? null,
+      coverImage: businessImage(dto.activity.coverImage),
       cityCode: dto.activity.cityCode,
       organizerName: dto.activity.organizerName,
     },
@@ -391,7 +392,7 @@ function toEnrollment(dto: EnrollmentDto): Enrollment {
       activityId: dto.activity.activityId,
       type: dto.activity.type,
       title: dto.activity.title,
-      coverImage: dto.activity.coverImage ?? null,
+      coverImage: businessImage(dto.activity.coverImage),
       cityCode: dto.activity.cityCode,
       organizerName: dto.activity.organizerName,
     },

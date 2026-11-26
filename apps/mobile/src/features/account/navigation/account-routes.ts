@@ -1,5 +1,6 @@
 // Routes of the account and enterprise pages (S5-7, S5-8). Pages pass only stable ids.
 export const PHONE_PATH = '/pages/mine/phone'
+export const PASSWORD_PATH = '/pages/mine/password'
 export const DEVICES_PATH = '/pages/mine/devices'
 export const DATA_EXPORT_PATH = '/pages/mine/data'
 export const PERMISSIONS_PATH = '/pages/mine/permissions'

@@ -11,6 +11,8 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import com.lowaltitude.inspection.media.DevelopmentMediaPath;
+
 import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueProjectRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueRow;
 
@@ -82,6 +84,10 @@ public final class ExperienceCatalogReadService {
                 .isPresent();
     }
 
+    public boolean isPublishedCourseTrial(UUID itemId) {
+        return store.findExperienceItem(itemId).filter(item -> "COURSE_TRIAL".equals(item.type())).isPresent();
+    }
+
     /** S5-4：一个已发布的线上体验项目，带仿真模板和试用时长；没有或没发布时 404。 */
     public ExperienceItemDetailView findExperienceItem(UUID experienceId) {
         if (experienceId == null) {
@@ -97,7 +103,8 @@ public final class ExperienceCatalogReadService {
                 row.loginRequired(),
                 row.productId(),
                 row.simulationTemplate() == null ? null : SimulationTemplate.valueOf(row.simulationTemplate()),
-                row.trialMinutes());
+                row.trialMinutes(),
+                secureMedia(row.videoUrl(), row.title()));
     }
 
     public VenuePageView listVenues(String cityCode, int page, int size) {
@@ -314,6 +321,9 @@ public final class ExperienceCatalogReadService {
 
     /** 只放行带主机名的 HTTPS 地址（AGENTS.md §11）；其余当作没有图片。 */
     private static ExperienceMediaView secureMedia(String url, String alt) {
+        if (DevelopmentMediaPath.matches(url)) {
+            return new ExperienceMediaView(url, alt);
+        }
         if (url == null || url.isBlank()) {
             return null;
         }
@@ -352,7 +362,8 @@ record ExperienceItemDetailView(
         boolean loginRequired,
         UUID productId,
         SimulationTemplate simulationTemplate,
-        Integer trialMinutes
+        Integer trialMinutes,
+        ExperienceMediaView video
 ) {
 }
 

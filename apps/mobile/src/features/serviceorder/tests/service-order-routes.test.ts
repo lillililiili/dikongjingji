@@ -5,7 +5,6 @@ import releaseRegistry from '../../../app-shell/release/release-features.json'
 import { normalizeInspectionReturnUrl } from '../../inspection/navigation/inspection-routes'
 import pagesJson from '../../../pages.json?raw'
 import flagSource from '../application/serviceorder-preview.ts?raw'
-import { resolveServiceOrderPreviewCover } from '../data/preview/serviceorder-preview-covers'
 import {
   buildServiceOrderDeliveryUrl,
   buildServiceOrderDetailUrl,
@@ -60,8 +59,4 @@ describe('service order release switch', () => {
     })
   })
 
-  it('shows the board pictures only on preview builds', () => {
-    expect(resolveServiceOrderPreviewCover('AERIAL', true)).toBe('/static/images/preview/proservice-solar.webp')
-    expect(resolveServiceOrderPreviewCover('MAINTENANCE', false)).toBeNull()
-  })
 })

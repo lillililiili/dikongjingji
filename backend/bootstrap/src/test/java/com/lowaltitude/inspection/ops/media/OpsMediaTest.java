@@ -2,7 +2,11 @@ package com.lowaltitude.inspection.ops.media;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -13,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.lowaltitude.inspection.ops.OpsContractChecker;
 import com.lowaltitude.inspection.ops.OpsTestSupport;
@@ -21,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 /** 运营端素材上传（契约 openapi-ops-media.yaml 1.0.0）：类型按文件头判断、大小上限、本机存储、预览和权限。 */
 class OpsMediaTest {
@@ -117,6 +123,63 @@ class OpsMediaTest {
                 .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
         mockMvc.perform(get("/api/v1/ops/media/" + fileName).principal(OpsTestSupport.support()))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void localPublicCoverChecksCurrentReferencesOnEveryReadIncludingTheOriginalDevAddress() throws Exception {
+        var store = new LocalOpsMediaStore(directory, "https://configured.test");
+        var service = new OpsMediaService(store);
+        var uploaded = service.upload(PNG, new com.lowaltitude.inspection.ops.OpsActor(
+                OpsTestSupport.OPERATOR_ID, OpsTestSupport.OPERATOR_NAME));
+        var database = mock(JdbcTemplate.class);
+        var controller = new DevelopmentOpsMediaController(store, database);
+        String key = "ops-media/" + uploaded.fileName();
+        when(database.queryForObject(DevelopmentOpsMediaController.DISPLAYED, Boolean.class,
+                uploaded.url(), "https://media.dev.localhost/" + key, key)).thenReturn(false, true, false);
+        assertThat(controller.cover(uploaded.fileName()).getStatusCode().value()).isEqualTo(404);
+        var visible = controller.cover(uploaded.fileName());
+        assertThat(visible.getBody().getContentAsByteArray()).containsExactly(PNG);
+        assertThat(visible.getHeaders().getCacheControl()).contains("no-store");
+        assertThat(visible.getHeaders().getFirst("Content-Type")).isEqualTo("image/png");
+        assertThat(controller.cover(uploaded.fileName()).getStatusCode().value()).isEqualTo(404);
+        assertThat(service.open(uploaded.fileName()).content()).containsExactly(PNG);
+    }
+
+    @Test
+    void guestRoutesRequireLocalStorageAndTheCorrespondingUploadType() throws Exception {
+        var database = mock(JdbcTemplate.class);
+        var store = new LocalOpsMediaStore(directory, "https://media.dev.localhost");
+        var controller = new DevelopmentOpsMediaController(store, database);
+        String id = "00000000-0000-4000-8000-000000000000";
+        for (String name : List.of(id + ".mp4", id + ".pdf", id + ".PNG", "cover.png")) {
+            assertThat(controller.cover(name).getStatusCode().value()).isEqualTo(404);
+        }
+        assertThat(controller.video(id + ".png").getStatusCode().value()).isEqualTo(404);
+        var remote = mock(S3OpsMediaStore.class);
+        var other = new DevelopmentOpsMediaController(remote, database);
+        assertThat(other.cover(id + ".png").getStatusCode().value()).isEqualTo(404);
+        assertThat(other.video(id + ".mp4").getStatusCode().value()).isEqualTo(404);
+        verifyNoInteractions(database, remote);
+    }
+
+    @Test
+    void publishedDiscoveryVideoStreamsByteRangesAndStopsServingAfterWithdrawal() throws Exception {
+        var database = mock(JdbcTemplate.class);
+        var store = new LocalOpsMediaStore(directory, "https://media.dev.localhost");
+        var service = new OpsMediaService(store);
+        var uploaded = service.upload(MP4, new com.lowaltitude.inspection.ops.OpsActor(
+                OpsTestSupport.OPERATOR_ID, OpsTestSupport.OPERATOR_NAME));
+        when(database.queryForObject(DevelopmentOpsMediaController.PUBLISHED_VIDEO, Boolean.class,
+                uploaded.url(), uploaded.url())).thenReturn(false, true, true, false);
+        var mvc = MockMvcBuilders.standaloneSetup(new DevelopmentOpsMediaController(store, database)).build();
+        String path = "/api/v1/dev-media/ops/videos/" + uploaded.fileName();
+        mvc.perform(get(path)).andExpect(status().isNotFound());
+        mvc.perform(head(path)).andExpect(status().isOk()).andExpect(header().longValue("Content-Length", MP4.length));
+        mvc.perform(get(path).header("Range", "bytes=4-7")).andExpect(status().isPartialContent())
+                .andExpect(header().string("Content-Range", "bytes 4-7/" + MP4.length))
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(content().bytes(Arrays.copyOfRange(MP4, 4, 8)));
+        mvc.perform(get(path).header("Range", "bytes=4-7")).andExpect(status().isNotFound());
     }
 
     private static byte[] bytes(int... values) {

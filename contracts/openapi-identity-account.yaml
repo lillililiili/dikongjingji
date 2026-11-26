@@ -1,8 +1,11 @@
 openapi: 3.1.0
 info:
   title: Identity Account API
-  version: 1.0.0
+  version: 1.1.0
   description: |-
+    1.1.0（个人登录密码）：个人用户可在当前绑定的手机号上设置密码，原账号、资料和历史订单继续使用同一个用户 ID。
+    首设只接受刚完成的本手机号短信认证会话（5 分钟）或首设专用验证码。注册来源只说明如何创建账号。
+    修改密码须验证原密码，找回须验证当前绑定手机号的找回专用码。成功后原访问令牌及刷新令牌失效，用户以新密码重新登录。
     1.0.0（2026-11-23，S5-7 企业组织与成员、S5-8 手机号登录与账号，docs/redesign/08-后续开发计划.md §2、§5 默认决定）：
     公共身份能力的账号部分。账号密码登录和 /api/v1/auth/me 仍在 contracts/openapi-inspection-service-flow.yaml（2.4.0 起 me 带打码手机号和当前身份），
     这里是新增的：手机号验证码登录与注册、绑定和更换手机号、登录设备（会话）、注销（15 天冷静期后匿名化）、个人信息导出、企业组织与成员、切换身份。
@@ -11,7 +14,7 @@ info:
     通用规则：
     - 错误用共用的 ApiError；业务错误码见 IdentityAccountErrorCode。
     - 手机号是中国大陆 11 位手机号（^1[3-9][0-9]{9}$）；除了“我自己的手机号”在导出文件里，接口一律只给打码号码（138****2026）。
-    - 短信经 SmsGateway 端口发送；开发环境用本机模拟服务（identity.sms.provider = fake）：验证码写进日志和开发表 identity_dev_sms_outbox，不发真实短信。
+    - 短信经 SmsGateway 端口发送；开发环境用本机模拟服务（identity.sms.provider = fake），短信内容只写入开发库 identity_dev_sms_outbox，日志只记录打码号码。
       没有配置短信服务的环境发送验证码返回 503 SMS_UNAVAILABLE，不假装发出。
     - 验证码 6 位数字，5 分钟有效；同一手机号同一用途 60 秒内只发一次、每天最多 10 次（超过 429 SMS_TOO_FREQUENT）；一条验证码错 5 次作废；
       同一手机号 1 小时内错 10 次锁 30 分钟（429 PHONE_LOCKED，期间不发也不认）。发登录验证码不论号码是否注册都同样回答，不暴露号码是否存在。
@@ -98,6 +101,130 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "429":
           $ref: "#/components/responses/TooMany"
+  /api/v1/auth/phone-password-login:
+    post:
+      tags: [PhoneLogin]
+      operationId: loginWithPersonalPassword
+      summary: 使用个人账号当前绑定的手机号和密码登录
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PhonePasswordLogin" }
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: "./openapi-inspection-service-flow.yaml#/components/schemas/LoginResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooMany" }
+  /api/v1/account/password:
+    get:
+      tags: [Account]
+      operationId: getPersonalPasswordState
+      summary: 查询当前账号的密码管理能力
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonalPasswordState" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/account/password/setup-codes:
+    post:
+      tags: [Account]
+      operationId: sendPersonalPasswordSetupCode
+      summary: 向当前账号绑定的手机号发送首设专用验证码
+      security: [{ bearerAuth: [] }]
+      responses:
+        "202":
+          description: 已受理
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SmsCodeSent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/account/password/setup:
+    post:
+      tags: [Account]
+      operationId: setInitialPersonalPassword
+      summary: 首次设置密码，使用近期短信认证或专用验证码
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordSetup" }
+      responses:
+        "204":
+          description: 凭据已更新
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooMany" }
+  /api/v1/account/password/change:
+    post:
+      tags: [Account]
+      operationId: changePersonalPassword
+      summary: 校验当前密码并更新密码，撤销现有会话
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordChange" }
+      responses:
+        "204":
+          description: 凭据已更新
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooMany" }
+  /api/v1/auth/password-reset-codes:
+    post:
+      tags: [PhoneLogin]
+      operationId: sendPersonalPasswordResetCode
+      summary: 申请个人密码找回验证码。按与注册状态无关的规则受理
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginCodeRequest" }
+      responses:
+        "202":
+          description: 已受理
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SmsCodeSent" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/v1/auth/password-reset:
+    post:
+      tags: [PhoneLogin]
+      operationId: resetPersonalPassword
+      summary: 校验找回专用验证码并重设已有密码，成功后须重新登录
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordReset" }
+      responses:
+        "204":
+          description: 凭据已更新
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooMany" }
   /api/v1/account/sms-codes:
     post:
       tags: [Account]
@@ -773,17 +900,17 @@ components:
       schema: { type: string, format: uuid }
   responses:
     BadRequest:
-      description: 参数缺失或格式不对（COMMON_INVALID_ARGUMENT），或验证码不对（SMS_CODE_INVALID）、换号凭据无效（PHONE_TICKET_INVALID）
+      description: 参数缺失或格式不对（COMMON_INVALID_ARGUMENT）、密码格式不符（PASSWORD_INVALID）、原密码错误（PASSWORD_CURRENT_INVALID）、密码与原密码相同（PASSWORD_UNCHANGED）、验证码不对（SMS_CODE_INVALID）、换号凭据无效（PHONE_TICKET_INVALID）
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ApiError" }
     Unauthorized:
-      description: 没有登录、登录已过期或这台设备已退出（COMMON_UNAUTHORIZED）；验证码登录时账号不可用也是这个
+      description: 没有登录、登录已过期或这台设备已退出（COMMON_UNAUTHORIZED）；手机号密码组合不可用（PASSWORD_CREDENTIALS_INVALID）
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ApiError" }
     Forbidden:
-      description: 不是客户角色（COMMON_FORBIDDEN），或不是本企业管理员（ENTERPRISE_ADMIN_REQUIRED）
+      description: 当前账号不能管理个人密码（PASSWORD_NOT_ELIGIBLE）、不是客户角色（COMMON_FORBIDDEN）或不是本企业管理员（ENTERPRISE_ADMIN_REQUIRED）
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ApiError" }
@@ -798,7 +925,7 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/ApiError" }
     TooMany:
-      description: 发送太频繁（SMS_TOO_FREQUENT）或手机号已锁定（PHONE_LOCKED）
+      description: 发送太频繁（SMS_TOO_FREQUENT）、手机号验证码暂时锁定（PHONE_LOCKED）或密码尝试过于频繁（PASSWORD_TRY_LATER）
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ApiError" }
@@ -820,6 +947,15 @@ components:
       type: string
       enum:
         - SMS_CODE_INVALID
+        - PASSWORD_NOT_ELIGIBLE
+        - PASSWORD_ALREADY_SET
+        - PASSWORD_NOT_SET
+        - PASSWORD_CODE_REQUIRED
+        - PASSWORD_INVALID
+        - PASSWORD_CREDENTIALS_INVALID
+        - PASSWORD_TRY_LATER
+        - PASSWORD_CURRENT_INVALID
+        - PASSWORD_UNCHANGED
         - SMS_TOO_FREQUENT
         - PHONE_LOCKED
         - SMS_UNAVAILABLE
@@ -844,8 +980,9 @@ components:
         - INVITATION_NOT_PENDING
         - IDEMPOTENCY_CONFLICT
       description: >-
-        400：SMS_CODE_INVALID、PHONE_TICKET_INVALID。429：SMS_TOO_FREQUENT、PHONE_LOCKED。503：SMS_UNAVAILABLE、EXPORT_UNAVAILABLE。
-        403：ENTERPRISE_ADMIN_REQUIRED。其余 409。
+        400：SMS_CODE_INVALID、PHONE_TICKET_INVALID、PASSWORD_INVALID、PASSWORD_CURRENT_INVALID、PASSWORD_UNCHANGED。
+        401：PASSWORD_CREDENTIALS_INVALID。403：ENTERPRISE_ADMIN_REQUIRED、PASSWORD_NOT_ELIGIBLE。
+        429：SMS_TOO_FREQUENT、PHONE_LOCKED、PASSWORD_TRY_LATER。503：SMS_UNAVAILABLE、EXPORT_UNAVAILABLE。其余 409。
     PhoneNumber:
       type: string
       pattern: "^1[3-9][0-9]{9}$"
@@ -921,6 +1058,48 @@ components:
         registered:
           type: boolean
           description: 这次是新注册的账号
+    NewPersonalPassword:
+      type: string
+      format: password
+      writeOnly: true
+      minLength: 8
+      maxLength: 64
+      pattern: '^(?=.*[A-Za-z])(?=.*[0-9])[^\s\u0000-\u001f\u007f-\u009f]+$'
+      description: 至少包含一个英文字母和一个数字，无空白或控制字符。UTF-8 编码后最多 72 字节。
+    PhonePasswordLogin:
+      type: object
+      required: [phone, password]
+      properties:
+        phone: { $ref: "#/components/schemas/PhoneNumber" }
+        password: { type: string, format: password, writeOnly: true }
+        device: { $ref: "#/components/schemas/Device" }
+    PersonalPasswordState:
+      type: object
+      additionalProperties: false
+      required: [eligible, hasPassword, canSetWithoutCode]
+      properties:
+        eligible: { type: boolean, description: 当前账号可管理个人登录密码 }
+        hasPassword: { type: boolean, description: 个人账号已设置可用密码 }
+        canSetWithoutCode: { type: boolean, description: 本会话可直接首次设密 }
+    PasswordSetup:
+      type: object
+      required: [newPassword]
+      properties:
+        newPassword: { $ref: "#/components/schemas/NewPersonalPassword" }
+        code: { $ref: "#/components/schemas/SmsCode" }
+    PasswordChange:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword: { type: string, format: password, writeOnly: true }
+        newPassword: { $ref: "#/components/schemas/NewPersonalPassword" }
+    PasswordReset:
+      type: object
+      required: [phone, code, newPassword]
+      properties:
+        phone: { $ref: "#/components/schemas/PhoneNumber" }
+        code: { $ref: "#/components/schemas/SmsCode" }
+        newPassword: { $ref: "#/components/schemas/NewPersonalPassword" }
     AccountCodeRequest:
       type: object
       additionalProperties: false

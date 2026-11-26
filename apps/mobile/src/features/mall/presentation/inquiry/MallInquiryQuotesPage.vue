@@ -7,7 +7,6 @@ import { tradeApi } from '@/features/trade/data/trade-api-client'
 import { ApiRequestError } from '@/shared/http/public-api-request'
 
 import { loadInquiryCityName } from '../../application/inquiry-city'
-import { inquiryCoverUrl } from '../../application/inquiry-cover'
 import { describeMallInquiryBuyer } from '../../application/inquiry-form'
 import {
   MALL_INQUIRY_SORT_LABELS,
@@ -75,7 +74,7 @@ const bar = computed(() => (detail.value
   : null))
 const badge = computed(() => (inquiry.value ? describeMallInquiryBuyer(inquiry.value.buyer).badge : null))
 const cover = computed(() => (inquiry.value
-  ? inquiryCoverUrl(inquiry.value.product.coverImage, inquiry.value.product.productId)
+  ? (inquiry.value.product.coverImage?.url ?? null)
   : null))
 // The lines of the requirement after the first, which the summary line already shows.
 const requirementRest = computed(() => {

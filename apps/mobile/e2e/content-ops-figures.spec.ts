@@ -5,7 +5,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 // S3-1 运营端 / S4-4 补字段（契约 openapi-content.yaml 1.3.0）：图文的正文配图块和专题的商家内容。
 // 真实后端和开发种子（R__dev_content.sql：机器狗夜巡案例“怎么巡”后面的配图；黄河口低空体验季的编程机器人探索套装）。
-// 种子没有授权图片，预览构建用画板图片顶替（content-preview-covers.ts）。390 宽截图放在 .planning/style-compare/content，
+// 开发种子记录了受控媒体路径。390 宽截图放在 .planning/style-compare/content，
 // 和画板 ContentArticle、Topic 并排对照由 content.spec.ts 的 CNT-201 生成。
 const CITY = '370500'
 const CASE_DOG = 'f3000000-0000-4000-8000-000000000001'
@@ -32,7 +32,7 @@ test.describe('发现内容：正文配图和专题商家内容', () => {
     await expect(figure).toHaveCount(1)
     await expect(page.getByTestId('content-article-figure-caption'))
       .toHaveText('围墙外侧由无人机补充巡查，机器狗负责地面路线')
-    // 预览构建用画板图片（种子没有授权图片）。
+    // 正文使用开发库中的实际媒体。
     await expect(figure.locator('img')).toHaveAttribute('src', /content-patrol-drone\.jpg$/)
     // 原来这里的提示块换成了配图：同一句话只出现在图注里。
     await expect(detail.locator('.article__tip', { hasText: '围墙外侧由无人机补充巡查' })).toHaveCount(0)
@@ -67,7 +67,7 @@ test.describe('发现内容：正文配图和专题商家内容', () => {
     // 开发种子：东营三家在售，最低 ¥1,299（画板“¥1,299 起 · 3 家在售”）。
     await expect(card).toContainText('¥1,299')
     await expect(card).toContainText('起 · 3 家在售')
-    await expect(card.locator('img')).toHaveAttribute('src', /content-topic-robot-kit\.jpg$/)
+    await expect(card.locator('img')).toHaveAttribute('src', /\/api\/v1\/dev-media\/images\/preview\/robot-rover\.jpg$/)
     await assertNoHorizontalOverflow(page)
 
     mkdirSync(compareOutput, { recursive: true })

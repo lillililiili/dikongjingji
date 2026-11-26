@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import homeRouteSource from '../../../pages/home/index.vue?raw'
-import { createPlatformHomePreviewContent } from '../data/preview/platform-home-preview'
 import homePageSource from '../presentation/platform/home/PlatformHomePage.vue?raw'
 import {
   resolvePlatformHomeState,
@@ -43,25 +42,12 @@ const content = (): PlatformHomeContent => ({
 })
 
 describe('platform home presentation state', () => {
-  it('restores the approved full home composition for development preview', () => {
-    const preview = createPlatformHomePreviewContent(DEVELOPMENT_PORTAL_CONTENT)
-
-    expect(preview.hero).toMatchObject({
-      title: '低空服务',
-      highlight: '触手可及',
-      highlights: ['多元服务', '专业保障', '便捷响应'],
-      actionLabel: '浏览精选服务',
-      imageUrl: '/static/images/inspection/platform/home-hero.png',
+  it('returns only inspection portal content supplied by the city', () => {
+    const empty = homeModel.createPlatformHomeContentFromPortal({
+      ...DEVELOPMENT_PORTAL_CONTENT, hotServices: [], hero: null,
     })
-    expect(preview.featuredServices).toHaveLength(4)
-    expect(preview.activities).toHaveLength(3)
-    expect(preview.enterpriseSolution?.benefits).toHaveLength(3)
-  })
-
-  it('selects the full composition only through the preview boundary', () => {
-    expect(homeRouteSource).toContain('PLATFORM_PREVIEW_ENABLED')
-    expect(homeRouteSource).not.toContain('import.meta.env.DEV')
-    expect(homeRouteSource).toContain('createPlatformHomePreviewContent')
+    expect(empty).toEqual({ featuredServices: [], activities: [] })
+    expect(homeRouteSource).toContain('createPlatformHomeContentFromPortal(portal)')
   })
 
   it('resolves the city through the shared rule that protects a hand-picked city', () => {
@@ -75,7 +61,7 @@ describe('platform home presentation state', () => {
   })
 
   it('keeps the home usable when native location lookup fails', () => {
-    expect(homeRouteSource).toContain("const DEFAULT_CITY: CurrentCity = { code: '370500', name: '东营市' }")
+    expect(homeRouteSource).toContain('openCityToSwitchTo(await platformCityApi.load(), null, null)')
     expect(homeRouteSource).not.toContain('isNativeAppRuntime')
     expect(homeRouteSource).not.toContain('无法获取当前位置，请开启定位权限后重试')
     expect(homeRouteSource).toContain('首页内容加载失败，请稍后重试')

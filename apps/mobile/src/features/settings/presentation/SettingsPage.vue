@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import type { PersonalPasswordStatus } from '@/features/account/domain/identity-account'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import type { AgreementDoc } from '../domain/agreement'
@@ -16,6 +17,8 @@ withDefaults(defineProps<{
   account: { displayName: string; organizationName: string | null; maskedPhone?: string | null } | null
   addressCount: number | null
   accountPages?: boolean
+  passwordStatus?: PersonalPasswordStatus | null
+  passwordLoadFailed?: boolean
   // 处理中 next to 注销账户 while a closure request runs.
   closureTag?: string | null
   // The 通知 switches (S5-9); null leaves the group out (public builds, or not read yet).
@@ -30,6 +33,7 @@ const emit = defineEmits<{
   about: []
   logout: []
   phone: []
+  password: []
   devices: []
   data: []
   permissions: []
@@ -83,6 +87,12 @@ const RULES = SETTINGS_RULE_DOCS.map((doc) => ({ doc, d: AGREEMENT_ICONS[doc] })
           <button class="settings__row" data-testid="settings-devices" @click="emit('devices')">
             <LineIcon :d="ICONS.devices" :size="20" color="#536178" />
             <text class="settings__row-title">登录设备管理</text>
+            <LineIcon :d="ICONS.chevron" :size="14" color="#91a0b4" :stroke-width="2" />
+          </button>
+          <button v-if="passwordStatus?.eligible || passwordLoadFailed" class="settings__row" data-testid="settings-password" @click="emit('password')">
+            <LineIcon name="lock" :size="20" color="#536178" />
+            <text class="settings__row-title">登录密码</text>
+            <text class="settings__row-value">{{ passwordLoadFailed ? '重新加载' : passwordStatus?.hasPassword ? '修改密码' : '设置密码' }}</text>
             <LineIcon :d="ICONS.chevron" :size="14" color="#91a0b4" :stroke-width="2" />
           </button>
         </view>

@@ -107,7 +107,7 @@ class LiveOpenApiContractTest {
     void contractIsVersionOneAndDeclaresBearerJwt() {
         Map<String, Object> root = root();
 
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.1.0");
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.1.1");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");

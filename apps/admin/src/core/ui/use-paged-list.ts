@@ -45,6 +45,9 @@ export function usePagedList<T, F extends object>(loader: PageLoader<T, F>, init
       }
     } catch (failure) {
       if (mine !== revision) return
+      last.value = null
+      items.value = []
+      total.value = 0
       error.value = errorMessage(failure)
     } finally {
       if (mine === revision) loading.value = false

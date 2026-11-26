@@ -20,7 +20,6 @@ import {
 import { describeCourseFailure } from '../../application/course-failures'
 import { createCourseKey } from '../../application/course-keys'
 import { courseApi } from '../../data/course-api-client'
-import { resolveCoursePreviewCover } from '../../data/preview/course-preview-media'
 import type { CourseDetail, CourseMine } from '../../domain/course'
 import { buildCourseDetailUrl } from '../../navigation/course-routes'
 import CourseBuySheet from './CourseBuySheet.vue'
@@ -60,7 +59,7 @@ let requestVersion = 0
 
 const detail = computed(() => (state.value.kind === 'ready' ? state.value.detail : null))
 const coverUrl = computed(() => (detail.value
-  ? detail.value.coverImage?.url ?? resolveCoursePreviewCover({ courseId: detail.value.courseId })
+  ? detail.value.coverImage?.url ?? null
   : null))
 const slides = computed(() => {
   const pictures = [coverUrl.value, ...(detail.value?.gallery.map((image) => image.url) ?? [])]

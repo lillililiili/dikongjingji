@@ -147,7 +147,7 @@ class LiveControllerTest {
         mockMvc.perform(get("/api/v1/live/rooms/" + ROOM + "?cityCode=370500"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(21))
-                .andExpect(jsonPath("$.playUrl").value("/static/videos/preview/live-night-patrol.mp4"))
+                .andExpect(jsonPath("$.playUrl").value("/api/v1/dev-media/videos/preview/live-night-patrol.mp4"))
                 .andExpect(jsonPath("$.topics[0]").value("夜间路线怎么定"))
                 .andExpect(jsonPath("$.items[1].refId").value(PRODUCT.toString()))
                 .andExpect(jsonPath("$.currentItemSeq").value(1));
@@ -377,7 +377,7 @@ class LiveControllerTest {
                         new LiveItemView(1, LiveItemType.INSPECTION_SERVICE,
                                 UUID.fromString("77777777-7777-7777-7777-777777777777"), "园区安防巡检"),
                         new LiveItemView(2, LiveItemType.PRODUCT, PRODUCT, "巡检机器狗")),
-                1, null, null, "/static/videos/preview/live-night-patrol.mp4", false);
+                1, null, null, "/api/v1/dev-media/videos/preview/live-night-patrol.mp4", false);
     }
 
     private static LiveCommentView comment() {

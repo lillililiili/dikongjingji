@@ -17,7 +17,6 @@ import {
   type CartSelection,
 } from '../../application/cart-selection'
 import { cartApi } from '../../data/cart-api-client'
-import { resolveMallPreviewCover } from '../../data/preview/mall-preview-covers'
 import { CART_MAX_QUANTITY, type Cart, type CartItem } from '../../domain/cart'
 import { MALL_MERCHANT_KIND_LABELS, formatMallAmount } from '../shared/mall-format'
 
@@ -68,7 +67,7 @@ function isUnauthorized(error: unknown): boolean {
 }
 
 function coverOf(item: CartItem): string | null {
-  return item.coverImage?.url ?? resolveMallPreviewCover(item.productId)?.url ?? null
+  return item.coverImage?.url ?? null
 }
 
 // The green tag after a merchant (prototype board Cart): only facts the offers carry.

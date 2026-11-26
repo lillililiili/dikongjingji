@@ -69,6 +69,7 @@ onMounted(() => {
       :loading="list.loading.value"
       :error="list.error.value"
       row-key="serviceId"
+      origin-resource="PRO_SERVICE"
       empty-text="没有符合条件的专业服务"
       @change-page="list.changePage"
       @change-size="list.changeSize"

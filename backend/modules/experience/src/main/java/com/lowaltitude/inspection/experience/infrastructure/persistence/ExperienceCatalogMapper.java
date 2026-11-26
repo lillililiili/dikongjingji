@@ -61,7 +61,8 @@ public interface ExperienceCatalogMapper {
                    login_required,
                    product_id,
                    simulation_template,
-                   trial_minutes
+                   trial_minutes,
+                   video_url
             FROM experience_item
             WHERE id = #{experienceId}
               AND status = 'PUBLISHED'

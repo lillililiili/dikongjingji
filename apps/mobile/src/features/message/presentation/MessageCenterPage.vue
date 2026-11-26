@@ -23,6 +23,7 @@ const props = withDefaults(defineProps<{
   state: MessageCenterState
   // null leaves conversations out (public builds, guests).
   conversations?: MessageConversationRow[] | null
+  conversationError?: boolean
   // The category squares to show. Public builds only have 服务进度; 交易物流 and 活动提醒 come with
   // the trade and activity previews (R6-5), 系统通知 with the settings preview (S5-9).
   squares?: readonly MessageSquare[]
@@ -31,6 +32,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   login: []
   retry: []
+  retryConversations: []
   open: [message: MessageItem]
   markAllRead: []
   loadMore: []
@@ -118,6 +120,11 @@ const signedOut = computed(() => props.state.kind === 'guest' || props.state.kin
       </view>
     </view>
 
+    <view v-if="conversationError && ready && !filter" class="message-center__state" role="status">
+      <text class="message-center__state-title">客服会话加载失败</text>
+      <button class="message-center__state-action" data-testid="conversation-retry" @click="emit('retryConversations')">重新加载会话</button>
+    </view>
+
     <!-- Signed out (board MineGuest, frame 消息): one centred prompt. -->
     <view v-if="state.kind === 'guest'" class="message-center__blank" data-testid="message-guest">
       <view class="message-center__blank-icon">
@@ -152,7 +159,7 @@ const signedOut = computed(() => props.state.kind === 'guest' || props.state.kin
       </button>
     </view>
 
-    <view v-else-if="rows.length === 0" class="message-center__state" data-testid="message-empty">
+    <view v-else-if="rows.length === 0 && (filter || !conversationError)" class="message-center__state" data-testid="message-empty">
       <text class="message-center__state-title">{{ empty.title }}</text>
       <text class="message-center__state-copy">{{ empty.copy }}</text>
     </view>

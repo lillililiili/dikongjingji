@@ -77,7 +77,7 @@ const selectEnterpriseSolution = (availability: PlatformAvailability): void =>
       @select="emit('selectEntry', $event)"
     />
     <PlatformHeroBanner
-      v-else-if="props.state.kind === 'ready' && props.state.content.hero"
+      v-else-if="props.showSections && props.state.kind === 'ready' && props.state.content.hero"
       class="platform-home__hero"
       :image-url="props.state.content.hero.imageUrl"
       :image-alt="`${props.state.content.hero.title}${props.state.content.hero.highlight}`"
@@ -129,7 +129,7 @@ const selectEnterpriseSolution = (availability: PlatformAvailability): void =>
               @click="selectFeaturedService(service)"
             >
               <view class="platform-home__featured-image-wrap">
-                <image class="platform-home__featured-image" :src="service.imageUrl" mode="aspectFill" />
+                <image v-if="service.imageUrl" class="platform-home__featured-image" :src="service.imageUrl" mode="aspectFill" />
               </view>
               <text class="platform-home__featured-title">{{ service.title }}</text>
               <text v-if="service.subtitle" class="platform-home__featured-subtitle">

@@ -53,7 +53,7 @@ const priceLabel = computed(() => {
 <template>
   <view class="service-detail-hero">
     <view class="service-detail-hero__image-wrap">
-      <image
+      <image v-if="detail.heroImageUrl"
         class="service-detail-hero__image"
         :src="detail.heroImageUrl"
         mode="aspectFill"
@@ -90,6 +90,7 @@ const priceLabel = computed(() => {
       </view>
 
       <view class="service-detail-hero__metrics">
+        <text v-if="detail.demonstrationMetrics" class="service-detail-hero__source">演示库统计</text>
         <view
           v-if="detail.ratingAverage !== null"
           class="service-detail-hero__rating"
@@ -270,6 +271,10 @@ const priceLabel = computed(() => {
 
 .service-detail-hero__metrics:empty {
   display: none;
+}
+
+.service-detail-hero__source {
+  margin-right: 6px;
 }
 
 .service-detail-hero__rating {

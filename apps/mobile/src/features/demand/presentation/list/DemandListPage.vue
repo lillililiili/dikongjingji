@@ -16,12 +16,10 @@ import {
   describeMallInquiryCard,
   type MallInquiryCardAction,
 } from '../../../mall/application/inquiry-card'
-import { inquiryCoverUrl } from '../../../mall/application/inquiry-cover'
 import { mallInquiryCloseConfirm } from '../../../mall/application/inquiry-view'
 import { mallInquiryApi } from '../../../mall/data/inquiry-api-client'
 import type { MallInquiry } from '../../../mall/domain/inquiry'
 import type { MallInquiryTarget } from '../../../mall/navigation/mall-routes'
-import { rentalCoverUrl } from '../../../rental/application/rental-cover'
 import {
   describeRentalInquiryCard,
   rentalCloseConfirm,
@@ -46,7 +44,6 @@ import {
   type DemandCardAction,
 } from '../../application/demand-view'
 import { demandApi } from '../../data/demand-api-client'
-import { resolveDemandPreviewCover } from '../../data/preview/demand-preview-covers'
 import { DEMAND_PAGE_SIZE, type Demand } from '../../domain/demand'
 import {
   DEMAND_LIST_FILTERS,
@@ -129,8 +126,6 @@ const cards = computed(() => mergedItems(sources.value, DEMAND_LIST_KEYS).filter
         id: item.id,
         demand: item.demand,
         view: describeDemandCard(item.demand, SERVICE_ORDER_PREVIEW_ENABLED),
-        // A draft keeps the document icon (DemandList board); a sent demand shows its scene.
-        cover: item.demand.status === 'DRAFT' ? null : resolveDemandPreviewCover(item.demand.type),
       }
     case 'RENTAL':
       return {
@@ -138,7 +133,7 @@ const cards = computed(() => mergedItems(sources.value, DEMAND_LIST_KEYS).filter
         id: item.id,
         inquiry: item.inquiry,
         view: describeRentalInquiryCard(item.inquiry),
-        cover: rentalCoverUrl(item.inquiry.item.coverUrl, item.inquiry.item.productId),
+        cover: item.inquiry.item.coverUrl,
       }
     case 'MALL':
       return {
@@ -146,7 +141,7 @@ const cards = computed(() => mergedItems(sources.value, DEMAND_LIST_KEYS).filter
         id: item.id,
         inquiry: item.inquiry,
         view: describeMallInquiryCard(item.inquiry),
-        cover: inquiryCoverUrl(item.inquiry.product.coverImage, item.inquiry.product.productId),
+        cover: (item.inquiry.product.coverImage?.url ?? null),
       }
   }
 }))
@@ -431,8 +426,7 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
               </text>
             </view>
             <view class="demand-list__content">
-              <image v-if="card.cover" class="demand-list__image" :src="card.cover" mode="aspectFill" />
-              <view v-else class="demand-list__image">
+              <view class="demand-list__image">
                 <LineIcon name="doc" :size="26" color="#91a0b4" :stroke-width="1.6" />
               </view>
               <view class="demand-list__copy">

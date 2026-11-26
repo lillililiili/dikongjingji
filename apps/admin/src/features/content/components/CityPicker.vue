@@ -3,6 +3,7 @@
 import { computed, ref } from 'vue'
 
 import { http } from '@/core/http'
+import { errorMessage } from '@/core/http/api-error'
 import { createCityApi, type OpsCity } from '@/features/city/city-api'
 
 const props = defineProps<{
@@ -18,6 +19,8 @@ const emit = defineEmits<{
 const api = createCityApi(http)
 const options = ref<OpsCity[]>([])
 const loading = ref(false)
+const error = ref('')
+let revision = 0
 
 const shown = computed(() => {
   const list = options.value.map((city) => ({ value: city.cityCode, label: `${city.cityName}（${city.provinceName}）` }))
@@ -28,13 +31,18 @@ const shown = computed(() => {
 })
 
 async function search(keyword: string): Promise<void> {
+  const current = ++revision
   loading.value = true
+  error.value = ''
   try {
-    options.value = (await api.list({ keyword, serviceStatus: '' }, 1, 20)).items
-  } catch {
+    const result = await api.list({ keyword, serviceStatus: '' }, 1, 20)
+    if (current === revision) options.value = result.items
+  } catch (failure) {
+    if (current !== revision) return
+    error.value = errorMessage(failure)
     options.value = []
   } finally {
-    loading.value = false
+    if (current === revision) loading.value = false
   }
 }
 </script>
@@ -55,4 +63,5 @@ async function search(keyword: string): Promise<void> {
   >
     <el-option v-for="option in shown" :key="option.value" :label="option.label" :value="option.value" />
   </el-select>
+  <span v-if="error" role="alert">城市目录加载失败：{{ error }}</span>
 </template>

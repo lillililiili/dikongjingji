@@ -88,7 +88,7 @@ class ContentOpenApiContractTest {
     void contractIsVersionOneTwoAndEveryRouteSaysWhoMayCallIt() {
         Map<String, Object> root = root();
 
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.3.0");
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.3.1");
         assertThat(root).doesNotContainKey("security");
         assertThat(map(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth")))
                 .containsEntry("type", "http").containsEntry("scheme", "bearer");
