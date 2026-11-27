@@ -21,6 +21,7 @@ import { ApiRequestError } from '@/shared/http/public-api-request'
 
 const badgeStore = useRootTabBadgeStore()
 const busy = ref(false)
+const stockRefresh = ref(0)
 // The product page's top bar fades to white as the page scrolls.
 const scrollTop = ref(0)
 onPageScroll(({ scrollTop: top }) => { scrollTop.value = top })
@@ -51,6 +52,7 @@ async function addToCart(offerId: string, quantity: number): Promise<void> {
     }
     // cart 1.2.0: the merchant has none of this spec left, or fewer than asked for.
     const outOfStock = error instanceof ApiRequestError && error.code === 'MALL_CART_OUT_OF_STOCK'
+    if (outOfStock) stockRefresh.value++
     uni.showToast({
       title: outOfStock
         ? '这个规格暂时缺货或现货不足，请减少数量或换个规格'
@@ -67,7 +69,7 @@ function buyNow(offerId: string, quantity: number, delivery: DeliveryMode | null
     openLogin()
     return
   }
-  uni.navigateTo({ url: buildBuyNowCheckoutUrl(offerId, quantity, cityCode, delivery) })
+  uni.navigateTo({ url: buildBuyNowCheckoutUrl(offerId, quantity, cityCode, delivery, productId) })
 }
 
 // 规格与数量 shows the delivery options and fee of the confirm page's preview of this offer; a guest
@@ -108,6 +110,7 @@ onLoad((query) => {
   <MallProductPage
     v-if="MALL_PREVIEW_ENABLED"
     :busy="busy"
+    :stock-refresh="stockRefresh"
     :scroll-top="scrollTop"
     :load-delivery="loadDelivery"
     @add-to-cart="addToCart"

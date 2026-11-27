@@ -125,7 +125,7 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   '/pages/cart/index': { allowed: [] },
   '/pages/cart/checkout': {
     required: 'cityCode',
-    allowed: ['items', 'offerId', 'quantity', 'inquiryQuoteId', 'inquiryId', 'cityCode', 'delivery'],
+    allowed: ['items', 'offerId', 'quantity', 'inquiryQuoteId', 'inquiryId', 'cityCode', 'delivery', 'productId'],
   },
   // Inquiry goods (F4).
   '/pages/mall/inquiry': { required: 'productId', allowed: ['productId', 'cityCode'] },
@@ -235,6 +235,9 @@ export function normalizeInspectionReturnUrl(returnUrl: string): string {
   if (!rule) return '/pages/home/index'
 
   const values = parseQuery(query)
+  if (path === INSPECTION_BOOKING_PATH && values.demandId?.trim()) {
+    return buildDemandInspectionBookingUrl(values.demandId)
+  }
   if (rule.required && !values[rule.required]) return '/pages/home/index'
 
   const parameters = rule.allowed.flatMap((key) => {
@@ -281,6 +284,12 @@ export function buildInspectionBookingSubmittedUrl(
   return `${INSPECTION_BOOKING_SUBMITTED_PATH}?reservationId=${encodeURIComponent(
     reservationId.trim(),
   )}`
+}
+
+/** A converted demand always reopens its existing reservation, including cancelled reservations. */
+export function buildDemandInspectionBookingUrl(demandId: string, reservationId?: string | null): string {
+  if (reservationId) return buildInspectionBookingSubmittedUrl(reservationId)
+  return `${INSPECTION_BOOKING_PATH}?demandId=${encodeURIComponent(demandId.trim())}`
 }
 
 export function buildInspectionPlanConfirmationUrl(planId: string): string {

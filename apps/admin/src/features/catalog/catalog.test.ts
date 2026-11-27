@@ -207,7 +207,7 @@ describe('商品与供给表单规则', () => {
       shippingNote: null, fulfilledFrom: null, stockQuantity: 3 } as unknown as OpsOffer
     expect(offerFormFrom(offer)).toMatchObject({ priceYuan: 7380, shippingFeeYuan: 0, cityCode: '', stockQuantity: 3 })
     expect(stockLabel(null)).toBe('不限')
-    expect(stockLabel(0)).toBe('缺货')
+    expect(stockLabel(0)).toBe('0 件（缺货）')
     expect(stockLabel(12)).toBe('12 件')
   })
 })

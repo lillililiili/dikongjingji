@@ -23,7 +23,29 @@ export interface BookingHttpClient {
   }): Promise<{ etag: string }>
 }
 
+export interface InspectionDemandSource {
+  demandId: string
+  title: string
+  quoteId: string
+  quoteVersion: number
+  providerId: string
+  providerName: string
+  amountMinor: number
+  summary: string | null
+  cityCode: string
+  address: string | null
+  scope: string | null
+}
+
+export interface InspectionDemandBooking extends InspectionDemandSource {
+  note: string | null
+  dueDate: string | null
+  services: Array<{ serviceId: string; title: string }>
+  reservationId: string | null
+}
+
 export interface BookingReservation {
+  demandSource?: InspectionDemandSource | null
   id: string
   reservationNo: string
   customerId: string
@@ -83,6 +105,7 @@ interface CompletedFile {
 }
 
 export interface InspectionBookingApi {
+  loadDemandBooking(demandId: string): Promise<InspectionDemandBooking>
   loadServiceSnapshot(serviceId: string, cityCode: string): Promise<BookingServiceSnapshot | null>
   loadAvailableTimeSlots(
     serviceId: string,
@@ -90,7 +113,7 @@ export interface InspectionBookingApi {
     startDate: string,
     days: number,
   ): Promise<BookingAvailableDate[]>
-  createReservation(payload: CreateReservationPayload, idempotencyKey: string): Promise<BookingReservation>
+  createReservation(payload: CreateReservationPayload, idempotencyKey: string, demandId?: string): Promise<BookingReservation>
   getReservation(reservationId: string): Promise<BookingReservation>
   cancelReservation(
     reservationId: string,
@@ -120,8 +143,12 @@ export function createInspectionBookingApi(
       ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
     }
   }
+  const demandBookingPath = (demandId: string) => `/api/v1/inspection/demand-bookings/${encodeURIComponent(demandId)}`
 
   return {
+    loadDemandBooking(demandId) {
+      return http.request<InspectionDemandBooking>({ url: demandBookingPath(demandId), method: 'GET', headers: headers() })
+    },
     async loadServiceSnapshot(serviceId, cityCode) {
       const service = await publicReadHttp.request<{
         serviceId: string
@@ -185,9 +212,9 @@ export function createInspectionBookingApi(
         })),
       }))
     },
-    createReservation(payload, idempotencyKey) {
+    createReservation(payload, idempotencyKey, demandId) {
       return http.request<BookingReservation>({
-        url: '/api/v1/inspection/reservations',
+        url: demandId ? demandBookingPath(demandId) : '/api/v1/inspection/reservations',
         method: 'POST',
         data: payload,
         headers: headers(idempotencyKey),

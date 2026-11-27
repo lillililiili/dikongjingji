@@ -1,8 +1,10 @@
 openapi: 3.1.0
 info:
   title: Demand API
-  version: 1.3.0
+  version: 1.4.0
   description: |-
+    1.4.0：选定巡检报价后客户可补全并提交巡检预约，见 Inspection Service Flow API 的 demand-bookings。
+    inspectionReservationId 指向已生成的预约，历史需求也可继续办理。
     1.3.0（2026-11-23，S4-3、S4-4，docs/redesign/08-后续开发计划.md §5）：
     - 选定之后：航拍、测绘、设备维护、技术支持四类需求选定报价时，在同一个事务里生成一张通用服务订单
       （contracts/openapi-service-order.yaml 1.0.0），Demand 加 serviceOrderId（选定后有；巡检类需求仍停在选定，为 null）。
@@ -336,7 +338,7 @@ paths:
       description: >-
         If-Match 是读需求时的 ETag；quoteVersion 是比选页上这份报价的版本。同一份同一版已经选定时原样返回。
         不产生费用。1.3.0 起：航拍、测绘、设备维护、技术支持需求在同一个事务里生成服务订单（待服务商出方案），
-        返回的 Demand.serviceOrderId 指向它，页面进订单详情；巡检需求不生成，serviceOrderId 为 null。
+        四类专业服务由 Demand.serviceOrderId 指向服务订单。巡检客户继续补全预约后，由 inspectionReservationId 指向预约。
       security:
         - bearerAuth: []
       parameters:
@@ -713,6 +715,8 @@ components:
         - DEMAND_QUOTE_CHANGED
         - DEMAND_QUOTE_EXPIRED
         - DEMAND_QUOTE_LOCKED
+        - DEMAND_BOOKING_CONFLICT
+        - DEMAND_BOOKING_SERVICE_UNAVAILABLE
       description: >-
         需求接口在 ApiError.code 里用到的业务错误码（通用的 COMMON_* 之外）。DEMAND_INCOMPLETE 是 422（details.field），
         DEMAND_VERSION_CONFLICT 是 412，其余是 409。
@@ -928,6 +932,7 @@ components:
         - updatedAt
         - version
         - serviceOrderId
+        - inspectionReservationId
       description: 客户看到的需求。草稿里没填的字段为 null。
       properties:
         demandId:
@@ -1030,6 +1035,10 @@ components:
             - "null"
           format: uuid
           description: 选定后生成的服务订单（1.3.0，四类服务）；没选定、巡检需求、以前选定的为 null
+        inspectionReservationId:
+          type: [string, "null"]
+          format: uuid
+          description: 此需求转为巡检预约后返回，含预约已取消的情况。
         editable:
           type: boolean
           description: 可以改（草稿）
@@ -1343,8 +1352,13 @@ components:
         - quoteDeadline
         - quotingOpen
         - myQuote
+        - inspectionReservationId
       description: 服务商看到的需求：只有需求内容，没有发布人的账号、组织和联系方式。
       properties:
+        inspectionReservationId:
+          type: [string, "null"]
+          format: uuid
+          description: 只对已转预约的中选机构返回预约 ID。
         demandId:
           type: string
           format: uuid

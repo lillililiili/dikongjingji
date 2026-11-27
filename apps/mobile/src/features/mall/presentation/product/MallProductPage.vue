@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onHide, onLoad, onShow } from '@dcloudio/uni-app'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
 import { useRootTabBadgeStore } from '@/app-shell/state/root-tab-badges'
@@ -55,6 +55,7 @@ import {
   MALL_MERCHANT_KIND_LABELS,
   formatMallDetailPrice,
   formatMallOfferPrice,
+  buyOfferStockText,
 } from '../shared/mall-format'
 
 // The page host owns the account: it adds to the cart, opens the confirm page and the rental
@@ -62,11 +63,12 @@ import {
 const props = withDefaults(
   defineProps<{
     busy?: boolean
+    stockRefresh?: number
     loadDelivery?: MallBuyDeliveryLoader | null
     /** The page's scroll position (onPageScroll of the route page), for the top bar. */
     scrollTop?: number
   }>(),
-  { busy: false, loadDelivery: null, scrollTop: 0 },
+  { busy: false, stockRefresh: 0, loadDelivery: null, scrollTop: 0 },
 )
 
 const emit = defineEmits<{
@@ -479,6 +481,7 @@ onLoad((query) => {
 })
 
 onHide(() => { refreshOnReturn = true })
+watch(() => props.stockRefresh, () => { void loadProduct() })
 onShow(() => {
   if (refreshOnReturn) {
     refreshOnReturn = false
@@ -774,6 +777,8 @@ onShow(() => {
                   <text class="mall-product__offer-kind">{{ MALL_MERCHANT_KIND_LABELS[offer.merchantKind] }}</text>
                 </view>
                 <text v-if="offer.deliveryNote" class="mall-product__offer-note">{{ offer.deliveryNote }}</text>
+                <text v-if="product.saleMode === 'BUY' && offer.amountMinor !== null" class="mall-product__offer-note"
+                  :data-testid="`mall-offer-stock-${offer.offerId}`">{{ offer.skuName }} · {{ buyOfferStockText(offer.stockQuantity) }}</text>
                 <text
                   v-if="!offer.onlinePayment"
                   class="mall-product__offer-unpaid"

@@ -80,10 +80,13 @@ describe('choosing makes a service order (S4-3)', () => {
     expect(toDemand({ demandId: 'd2', status: 'CHOSEN', type: 'INSPECTION', title: 't', version: 1 } as never).serviceOrderId).toBeNull()
   })
 
-  it('goes to the order after a choice of a four-type demand, keeps the gate for inspection', () => {
-    expect(resolveDemandFollowUp(demandOf({ status: 'CHOSEN', serviceOrderId: 'so-1' }), true)).toEqual({ kind: 'ORDER', serviceOrderId: 'so-1' })
-    expect(resolveDemandFollowUp(demandOf({ status: 'CHOSEN', serviceOrderId: 'so-1' }), false).kind).toBe('UNAVAILABLE')
-    expect(resolveDemandFollowUp(demandOf({ status: 'CHOSEN', serviceOrderId: null }), true).kind).toBe('UNAVAILABLE')
+  it('opens the chosen service order, or the booking entry for a chosen inspection quote', () => {
+    expect(resolveDemandFollowUp(demandOf({ type: 'AERIAL', status: 'CHOSEN', serviceOrderId: 'so-1' }), true)).toEqual({ kind: 'ORDER', serviceOrderId: 'so-1' })
+    expect(resolveDemandFollowUp(demandOf({ type: 'AERIAL', status: 'CHOSEN', serviceOrderId: 'so-1' }), false).kind).toBe('UNAVAILABLE')
+    expect(resolveDemandFollowUp(demandOf({ status: 'QUOTED' }), true).kind).toBe('UNAVAILABLE')
+    const chosen = demandOf({ status: 'CHOSEN', chosen: { quoteId: 'q1', quoteVersion: 1, providerName: '选定机构', chosenAt: '2026-11-24', amountMinor: 386000 } })
+    expect(resolveDemandFollowUp(chosen)).toEqual({ kind: 'INSPECTION_BOOKING', label: '填写巡检预约' })
+    expect(resolveDemandFollowUp({ ...chosen, inspectionReservationId: 'r1' })).toEqual({ kind: 'INSPECTION_BOOKING', label: '查看巡检预约' })
     expect(demandMakesServiceOrder({ type: 'MAINTENANCE' }, true)).toBe(true)
     expect(demandMakesServiceOrder({ type: 'INSPECTION' }, true)).toBe(false)
   })
@@ -93,7 +96,7 @@ describe('choosing makes a service order (S4-3)', () => {
     expect(demandChoiceText({ type: 'MAINTENANCE' }, quote, true)).toBe(
       '总价 ¥3,860（方案 v2）。选定后不能再选别家，其余报价会标为未选中。选定后生成服务订单，服务商出方案后由你确认并一次付清。')
     expect(demandChoiceText({ type: 'INSPECTION' }, quote, true)).toBe(
-      '总价 ¥3,860（方案 v2）。选定后不能再选别家，其余报价会标为未选中。选定不产生费用，方案确认和付款还没有开通。')
+      '总价 ¥3,860（方案 v2）。选定后不能再选别家，其余报价会标为未选中。选定后可填写巡检预约，提交预约时无需付款。')
     expect(demandChoiceText({ type: 'AERIAL' }, quote, false)).toContain('方案确认和付款还没有开通')
   })
 

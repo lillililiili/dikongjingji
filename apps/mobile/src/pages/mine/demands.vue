@@ -15,6 +15,7 @@ import DemandUnavailable from '@/features/demand/presentation/shared/DemandUnava
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import {
   MINE_TAB_PATH,
+  buildDemandInspectionBookingUrl,
   buildInspectionLoginUrl,
 } from '@/features/inspection/navigation/inspection-routes'
 import {
@@ -89,6 +90,7 @@ onReachBottom(() => {
     @goods-order="(orderId) => open(buildGoodsOrderUrl(orderId))"
     @mall-reinquire="(target) => open(buildMallInquiryUrl(target))"
     @service-order="(orderId) => open(buildServiceOrderDetailUrl(orderId))"
+    @inspection-booking="(id, reservationId) => open(buildDemandInspectionBookingUrl(id, reservationId))"
   />
   <DemandUnavailable v-else-if="!DEMAND_PREVIEW_ENABLED" />
 </template>

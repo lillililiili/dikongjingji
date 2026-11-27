@@ -25,6 +25,7 @@ export async function submitBookingReservation(
   session: BookingSubmissionSession,
   service: BookingServiceSnapshot,
   draft: BookingDraft,
+  demandId?: string,
 ): Promise<{ reservationId: string }> {
   const errors = validateBookingDraft(draft, { allowPendingAttachments: true, categoryCode: service.categoryCode })
 
@@ -37,6 +38,7 @@ export async function submitBookingReservation(
     const reservation = await api.createReservation(
       createReservationPayload(service, draft),
       session.idempotencyKey,
+      demandId,
     )
     session.reservationId = reservation.id
   }

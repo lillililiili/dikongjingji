@@ -66,7 +66,7 @@ describe('submit failures', () => {
     expect(classifySubmitFailure(failure(409, 'TRADE_ADDRESS_REQUIRED')).kind).toBe('DELIVERY_CHANGED')
     expect(classifySubmitFailure(failure(409, 'TRADE_DELIVERY_UNAVAILABLE')).kind).toBe('DELIVERY_CHANGED')
     expect(classifySubmitFailure(failure(409, 'MALL_CHECKOUT_ITEM_UNAVAILABLE', '有商品已失效')))
-      .toEqual({ kind: 'GOODS_CHANGED', message: '有商品已失效' })
+      .toEqual({ kind: 'STOCK_CHANGED', message: '商品可售数量或在售状态已变化，请重新核对商品与购买数量。' })
     expect(classifySubmitFailure(failure(409, 'MALL_CHECKOUT_MULTIPLE_MERCHANTS')).kind).toBe('GOODS_CHANGED')
     expect(classifySubmitFailure(failure(409, 'MALL_CART_NOT_PURCHASABLE')).kind).toBe('GOODS_CHANGED')
     expect(classifySubmitFailure(failure(401, 'COMMON_UNAUTHORIZED'))).toEqual({ kind: 'UNAUTHORIZED' })

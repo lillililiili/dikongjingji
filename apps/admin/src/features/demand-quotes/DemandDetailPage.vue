@@ -118,9 +118,18 @@ onMounted(() => {
           </el-descriptions-item>
           <el-descriptions-item label="补充说明" :span="2"><span class="pre">{{ demand.note || '—' }}</span></el-descriptions-item>
         </el-descriptions>
-        <p class="muted">
-          需求里没有发布人的联系方式。航拍、测绘、设备维护、技术支持被选定后生成服务订单，到“服务订单”里出方案；
-          巡检需求选定后的方案和付款暂不在线上进行。
+        <p v-if="demand.type === 'INSPECTION'" class="muted">
+          <template v-if="demand.myQuote?.status === 'CHOSEN'">
+            <el-button v-if="demand.inspectionReservationId" type="primary" data-testid="demand-linked-reservation"
+              @click="router.push({ name: 'workbench-inspection-detail', params: { reservationId: demand.inspectionReservationId } })">
+              查看巡检预约
+            </el-button>
+            <span v-else>客户已选定本机构的报价，正在等待客户提交巡检预约。</span>
+          </template>
+          <span v-else>客户选定报价并提交预约后，获选服务商可在巡检预约中安排服务。</span>
+        </p>
+        <p v-else class="muted">
+          报价被选定后，请到“服务订单”中为客户出方案。
         </p>
 
         <h3 class="title">本机构的报价</h3>

@@ -33,6 +33,8 @@ describe('mall routes', () => {
       .toBe('/pages/cart/checkout?offerId=o1&quantity=2&cityCode=370500')
     expect(normalizeInspectionReturnUrl(buildBuyNowCheckoutUrl('o1', 2, '370500', 'PICKUP')))
       .toBe('/pages/cart/checkout?offerId=o1&quantity=2&cityCode=370500&delivery=PICKUP')
+    expect(normalizeInspectionReturnUrl(buildBuyNowCheckoutUrl('o1', 2, '370500', 'PICKUP', 'p1')))
+      .toBe('/pages/cart/checkout?offerId=o1&quantity=2&cityCode=370500&delivery=PICKUP&productId=p1')
     // The comma between cart lines comes back encoded; the confirm page decodes it.
     expect(normalizeInspectionReturnUrl(buildCartCheckoutUrl(['c1', 'c2'], '370500')))
       .toBe('/pages/cart/checkout?items=c1%2Cc2&cityCode=370500')

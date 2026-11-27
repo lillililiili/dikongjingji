@@ -34,6 +34,11 @@ function changed(detail: OpsProductDetail): void {
   emit('changed', detail)
 }
 
+function reloaded(detail: OpsProductDetail, latest: OpsOffer | null): void {
+  target.value = latest
+  emit('changed', detail)
+}
+
 async function toggle(offer: OpsOffer): Promise<void> {
   const activating = offer.status !== 'ACTIVE'
   const where = offer.cityName ?? '全国'
@@ -88,9 +93,9 @@ async function toggle(offer: OpsOffer): Promise<void> {
         <span v-else class="sub">询价</span>
       </template>
     </el-table-column>
-    <el-table-column label="库存" width="80">
+    <el-table-column label="可售库存" min-width="110">
       <template #default="{ row }">
-        <span :class="{ warn: (row as OpsOffer).stockQuantity === 0 }">{{ stockLabel((row as OpsOffer).stockQuantity) }}</span>
+        <span :class="{ warn: (row as OpsOffer).stockQuantity === 0 }" :data-testid="`offer-stock-${row.offerId}`">{{ stockLabel((row as OpsOffer).stockQuantity) }}</span>
       </template>
     </el-table-column>
     <el-table-column label="配送" min-width="180">
@@ -120,6 +125,7 @@ async function toggle(offer: OpsOffer): Promise<void> {
   </el-table>
 
   <OfferDialog :api="api" :detail="detail" :target="target" :merchant="merchant" @close="target = null"
+               @reloaded="reloaded"
                @changed="changed" />
 </template>
 

@@ -13,6 +13,11 @@ final class PostgresReservationStore
         implements ReservationStore, InspectionServiceCatalog, FileObjectStore {
     private final ReservationPersistenceMapper mapper;
     PostgresReservationStore(ReservationPersistenceMapper mapper) { this.mapper = mapper; }
+    @Override
+    public Optional<InspectionDemandSource> findDemandSource(UUID reservationId) {
+        return mapper.findDemandSource(reservationId);
+    }
+
     @Override public Optional<InspectionServiceSnapshot> findActive(UUID id, String cityCode) {
         return mapper.findActiveService(id, cityCode).map(row -> new InspectionServiceSnapshot(
                 row.serviceId(),

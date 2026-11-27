@@ -173,6 +173,8 @@ public interface DemandMapper {
                    d.closed_at,
                    d.close_reason,
                    d.service_order_id,
+                   (SELECT b.reservation_id FROM demand_inspection_booking b
+                    WHERE b.demand_id = d.id) inspection_reservation_id,
                    d.created_at,
                    d.updated_at,
                    d.version
@@ -634,6 +636,7 @@ public interface DemandMapper {
             OffsetDateTime closedAt,
             String closeReason,
             UUID serviceOrderId,
+            UUID inspectionReservationId,
             OffsetDateTime createdAt,
             OffsetDateTime updatedAt,
             int version

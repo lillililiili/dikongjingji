@@ -29,6 +29,7 @@ import { MALL_MERCHANT_KIND_LABELS, formatMallAmount } from '../shared/mall-form
 const props = withDefaults(
   defineProps<{
     source: CheckoutSource | null
+    originProductId?: string | null
     cityCode: string
     // The address picked on the address page; null means the default one.
     addressId: string | null
@@ -46,6 +47,7 @@ const emit = defineEmits<{
   login: []
   chooseAddress: []
   backToCart: []
+  backToProduct: [productId: string]
   // Quote mode: the quote can no longer be ordered, back to its quotes page.
   backToQuotes: []
   // The picked address is gone (deleted on the address page): fall back to the default one.
@@ -71,6 +73,8 @@ const agreed = ref(false)
 const agreeTip = ref(false)
 const refreshing = ref(false)
 const submitting = ref(false)
+const stockNotice = ref('')
+const previewProductId = ref<string | null>(null)
 // Learned from the server on submit: this merchant has no payment account, so nothing can be paid.
 const paymentUnavailable = ref(false)
 const submitKeys = createSubmitKeyHolder()
@@ -79,6 +83,8 @@ let requestVersion = 0
 const preview = computed(() => (state.value.kind === 'ready' ? state.value.preview : null))
 // Ordering a chosen inquiry quote (F4): one line whose quantity and price are the quote's.
 const quoteMode = computed(() => props.source?.kind === 'QUOTE')
+const recoveryProductId = computed(() => props.source?.kind === 'OFFER' ? previewProductId.value ?? props.originProductId : null)
+const recoveryLabel = computed(() => quoteMode.value ? '返回报价比选' : recoveryProductId.value ? '返回商品调整数量' : '返回购物车')
 const addressNeeded = computed(() => preview.value?.blockers.includes('ADDRESS_REQUIRED') ?? false)
 const pickupNote = computed(() =>
   preview.value?.deliveryOptions.find((option) => option.mode === 'PICKUP')?.note ?? null)
@@ -116,6 +122,7 @@ async function load(): Promise<void> {
       addressId: props.addressId,
     })
     if (requested !== requestVersion) return
+    if (props.source.kind === 'OFFER') previewProductId.value = loaded.lines[0]?.productId ?? null
     state.value = { kind: 'ready', preview: loaded }
     deliveryMode.value = loaded.deliveryMode
   } catch (error) {
@@ -129,7 +136,13 @@ async function load(): Promise<void> {
       return
     }
     if (error instanceof ApiRequestError && error.status === 409) {
-      state.value = { kind: 'stale', message: error.message }
+      const failure = classifySubmitFailure(error)
+      if (failure.kind === 'STOCK_CHANGED' && !quoteMode.value) {
+        stockNotice.value = failure.message
+        state.value = { kind: 'stale', message: failure.message }
+      } else {
+        state.value = { kind: 'stale', message: error.message }
+      }
       return
     }
     if (error instanceof ApiRequestError && error.status === 404 && props.addressId) {
@@ -175,6 +188,7 @@ function copySource(source: CheckoutSource): SubmitOrderInput['source'] {
 
 function leave(): void {
   if (quoteMode.value) emit('backToQuotes')
+  else if (recoveryProductId.value) emit('backToProduct', recoveryProductId.value)
   else emit('backToCart')
 }
 
@@ -227,6 +241,16 @@ async function submit(): Promise<void> {
       case 'MERCHANT_PAYMENT_UNAVAILABLE':
         paymentUnavailable.value = true
         break
+      case 'STOCK_CHANGED':
+        if (quoteMode.value) {
+          state.value = { kind: 'stale', message: '商品在售状态已变化，请返回报价比选查看。' }
+          break
+        }
+        stockNotice.value = failure.message
+        agreed.value = false
+        agreeTip.value = false
+        await load()
+        break
       case 'GOODS_CHANGED':
       case 'QUOTE_UNAVAILABLE':
         state.value = { kind: 'stale', message: failure.message }
@@ -259,29 +283,33 @@ watch(
     </view>
 
     <view v-else-if="state.kind === 'stale'" class="checkout__state" data-testid="checkout-stale">
-      <text class="checkout__state-title">{{ quoteMode ? '这份报价不能下单' : '商品有变化' }}</text>
+      <text class="checkout__state-title">{{ quoteMode ? '这份报价不能下单' : stockNotice ? '请核对可售库存' : '商品有变化' }}</text>
       <text class="checkout__state-text">{{ state.message }}</text>
       <button
         class="checkout__state-button"
-        :data-testid="quoteMode ? 'checkout-back-to-quotes' : 'checkout-back-to-cart'"
+        :data-testid="quoteMode ? 'checkout-back-to-quotes' : recoveryProductId ? 'checkout-back-to-product' : 'checkout-back-to-cart'"
         @click="leave"
       >
-        {{ quoteMode ? '返回报价比选' : '返回购物车' }}
+        {{ recoveryLabel }}
       </button>
+      <button v-if="stockNotice" class="checkout__state-button" data-testid="checkout-refresh-stock" @click="load">重新查询库存</button>
     </view>
 
     <view v-else-if="state.kind === 'missing'" class="checkout__state" data-testid="checkout-missing">
       <text class="checkout__state-title">{{ quoteMode ? '没有找到这份报价' : '没有找到要结算的商品' }}</text>
-      <button class="checkout__state-button" @click="leave">{{ quoteMode ? '返回报价比选' : '返回购物车' }}</button>
+      <button class="checkout__state-button" @click="leave">{{ recoveryLabel }}</button>
     </view>
 
     <view v-else-if="state.kind === 'error'" class="checkout__state" data-testid="checkout-error">
       <text class="checkout__state-title">加载失败</text>
+      <text v-if="stockNotice" class="checkout__state-text">{{ stockNotice }}</text>
       <text class="checkout__state-text">请检查网络后重试</text>
       <button class="checkout__state-button" data-testid="checkout-retry" @click="load">重试</button>
+      <button v-if="stockNotice" class="checkout__state-button" @click="leave">{{ recoveryLabel }}</button>
     </view>
 
     <view v-else-if="preview" class="checkout__body">
+      <text v-if="stockNotice" role="status" class="checkout__state-text" data-testid="checkout-stock-updated">已重新查询，当前可以继续结算。请核对数量和金额后再次确认。</text>
       <button
         v-if="deliveryMode === 'EXPRESS' && preview.address"
         class="checkout__address"

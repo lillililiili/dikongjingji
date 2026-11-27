@@ -1289,7 +1289,7 @@ class DemandServiceTest {
             DemandRow toRow() {
                 return new DemandRow(id, accountId, organizationId, organizationName, type, cityCode, cityName,
                         address, scope, dueDate, budgetMin, budgetMax, note, quoteScope, status, submittedAt, deadline,
-                        chosenQuoteId, chosenQuoteVersion, chosenAt, closedAt, closeReason, serviceOrderId, createdAt,
+                        chosenQuoteId, chosenQuoteVersion, chosenAt, closedAt, closeReason, serviceOrderId, null, createdAt,
                         updatedAt, version);
             }
         }

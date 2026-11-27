@@ -374,7 +374,7 @@ public class MallCatalogOpsService {
         mapper.touchProduct(id, at);
         record(id, OpsCatalogAction.OFFER_CREATE, "新增供给：" + merchantName + " · 规格“" + sku.name() + "” · "
                 + cityLabel(fields.cityCode()) + " · " + priceLabel(fields.priceAmountMinor(), fields.priceUnit())
-                + " · 库存 " + stockLabel(fields.stockQuantity()) + "（停用）", operator, at);
+                + " · 可售库存 " + stockLabel(fields.stockQuantity()) + "（停用）", operator, at);
         return new OpsProductCreated(detail(id), true);
     }
 
@@ -421,7 +421,7 @@ public class MallCatalogOpsService {
             changes.add("城市 " + cityLabel(current.cityCode()) + " → " + cityLabel(fields.cityCode()));
         }
         if (!Objects.equals(current.stockQuantity(), fields.stockQuantity())) {
-            changes.add("库存 " + stockLabel(current.stockQuantity()) + " → " + stockLabel(fields.stockQuantity()));
+            changes.add("可售库存 " + stockLabel(current.stockQuantity()) + " → " + stockLabel(fields.stockQuantity()));
         }
         if (current.expressAvailable() != fields.expressAvailable()
                 || current.shippingFeeMinor() != fields.shippingFeeMinor()

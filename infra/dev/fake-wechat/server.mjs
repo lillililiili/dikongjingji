@@ -10,6 +10,7 @@
 // 实现：APP 下单、按商户单号查单、关单；应答用“平台私钥”签名，后端用对应公钥验。
 // 控制入口（不签名，只在 127.0.0.1）：
 //   POST /_control/pay/<out_trade_no>?notify=1&total=<分>   让这一单付款成功；notify=1 时按下单时的 notify_url 发回调
+//   POST /_control/late-pay/<out_trade_no>?notify=1         模拟已关单后才收到渠道成功回执，只适用于 CLOSED 的模拟单
 //   POST /_control/renotify/<out_trade_no>                    把上一条回调原样再发一次（同一个通知 ID）
 //   GET  /_control/orders                                     看所有单
 // 退款（E05）：
@@ -280,8 +281,9 @@ const server = http.createServer((req, res) => {
         }
         const order = orders.get(no);
         if (!order) { res.writeHead(404); return res.end('no such order'); }
-        if (url.pathname.startsWith('/_control/pay/')) {
-          if (order.state !== 'NOTPAY') { res.writeHead(409); return res.end(`order is ${order.state}`); }
+        const latePayment = url.pathname.startsWith('/_control/late-pay/');
+        if (latePayment || url.pathname.startsWith('/_control/pay/')) {
+          if (order.state !== (latePayment ? 'CLOSED' : 'NOTPAY')) { res.writeHead(409); return res.end(`order is ${order.state}`); }
           order.state = 'SUCCESS';
           order.transaction_id = '42000' + Date.now().toString() + crypto.randomInt(100000, 999999);
           order.success_time = rfc3339(new Date());

@@ -14,7 +14,7 @@ import DemandUnavailable from '@/features/demand/presentation/shared/DemandUnava
 import { buildProviderPageUrl } from '@/features/proservice/navigation/proservice-routes'
 import { buildServiceOrderDetailUrl } from '@/features/serviceorder/navigation/service-order-routes'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
-import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
+import { buildDemandInspectionBookingUrl, buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 
 const demandId = ref<string | null>(null)
 const quoteId = ref<string | null>(null)
@@ -75,6 +75,7 @@ onShow(() => {
     @republish="republish"
     @open-provider="openProvider"
     @service-order="(orderId) => open(buildServiceOrderDetailUrl(orderId))"
+    @inspection-booking="(id, reservationId) => open(buildDemandInspectionBookingUrl(id, reservationId))"
   />
   <DemandUnavailable v-else-if="!DEMAND_PREVIEW_ENABLED" />
 </template>

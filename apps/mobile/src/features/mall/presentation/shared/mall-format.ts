@@ -15,6 +15,11 @@ export const MALL_CATEGORY_LABELS: Record<MallCategory, string> = {
   COURSE: '课程',
 }
 
+export function buyOfferStockText(stock: number | null): string {
+  if (stock === null) return '库存不限'
+  return stock === 0 ? '可售 0 件（缺货）' : `可售 ${stock} 件`
+}
+
 export const MALL_BADGE_LABELS: Record<MallExperienceBadge, string> = {
   ONLINE_EXPERIENCE: '可线上体验',
   VENUE_DISPLAY: '体验馆可看',

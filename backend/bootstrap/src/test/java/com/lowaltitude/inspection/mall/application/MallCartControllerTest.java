@@ -138,10 +138,10 @@ class MallCartControllerTest {
         CartItemView valid = new CartItemView(
                 LINE, OFFER, PRODUCT, "编程机器人", "标准版",
                 new MallMediaView("https://media.example.com/robot.jpg", "编程机器人"), MERCHANT_VIEW,
-                129900L, 2, "东营可买 · 包邮", List.of(DeliveryMode.EXPRESS, DeliveryMode.PICKUP), null);
+                129900L, 2, "东营可买 · 包邮", List.of(DeliveryMode.EXPRESS, DeliveryMode.PICKUP), null, 5);
         CartItemView invalid = new CartItemView(
                 SECOND_LINE, UUID.randomUUID(), UUID.randomUUID(), "备用电池", "2000mAh", null, MERCHANT_VIEW,
-                null, 1, null, List.of(DeliveryMode.EXPRESS), CartInvalidReason.NOT_SOLD_IN_CITY);
+                null, 1, null, List.of(DeliveryMode.EXPRESS), CartInvalidReason.NOT_SOLD_IN_CITY, 0);
         when(carts.read(SUBJECT, "370500")).thenReturn(new CartView(
                 List.of(new CartGroupView(MERCHANT_VIEW, List.of(valid))), List.of(invalid), 1));
 
@@ -150,7 +150,9 @@ class MallCartControllerTest {
                 .andExpect(jsonPath("$.validCount").value(1))
                 .andExpect(jsonPath("$.groups[0].merchant.organizationId").value(MERCHANT.toString()))
                 .andExpect(jsonPath("$.groups[0].merchant.kind").value("FACTORY_DIRECT"))
-                .andExpect(jsonPath("$.groups[0].items[0].length()").value(12))
+                .andExpect(jsonPath("$.groups[0].items[0].length()").value(13))
+                .andExpect(jsonPath("$.groups[0].items[0].stockQuantity").value(5))
+                .andExpect(jsonPath("$.invalidItems[0].stockQuantity").value(0))
                 .andExpect(jsonPath("$.groups[0].items[0].cartItemId").value(LINE.toString()))
                 .andExpect(jsonPath("$.groups[0].items[0].coverImage.url").value("https://media.example.com/robot.jpg"))
                 .andExpect(jsonPath("$.groups[0].items[0].unitAmountMinor").value(129900))

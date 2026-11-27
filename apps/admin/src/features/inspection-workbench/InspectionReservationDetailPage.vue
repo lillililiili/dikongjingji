@@ -147,6 +147,18 @@ onMounted(() => {
 
     <div v-loading="loading">
       <template v-if="reservation">
+        <template v-if="reservation.demandSource">
+          <h2 class="block-title">来源需求与选定报价</h2>
+          <el-descriptions :column="2" border data-testid="inspection-demand-source">
+            <el-descriptions-item label="需求" :span="2">
+              <router-link :to="{ name: 'workbench-demand', params: { demandId: reservation.demandSource.demandId } }">{{ reservation.demandSource.title }}</router-link>
+            </el-descriptions-item>
+            <el-descriptions-item label="服务商">{{ reservation.demandSource.providerName }}</el-descriptions-item>
+            <el-descriptions-item label="选定报价">{{ formatMoney(reservation.demandSource.amountMinor) }}（第 {{ reservation.demandSource.quoteVersion }} 版）</el-descriptions-item>
+            <el-descriptions-item v-if="reservation.demandSource.scope" label="作业范围" :span="2">{{ reservation.demandSource.scope }}</el-descriptions-item>
+            <el-descriptions-item v-if="reservation.demandSource.summary" label="报价说明" :span="2">{{ reservation.demandSource.summary }}</el-descriptions-item>
+          </el-descriptions>
+        </template>
         <h2 class="block-title">预约</h2>
         <el-descriptions :column="2" border>
           <el-descriptions-item label="阶段">

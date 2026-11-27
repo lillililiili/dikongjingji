@@ -1,3 +1,5 @@
+import * as demandView from '../../demand/application/demand-view'
+import * as demandRoutes from '../../demand/navigation/demand-routes'
 import { compileScript, parse } from '@vue/compiler-sfc'
 import { createPinia, setActivePinia, storeToRefs } from 'pinia'
 import { ModuleKind, ScriptTarget, transpileModule } from 'typescript'
@@ -61,6 +63,9 @@ function mountBookingPage(loadServiceSnapshot: LoadServiceSnapshot): {
   const dependencies: Record<string, unknown> = {
     vue: Vue,
     // Step G1: customer service and its preview flag (off: the pages keep their notices).
+    '@/features/demand/application/demand-view': demandView,
+    '@/features/demand/navigation/demand-routes': demandRoutes,
+    '@/features/demand/application/demand-preview': { DEMAND_PREVIEW_ENABLED: true },
     '@/features/support/application/support-entry': { openSupportChat: () => undefined },
     '@/features/support/application/support-preview': { SUPPORT_PREVIEW_ENABLED: false },
     // Plan 08 S5-10: the shared pickers and their preview flag (off: the system location picker).

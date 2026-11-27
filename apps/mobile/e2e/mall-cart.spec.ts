@@ -148,9 +148,10 @@ test.describe('购物车与确认订单', () => {
     await expect(page.getByTestId('mall-product-name')).toHaveText('编程机器人探索套装')
     await page.getByTestId('mall-product-cart').click()
     const sheet = page.getByTestId('mall-buy-sheet')
-    // S3-1 gives this offer a stock of 12 in the development seed (catalog 1.3.0); either line until
-    // the seed is reloaded.
-    await expect(sheet).toContainText(/示例机器人商家（厂家直营）|示例机器人商家 · 东营现货 12 件/)
+    const detail = await (await request.get(`${API}/api/v1/mall/products/${KIT_ID}?cityCode=${CITY}`)).json()
+    const stock = detail.offers.find((offer: { offerId: string }) => offer.offerId === KIT_FACTORY).stockQuantity
+    await expect(page.getByTestId('mall-buy-merchant')).toHaveText(stock === null
+      ? '示例机器人商家（厂家直营） · 库存不限' : `示例机器人商家 · 东营可售 ${stock} 件`)
     // 原型对齐 R3 renames the kit's spec in the development seed; either name until it is reloaded.
     await expect(sheet).toContainText(/标准版|标准套装（1 台 \+ 数字课程）/)
     await expect(page.getByTestId('mall-buy-minus')).toHaveAttribute('aria-disabled', 'true')

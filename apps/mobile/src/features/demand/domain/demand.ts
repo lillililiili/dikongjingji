@@ -181,6 +181,7 @@ export interface Demand {
   // The service order made when the quote was chosen (aerial, survey, maintenance, tech support);
   // null before a choice, for inspection demands and for choices made before 1.3.0.
   serviceOrderId: string | null
+  inspectionReservationId: string | null
   editable: boolean
   cancellable: boolean
   deletable: boolean

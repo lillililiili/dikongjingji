@@ -1,3 +1,4 @@
+import * as demandView from '../../demand/application/demand-view'
 import { compileScript, parse } from '@vue/compiler-sfc'
 import { ModuleKind, ScriptTarget, transpileModule } from 'typescript'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -37,6 +38,7 @@ function mountPage(source: string, filename: string): BackPressHandler {
   const dependencies: Record<string, unknown> = {
     vue: Vue,
     // Step G1: customer service and its preview flag (off: the pages keep their notices).
+    '@/features/demand/application/demand-view': demandView,
     '@/features/support/application/support-entry': { openSupportChat: () => undefined },
     '@/features/support/application/support-preview': { SUPPORT_PREVIEW_ENABLED: false },
     // R6-4: the provider's 资质已审核 tag.

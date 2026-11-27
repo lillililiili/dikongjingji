@@ -27,7 +27,7 @@ public class MallCartService {
     static final int MAX_LINES = 50;
     static final int MAX_QUANTITY = 99;
     static final int MAX_CHECKOUT_LINES = 20;
-    private static final String LOCK_NAME = "mall-cart:";
+    static final String LOCK_NAME = "mall-cart:";
     private static final String CITY_CODE_PATTERN = "^[A-Z0-9]{4,16}$";
 
     private final MallCartMapper mapper;
@@ -107,7 +107,7 @@ public class MallCartService {
             throw new MallCartException(Error.NOT_FOUND);
         }
         mapper.lockOwner(LOCK_NAME, accountId);
-        // 有库存数时，加上购物车里已有的数量不能超过现货（这一版不在下单时扣减，只拦超出的）。
+        // 有库存数时，加上购物车里已有的数量不能超过现货（加购不占库存，下单时才预占）。
         if (offer.stockQuantity() != null) {
             int inCart = mapper.findCart(accountId).stream()
                     .filter(row -> row.offer().offerId().equals(offerId))
@@ -358,7 +358,8 @@ public class MallCartService {
                 row.quantity(),
                 blankToNull(offer.shippingNote()),
                 modes,
-                reason);
+                reason,
+                offer.stockQuantity());
     }
 
     private static CheckoutLineView toLine(Line line) {
@@ -466,7 +467,8 @@ record CartItemView(
         int quantity,
         String shippingNote,
         List<DeliveryMode> deliveryModes,
-        CartInvalidReason invalidReason
+        CartInvalidReason invalidReason,
+        Integer stockQuantity
 ) {
 }
 

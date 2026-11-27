@@ -89,6 +89,21 @@ class MallCartServiceTest {
         assertThat(mapper.lines).hasSize(1);
     }
 
+    @Test
+    void cartReportsCurrentSellableQuantitySoTheBuyerCanReduceAnExistingLine() {
+        Offer robot = mapper.offer(buy(FACTORY, 129900).stock(3));
+        CartAddedView added = service.add(ACCOUNT, robot.id, 3, DONGYING);
+        robot.stock(1);
+        CartItemView item = service.read(ACCOUNT, DONGYING).groups().getFirst().items().getFirst();
+        assertThat(item.quantity()).isEqualTo(3);
+        assertThat(item.stockQuantity()).isEqualTo(1);
+        service.setQuantity(ACCOUNT, added.cartItemId(), 1);
+        assertThat(service.preview(ACCOUNT, DONGYING, List.of(added.cartItemId()), null, null, "EXPRESS")
+                .amounts().goodsMinor()).isEqualTo(129900);
+        robot.stock(null);
+        assertThat(service.read(ACCOUNT, DONGYING).groups().getFirst().items().getFirst().stockQuantity()).isNull();
+    }
+
     // cart 1.2.0：库存为 0 不能加；加上购物车里已有的数量不能超过现货；不跟踪库存的不受限。
     @Test
     void stockLimitsWhatCanBeAddedAndASoldOutLineIsInvalid() {

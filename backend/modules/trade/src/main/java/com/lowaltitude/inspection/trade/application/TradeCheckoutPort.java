@@ -15,12 +15,8 @@ public interface TradeCheckoutPort {
     /** 下单成功后，把来自购物车的几行删掉。 */
     void removeCartLines(UUID accountId, List<UUID> cartItemIds);
 
-    /**
-     * 订单建好之后（同一个事务里）告诉业务模块：按询价报价下的单（F4），商城在报价上记下这张订单。
-     * 别的来源什么都不做。
-     */
-    default void orderPlaced(UUID accountId, CheckoutRequest request, UUID orderId) {
-    }
+    /** 与订单写入同一事务。商城依照已定价的订单行预占库存，询价单则关联中选报价。 */
+    void orderPlaced(UUID accountId, CheckoutRequest request, UUID orderId, List<QuotedLine> lines);
 
     /**
      * 三种来源只有一种：购物车行（cartItemIds）、单个供给（offerId + quantity）、选定的询价报价（inquiryQuoteId，F4）。

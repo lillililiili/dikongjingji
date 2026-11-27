@@ -21,7 +21,7 @@ class MerchantCatalogOpenApiContractTest {
 
     @Test
     void everyRouteIsDeclaredUnderTheProviderPrefixAndNeedsALogin() {
-        assertThat(OpsContractChecker.map(checker.root().get("info")).get("version")).isEqualTo("1.1.0");
+        assertThat(OpsContractChecker.map(checker.root().get("info")).get("version")).isEqualTo("1.2.0");
         Map<String, Object> paths = OpsContractChecker.map(checker.root().get("paths"));
         Set<String> declared = new TreeSet<>();
         paths.forEach((path, item) -> OpsContractChecker.map(item).forEach((method, operation) -> {

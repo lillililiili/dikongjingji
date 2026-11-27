@@ -101,13 +101,13 @@ describe('quantity limit', () => {
 
 describe('merchant line', () => {
   it('says the stock in the city when it is known', () => {
-    expect(buyMerchantLine(MAKER_STD, '东营市')).toBe('示例机器人商家 · 东营现货 12 件')
-    expect(buyMerchantLine(MAKER_CLASS, null)).toBe('示例机器人商家 · 现货 3 件')
-    expect(buyMerchantLine({ ...MAKER_CLASS, stockQuantity: 0 }, '东营市')).toBe('示例机器人商家 · 暂时缺货')
+    expect(buyMerchantLine(MAKER_STD, '东营市')).toBe('示例机器人商家 · 东营可售 12 件')
+    expect(buyMerchantLine(MAKER_CLASS, null)).toBe('示例机器人商家 · 可售 3 件')
+    expect(buyMerchantLine({ ...MAKER_CLASS, stockQuantity: 0 }, '东营市')).toBe('示例机器人商家 · 东营可售 0 件（缺货）')
   })
 
   it('keeps the merchant and its kind when the stock is not tracked', () => {
-    expect(buyMerchantLine(AGENT_STD, '东营市')).toBe('示例商家（厂家直营）')
+    expect(buyMerchantLine(AGENT_STD, '东营市')).toBe('示例商家（厂家直营） · 库存不限')
   })
 })
 

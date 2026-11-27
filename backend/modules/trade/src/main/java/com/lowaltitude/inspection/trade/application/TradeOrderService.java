@@ -290,10 +290,10 @@ public class TradeOrderService {
                 express ? null : quote.pickupPoint(),
                 now);
         mapper.insertTransition(orderId, null, TradeOrderStatus.PENDING_PAYMENT.name(), "SUBMIT", buyerId, now);
+        checkout.orderPlaced(buyerId, request, orderId, quote.lines());
         if (!normalized.cartItemIds().isEmpty()) {
             checkout.removeCartLines(buyerId, normalized.cartItemIds());
         }
-        checkout.orderPlaced(buyerId, request, orderId);
         return new SubmitResult(read(buyerId, orderId), true);
     }
 

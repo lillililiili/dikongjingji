@@ -130,6 +130,7 @@ function toItem(dto: CartItem): CartItem {
     merchant: dto.merchant,
     unitAmountMinor: dto.unitAmountMinor ?? null,
     quantity: dto.quantity,
+    stockQuantity: dto.stockQuantity,
     shippingNote: dto.shippingNote ?? null,
     deliveryModes: dto.deliveryModes ?? [],
     invalidReason: dto.invalidReason ?? null,

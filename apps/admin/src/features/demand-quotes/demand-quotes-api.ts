@@ -50,6 +50,7 @@ export interface ProviderQuote extends QuoteExtras {
 }
 
 export interface ProviderDemand {
+  inspectionReservationId?: string | null
   demandId: string
   status: DemandStatus
   type: DemandType

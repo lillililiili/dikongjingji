@@ -43,6 +43,7 @@ const emit = defineEmits<{
   republish: [demandId: string]
   // The service order the choice made (S4-3).
   serviceOrder: [orderId: string]
+  inspectionBooking: [demandId: string, reservationId: string | null]
 }>()
 
 type PageState =
@@ -274,7 +275,7 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
 
       <view
         v-if="demand.status === 'CHOSEN'"
-        :class="['demand-quotes__bar', { 'demand-quotes__bar--row': followUp.kind === 'ORDER' }]"
+        :class="['demand-quotes__bar', { 'demand-quotes__bar--row': followUp.kind !== 'UNAVAILABLE' }]"
         data-testid="demand-chosen-bar"
       >
         <view class="demand-quotes__bar-line">
@@ -291,6 +292,10 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
             <text class="demand-quotes__gate-text">{{ followUp.text }}</text>
           </view>
         </view>
+        <button v-else-if="followUp.kind === 'INSPECTION_BOOKING'" class="demand-quotes__order"
+          data-testid="demand-inspection-booking" @click="emit('inspectionBooking', demand.demandId, demand.inspectionReservationId)">
+          {{ followUp.label }}
+        </button>
         <button
           v-else
           class="demand-quotes__order"

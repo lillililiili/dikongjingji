@@ -20,6 +20,7 @@ public class PlanFlowException extends RuntimeException {
         IDEMPOTENCY_CONFLICT,
         VERSION_CONFLICT,
         RESERVATION_STATE_INVALID,
+        QUOTE_AMOUNT_MISMATCH,
         PLAN_NOT_PUBLISHED,
         PLAN_EXPIRED,
         PLAN_ALREADY_CONFIRMED,

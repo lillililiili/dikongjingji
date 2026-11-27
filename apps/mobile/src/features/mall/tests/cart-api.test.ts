@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { createCartApi } from '../data/cart-api'
+import { cartQuantityLimit } from '../domain/cart'
 
 const TOKEN = 'token-1'
 const AUTH = { Authorization: 'Bearer token-1' }
@@ -23,6 +24,15 @@ const ITEM = {
 }
 
 describe('cart api', () => {
+  it('retains the available quantity without changing the saved cart quantity', async () => {
+    const { api } = apiReturning({ groups: [{ merchant: ITEM.merchant,
+      items: [0, 1, null, undefined, 500].map(stockQuantity => ({ ...ITEM, stockQuantity })) }], invalidItems: [], validCount: 5 })
+    const cart = await api.load(TOKEN, '370500')
+    const items = cart.groups[0].items
+    expect(items.map(item => item.stockQuantity)).toEqual([0, 1, null, undefined, 500])
+    expect(items.map(cartQuantityLimit)).toEqual([0, 1, 99, 99, 99])
+    expect(items.map(item => item.quantity)).toEqual([2, 2, 2, 2, 2])
+  })
   it('reads the cart of a city and fills left-out fields with null', async () => {
     const { api, request } = apiReturning({
       groups: [{ merchant: ITEM.merchant, items: [ITEM] }],

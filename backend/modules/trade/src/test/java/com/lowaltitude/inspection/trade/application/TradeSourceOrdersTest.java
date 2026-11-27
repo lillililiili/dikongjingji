@@ -265,10 +265,10 @@ class TradeSourceOrdersTest {
     }
 
     @Test
-    void mallOrdersNeverReachAListener() {
+    void aMallOrderDoesNotTriggerOtherBusinessListeners() {
         UUID mallOrder = store.mallOrder();
 
-        // 买家取消，之后才到账的付款把它重新打开成已付款：两步都不通知任何业务模块。
+        // 缺少该来源的监听者时，其他业务的付款和关闭监听者都不接收商城事件。
         orders.cancel(BUYER, mallOrder, 0);
         payments.apply(channel, channel.paid(store.launch(mallOrder)), "PAYMENT_NOTIFIED");
 
@@ -276,6 +276,26 @@ class TradeSourceOrdersTest {
         assertThat(listener.closed).isEmpty();
         assertThat(store.order(mallOrder).status).isEqualTo("PAID");
         assertThat(store.refunds).isEmpty();
+    }
+
+    @Test
+    void aLatePaymentAfterInventoryReleaseStartsOneRefund() {
+        TradeSourceListener stock = org.mockito.Mockito.mock(TradeSourceListener.class);
+        org.mockito.Mockito.when(stock.source()).thenReturn("MALL");
+        listeners.add(stock);
+        UUID orderId = store.mallOrder();
+        orders.cancel(BUYER, orderId, 0);
+        org.mockito.Mockito.verify(stock).onClosed(orderId, null);
+        org.mockito.Mockito.when(stock.onPaid(orderId, null)).thenReturn(false);
+        Store.Payment payment = store.launch(orderId);
+        payments.apply(channel, channel.paid(payment), "PAYMENT_NOTIFIED");
+        payments.apply(channel, channel.paid(payment), "PAYMENT_QUERIED");
+
+        org.mockito.Mockito.verify(stock).onPaid(orderId, null);
+        assertThat(store.order(orderId).status).isEqualTo("REFUNDING");
+        assertThat(store.onlyRefund().amountMinor).isEqualTo(5_000);
+        commit();
+        assertThat(channel.refunds).hasSize(1);
     }
 
     @Test

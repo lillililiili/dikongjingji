@@ -354,6 +354,7 @@ public interface MallCatalogOpsMapper {
                      @Param("fields") OfferFields fields, @Param("createKey") UUID createKey,
                      @Param("at") OffsetDateTime at);
 
+    /** 表单提交的是目标可售数。下单预占和未付关闭也更新版本，拒绝过期表单覆盖现有可售数。 */
     @Update("""
             UPDATE mall_offer
             SET merchant_kind = #{fields.merchantKind},
@@ -445,6 +446,7 @@ public interface MallCatalogOpsMapper {
     UUID findSameOffer(@Param("skuId") UUID skuId, @Param("merchantId") UUID merchantId,
                        @Param("cityCode") String cityCode);
 
+    /** 批量盘点按提供的可售数写回供给；未付订单原预占保存在 mall_stock_hold，成交或关闭时单独处理。 */
     @Insert("""
             INSERT INTO mall_offer (
                 id, sku_id, merchant_id, merchant_kind, city_code, price_amount_minor, price_unit, stock_quantity,

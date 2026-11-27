@@ -123,7 +123,7 @@ export function describeDemandLine(demand: Demand): string {
   }
 }
 
-export type DemandCardAction = 'EDIT' | 'DELETE' | 'CANCEL' | 'VIEW' | 'QUOTES' | 'REPUBLISH' | 'ORDER'
+export type DemandCardAction = 'EDIT' | 'DELETE' | 'CANCEL' | 'VIEW' | 'QUOTES' | 'REPUBLISH' | 'ORDER' | 'INSPECTION_BOOKING'
 
 export interface DemandCardButton {
   action: DemandCardAction
@@ -167,6 +167,8 @@ export function describeDemandCard(demand: Demand, serviceOrdersOpen = false): D
     open = 'QUOTES'
     if (serviceOrdersOpen && demand.serviceOrderId) buttons.push({ action: 'ORDER', label: '查看订单', primary: false })
     buttons.push({ action: 'QUOTES', label: '查看报价', primary: false })
+    const next = resolveDemandFollowUp(demand, serviceOrdersOpen)
+    if (next.kind === 'INSPECTION_BOOKING') buttons.push({ action: next.kind, label: next.label, primary: true })
   } else {
     buttons.push({ action: 'VIEW', label: '查看需求', primary: false })
     buttons.push({ action: 'REPUBLISH', label: '重新发布', primary: false })
@@ -384,17 +386,15 @@ export function describeDemandChoiceFailure(failure: DemandChoiceFailureInput | 
   return { message: failure.message || '没有选成，请稍后重试', reload: false }
 }
 
-/**
- * What comes after a quote is chosen. From 1.3.0 an aerial, survey, maintenance or tech-support
- * demand makes a service order when chosen (§28): its plan, payment and work are on the order. An
- * inspection demand still stops at the choice (inspection has its own booking flow), and so does
- * a build where service orders are not open: the gate stays closed and the page says so.
- */
 export type DemandFollowUp =
   | { kind: 'ORDER'; serviceOrderId: string }
+  | { kind: 'INSPECTION_BOOKING'; label: string }
   | { kind: 'UNAVAILABLE'; title: string; text: string }
 
-export function resolveDemandFollowUp(demand?: Pick<Demand, 'serviceOrderId'> | null, serviceOrdersOpen = false): DemandFollowUp {
+export function resolveDemandFollowUp(demand?: Demand | null, serviceOrdersOpen = false): DemandFollowUp {
+  if (demand?.type === 'INSPECTION' && demand.status === 'CHOSEN' && (demand.chosen || demand.inspectionReservationId)) {
+    return { kind: 'INSPECTION_BOOKING', label: demand.inspectionReservationId ? '查看巡检预约' : '填写巡检预约' }
+  }
   if (serviceOrdersOpen && demand?.serviceOrderId) return { kind: 'ORDER', serviceOrderId: demand.serviceOrderId }
   return {
     kind: 'UNAVAILABLE',
@@ -411,6 +411,7 @@ export function demandMakesServiceOrder(demand: Pick<Demand, 'type'>, serviceOrd
 // The text of the 选择此报价 sheet.
 export function demandChoiceText(demand: Pick<Demand, 'type'>, quote: DemandQuote, serviceOrdersOpen: boolean): string {
   const head = `总价 ${formatDemandAmount(quote.amountMinor)}（方案 v${quote.version}）。选定后不能再选别家，其余报价会标为未选中。`
+  if (demand.type === 'INSPECTION') return `${head}选定后可填写巡检预约，提交预约时无需付款。`
   return demandMakesServiceOrder(demand, serviceOrdersOpen)
     ? `${head}选定后生成服务订单，服务商出方案后由你确认并一次付清。`
     : `${head}选定不产生费用，方案确认和付款还没有开通。`

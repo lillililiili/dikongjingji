@@ -48,6 +48,7 @@ function addDays(date: string, days: number): string {
 const today = beijingToday()
 const firstDate = props.reservation.preferredServiceDate >= today ? props.reservation.preferredServiceDate : today
 const previous = props.previous
+const source = props.reservation.demandSource
 const priorMethods = previous?.serviceMethods ?? []
 const methodOptions = [
   ...priorMethods,
@@ -57,6 +58,9 @@ const items: PlanItemDraft[] = previous
   ? previous.planItems.map(({ code, name, quantity, unit, unitPriceMinor }) =>
     ({ code, name, quantity, unit, unitPrice: minorToYuanText(unitPriceMinor) }))
   : props.reservation.inspectionItems.map(({ code, label }) => ({ code, name: label, quantity: 1, unit: '项', unitPrice: '' }))
+if (source && !previous) {
+  items.splice(0, items.length, { code: 'ITEM-1', name: '巡检服务', quantity: 1, unit: '项', unitPrice: minorToYuanText(source.amountMinor) })
+}
 const deliverables: Array<{ code: string, name: string, fileType: DeliveryFileType | null }> = previous
   ? previous.deliverables.map(({ code, label, fileType }) => ({ code, name: label, fileType }))
   : DEFAULT_DELIVERABLES.map(item => ({ ...item }))
@@ -64,8 +68,8 @@ const deliverables: Array<{ code: string, name: string, fileType: DeliveryFileTy
 const form = reactive({
   validUntil: previous?.validUntil ?? new Date(Date.now() + 3 * 86_400_000).toISOString(),
   visits: previous?.visits.length ? previous.visits.map(visit => visit.plannedDate) : [previous?.serviceDate ?? firstDate],
-  summary: previous?.summary ?? '',
-  scopeSummary: previous?.scopeSummary ?? '',
+  summary: previous ? previous.summary ?? '' : source?.summary ?? '',
+  scopeSummary: previous ? previous.scopeSummary ?? '' : (source?.scope && charCount(source.scope) <= 120 ? source.scope : ''),
   serviceMethods: previous ? previous.serviceMethods.map(method => method.code) : ['DRONE'],
   reportDueHours: previous ? previous.deliveryTerms?.reportDueHours ?? null : 48,
   mediaRetentionDays: previous ? previous.deliveryTerms?.mediaRetentionDays ?? null : 90,
@@ -113,6 +117,7 @@ function problem(): string | null {
     if (!item.unit.trim() || charCount(item.unit.trim()) > 24) return `第 ${index + 1} 行明细要填单位（≤24 字）`
     if (yuanToMinor(item.unitPrice) === null) return `第 ${index + 1} 行明细的单价格式不对（元，最多两位小数）`
   }
+  if (source && total.value !== source.amountMinor) return `方案合计须与客户选定的报价 ${formatMoney(source.amountMinor)} 一致`
   if (form.deliverables.length === 0 || form.deliverables.length > 20) return '交付物要有 1–20 项'
   for (const [index, item] of form.deliverables.entries()) {
     if (!item.name.trim() || charCount(item.name.trim()) > 120) return `第 ${index + 1} 项交付物要填名称`
@@ -216,6 +221,7 @@ async function submit(): Promise<void> {
       </el-form-item>
       <el-form-item label="报价明细">
         <div class="rows">
+          <div v-if="source">客户已选定第 {{ source.quoteVersion }} 版报价，方案合计须为 {{ formatMoney(source.amountMinor) }}。</div>
           <div v-for="(item, index) in form.items" :key="item.code" class="row">
             <el-input v-model="item.name" placeholder="名称" style="width: 220px" maxlength="120" />
             <el-input-number v-model="item.quantity" :min="1" :step="1" step-strictly size="small" />

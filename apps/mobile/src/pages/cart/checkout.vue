@@ -13,10 +13,12 @@ import {
   CART_TAB_PATH,
   MALL_CHECKOUT_PATH,
   MALL_INQUIRY_QUOTES_PATH,
+  MALL_PRODUCT_PATH,
   buildAddressBookUrl,
   buildBuyNowCheckoutUrl,
   buildCartCheckoutUrl,
   buildMallInquiryQuotesUrl,
+  buildMallProductUrl,
   buildQuoteCheckoutUrl,
 } from '@/features/mall/navigation/mall-routes'
 import MallCheckoutPage from '@/features/mall/presentation/checkout/MallCheckoutPage.vue'
@@ -24,6 +26,7 @@ import { buildCashierUrl } from '@/features/trade/navigation/trade-routes'
 
 const addressChoice = useAddressChoiceStore()
 const source = ref<CheckoutSource | null>(null)
+const originProductId = ref<string | null>(null)
 const cityCode = ref('')
 // Quote mode (F4): the inquiry whose chosen quote is being ordered.
 const inquiryId = ref<string | null>(null)
@@ -65,6 +68,14 @@ function previousRoute(): string | null {
   return previous ? `/${previous.route}` : null
 }
 
+function backToProduct(productId: string): void {
+  if (previousRoute() === MALL_PRODUCT_PATH) {
+    uni.navigateBack()
+  } else {
+    uni.redirectTo({ url: buildMallProductUrl(productId, cityCode.value) })
+  }
+}
+
 // A quote that cannot be ordered leads back to its quotes page, which reads the inquiry again.
 function backToQuotes(): void {
   if (previousRoute() === MALL_INQUIRY_QUOTES_PATH) {
@@ -99,9 +110,10 @@ onLoad((query) => {
     returnUrl = buildCartCheckoutUrl(items, cityCode.value)
   } else if (offerId && Number.isInteger(quantity) && quantity > 0) {
     source.value = { kind: 'OFFER', offerId, quantity }
+    originProductId.value = decode(query?.productId) || null
     const delivery = decode(query?.delivery)
     initialDelivery.value = delivery === 'EXPRESS' || delivery === 'PICKUP' ? delivery : null
-    returnUrl = buildBuyNowCheckoutUrl(offerId, quantity, cityCode.value, initialDelivery.value)
+    returnUrl = buildBuyNowCheckoutUrl(offerId, quantity, cityCode.value, initialDelivery.value, originProductId.value)
   }
   // A new confirm page starts from the default address.
   addressChoice.choose(null)
@@ -119,6 +131,7 @@ onShow(() => {
   <MallCheckoutPage
     v-if="CART_PREVIEW_ENABLED && shown"
     :source="source"
+    :origin-product-id="originProductId"
     :city-code="cityCode"
     :address-id="addressChoice.addressId"
     :access-token="accessToken"
@@ -128,6 +141,7 @@ onShow(() => {
     @login="openLogin"
     @choose-address="chooseAddress"
     @back-to-cart="backToCart"
+    @back-to-product="backToProduct"
     @back-to-quotes="backToQuotes"
     @address-gone="addressChoice.choose(null)"
     @submitted="openCashier"

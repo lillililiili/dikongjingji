@@ -1,9 +1,10 @@
 openapi: 3.1.0
 info:
   title: Inspection Service Flow API
-  version: 2.8.0
+  version: 2.9.0
   description: >-
     巡检预约、方案确认、多次巡检履约、按次交付和验收的正式契约。
+    2.9.0：选定巡检报价的客户可以转预约。预约保存成交出处，服务商发布方案时总额必须与中选报价一致。
     2.2.0（R6-4）：方案和服务单里的服务商（ProviderSummary）加 qualificationReviewed，页面据此显示“资质已审核”。
     2.3.0（2026-11-23，S3-2，服务商工作台在 Web 运营端 apps/admin）：加 listProviderInspectionReservations 和
     getProviderInspectionReservationSummary——分给本机构的预约（reservation.providerId 等于令牌里的机构），
@@ -189,6 +190,65 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "422":
           $ref: "#/components/responses/Unprocessable"
+  /api/v1/inspection/demand-bookings/{demandId}:
+    parameters:
+      - name: demandId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [CustomerInspectionFlow]
+      operationId: getInspectionDemandBooking
+      summary: 查询本人的中选报价、可预约服务和已有预约
+      x-required-permission: inspection.reservation.read.own
+      responses:
+        "200":
+          description: 需求与报价从数据库读取，可选列表仅含中选机构在需求城市可预约的服务
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InspectionDemandBooking" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    post:
+      tags: [CustomerInspectionFlow]
+      operationId: createInspectionDemandBooking
+      summary: 确认地点、时间和联系人并将巡检报价转为预约
+      x-required-permission: inspection.reservation.create
+      description: 每个需求只能生成一张预约。相同内容重试返回原预约；已有预约而提交内容不同返回 DEMAND_BOOKING_CONFLICT。
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateReservationRequest" }
+      responses:
+        "201":
+          description: 新预约及其成交出处
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Reservation" }
+        "200":
+          description: 已关联的同一预约
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Reservation" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: DEMAND_BOOKING_CONFLICT 表示同一需求已用不同资料预约；DEMAND_BOOKING_SERVICE_UNAVAILABLE 表示所选服务或城市不可预约。需求未选定返回 DEMAND_STATE_INVALID。
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
   /api/v1/inspection/reservations:
     get:
       tags: [CustomerInspectionFlow]
@@ -896,6 +956,7 @@ paths:
       tags: [ProviderInspectionFlow]
       operationId: publishInspectionPlan
       summary: 为已分配预约发布方案
+      description: 来自巡检需求的预约，其明细合计须等于中选报价。金额不一致返回 409 INSPECTION_QUOTE_AMOUNT_MISMATCH。
       x-required-permission: inspection.plan.publish.assigned
       parameters:
         - $ref: "#/components/parameters/ReservationId"
@@ -1460,6 +1521,38 @@ components:
         mobile:
           type: string
           pattern: "^1[3-9][0-9]{9}$"
+    InspectionDemandSource:
+      type: object
+      required: [demandId, title, cityCode, address, scope, quoteId, quoteVersion, providerId, providerName, amountMinor, summary]
+      properties:
+        demandId: { type: string, format: uuid }
+        title: { type: string }
+        cityCode: { type: string }
+        address: { type: string }
+        scope: { type: string }
+        quoteId: { type: string, format: uuid }
+        quoteVersion: { type: integer }
+        providerId: { type: string, format: uuid }
+        providerName: { type: string }
+        amountMinor: { type: integer, format: int64, description: 中选报价总额（分） }
+        summary: { type: string, description: 中选报价中的服务方式 }
+    InspectionDemandBooking:
+      allOf:
+        - $ref: "#/components/schemas/InspectionDemandSource"
+        - type: object
+          required: [note, dueDate, services, reservationId]
+          properties:
+            note: { type: [string, "null"] }
+            dueDate: { type: [string, "null"], format: date }
+            services:
+              type: array
+              items:
+                type: object
+                required: [serviceId, title]
+                properties:
+                  serviceId: { type: string, format: uuid }
+                  title: { type: string }
+            reservationId: { type: [string, "null"], format: uuid }
     Reservation:
       type: object
       additionalProperties: false
@@ -1484,6 +1577,11 @@ components:
           format: uuid
         reservationNo:
           type: string
+        demandSource:
+          oneOf:
+            - $ref: "#/components/schemas/InspectionDemandSource"
+            - type: "null"
+          description: 源自中选巡检需求时保存的成交快照，直接预约为空。
         customerId:
           type: string
           format: uuid

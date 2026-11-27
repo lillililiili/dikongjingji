@@ -17,8 +17,8 @@ import {
   type CartSelection,
 } from '../../application/cart-selection'
 import { cartApi } from '../../data/cart-api-client'
-import { CART_MAX_QUANTITY, type Cart, type CartItem } from '../../domain/cart'
-import { MALL_MERCHANT_KIND_LABELS, formatMallAmount } from '../shared/mall-format'
+import { cartQuantityLimit, type Cart, type CartItem } from '../../domain/cart'
+import { MALL_MERCHANT_KIND_LABELS, buyOfferStockText, formatMallAmount } from '../shared/mall-format'
 
 const props = defineProps<{
   // Null for a guest. The page host reads it again every time the tab is shown.
@@ -152,10 +152,9 @@ function tickAll(): void {
   selection.value = toggleWholeMerchant(cart.value, selection.value)
 }
 
-async function changeQuantity(item: CartItem, step: number): Promise<void> {
+async function changeQuantity(item: CartItem, next: number): Promise<void> {
   const token = props.accessToken
-  const next = item.quantity + step
-  if (!token || busy.value || next < 1 || next > CART_MAX_QUANTITY) return
+  if (!token || busy.value || next < 1 || (next > item.quantity && next > cartQuantityLimit(item))) return
   busy.value = true
   try {
     await cartApi.setQuantity(token, item.cartItemId, next)
@@ -216,6 +215,11 @@ function toggleManaging(): void {
 }
 
 function checkout(): void {
+  if (cart.value?.groups.some(group => group.items.some(item =>
+    totals.value.cartItemIds.includes(item.cartItemId) && item.quantity > cartQuantityLimit(item)))) {
+    uni.showToast({ title: '部分商品可售库存不足，请先调整数量', icon: 'none' })
+    return
+  }
   if (totals.value.lineCount > 0) emit('checkout', totals.value.cartItemIds)
 }
 
@@ -333,6 +337,10 @@ watch(() => [props.refreshKey, props.accessToken, props.cityCode], () => { void 
           <view class="cart__info">
             <text class="cart__name" @click="emit('openProduct', item.productId)">{{ item.productName }}</text>
             <text class="cart__spec">{{ item.skuName }}</text>
+            <text v-if="item.stockQuantity !== undefined" class="cart__ship" :data-testid="`cart-stock-${item.cartItemId}`">{{ buyOfferStockText(item.stockQuantity) }}</text>
+            <button v-if="!managing && item.stockQuantity != null && item.stockQuantity > 0 && item.quantity > item.stockQuantity"
+              class="cart__stock-adjust" :disabled="busy" :data-testid="`cart-adjust-stock-${item.cartItemId}`"
+              @click="changeQuantity(item, item.stockQuantity)">调整为 {{ item.stockQuantity }} 件</button>
             <text
               v-if="item.shippingNote && isActiveMerchant(group.merchant.organizationId)"
               class="cart__ship"
@@ -349,17 +357,17 @@ watch(() => [props.refreshKey, props.accessToken, props.cityCode], () => { void 
                   :data-testid="`cart-minus-${item.cartItemId}`"
                   :aria-label="`减少${item.productName}数量`"
                   :aria-disabled="item.quantity <= 1"
-                  @click="changeQuantity(item, -1)"
+                  @click="changeQuantity(item, item.quantity - 1)"
                 >
                   −
                 </button>
                 <text class="cart__qty" :data-testid="`cart-qty-${item.cartItemId}`">{{ item.quantity }}</text>
                 <button
-                  :class="['cart__step', { 'cart__step--off': item.quantity >= CART_MAX_QUANTITY }]"
+                  :class="['cart__step', { 'cart__step--off': item.quantity >= cartQuantityLimit(item) }]"
                   :data-testid="`cart-plus-${item.cartItemId}`"
                   :aria-label="`增加${item.productName}数量`"
-                  :aria-disabled="item.quantity >= CART_MAX_QUANTITY"
-                  @click="changeQuantity(item, 1)"
+                  :aria-disabled="item.quantity >= cartQuantityLimit(item)"
+                  @click="changeQuantity(item, item.quantity + 1)"
                 >
                   +
                 </button>
@@ -408,6 +416,7 @@ watch(() => [props.refreshKey, props.accessToken, props.cityCode], () => { void 
             <text class="cart__invalid-why">
               {{ item.invalidReason ? CART_INVALID_REASON_TEXT[item.invalidReason] : '' }}
             </text>
+            <text v-if="item.invalidReason === 'OUT_OF_STOCK' && item.stockQuantity === 0" class="cart__invalid-why">可售 0 件</text>
           </view>
         </view>
       </view>
@@ -461,6 +470,7 @@ watch(() => [props.refreshKey, props.accessToken, props.cityCode], () => { void 
 </template>
 
 <style scoped>
+.cart__stock-adjust { align-self: flex-start; margin: 4px 0; padding: 4px 10px; color: #a94300; background: #fff0e3; font-size: 13px; line-height: 24px; }
 /* Sizes and colours follow the 2026-11-14 prototype boards Cart and CartStates (390 wide). */
 .cart {
   display: flex;

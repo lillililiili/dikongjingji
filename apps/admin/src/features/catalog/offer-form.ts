@@ -83,6 +83,6 @@ export function toOfferDraft(form: OfferForm, saleMode: MallSaleMode): OfferDraf
 /** 列表里的库存：null 不限、0 缺货、其余“N 件”。 */
 export function stockLabel(stock: number | null): string {
   if (stock === null) return '不限'
-  if (stock === 0) return '缺货'
+  if (stock === 0) return '0 件（缺货）'
   return `${stock} 件`
 }

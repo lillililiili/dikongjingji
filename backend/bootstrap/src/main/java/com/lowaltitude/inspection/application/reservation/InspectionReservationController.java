@@ -353,7 +353,8 @@ public final class InspectionReservationController {
             List<FileObjectResponse> attachments,
             Instant submittedAt,
             UUID currentPlanId,
-            int version
+            int version,
+            InspectionDemandSource demandSource
     ) {
 
         static ReservationResponse from(ReservationDetails details) {
@@ -390,7 +391,8 @@ public final class InspectionReservationController {
                             .toList(),
                     details.submittedAt(),
                     details.currentPlanId(),
-                    details.version());
+                    details.version(),
+                    details.demandSource());
         }
     }
 }

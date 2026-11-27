@@ -40,6 +40,22 @@ class PlanApplicationServiceTest {
     }
 
     @Test
+    void convertedDemandRequiresChosenQuoteAmountForEveryPublishedEdition() {
+        store.chosenAmount = 2_400L;
+        assertThatThrownBy(() -> service.publish(provider(PROVIDER), RESERVATION, PUBLISH_KEY, 0,
+                command("金额不符", 101), "publish"))
+                .isInstanceOfSatisfying(PlanFlowException.class,
+                        error -> assertThat(error.error()).isEqualTo(PlanFlowException.PlanFlowError.QUOTE_AMOUNT_MISMATCH));
+        assertThat(store.publishCount).isZero();
+        service.publish(provider(PROVIDER), RESERVATION, PUBLISH_KEY, 0, command("首版", 100), "publish");
+        assertThatThrownBy(() -> service.publish(provider(PROVIDER), RESERVATION, UUID.randomUUID(), 1,
+                command("改版仍需同价", 101), "republish"))
+                .isInstanceOfSatisfying(PlanFlowException.class,
+                        error -> assertThat(error.error()).isEqualTo(PlanFlowException.PlanFlowError.QUOTE_AMOUNT_MISMATCH));
+        assertThat(store.publishCount).isOne();
+    }
+
+    @Test
     void assignedProviderPublishesAndReplaysOneCurrentPlan() {
         ServicePlanView first = service.publish(
                 provider(PROVIDER),
@@ -740,6 +756,13 @@ class PlanApplicationServiceTest {
 }
 
 final class InMemoryPlanStore implements PlanStore {
+
+    Long chosenAmount;
+
+    @Override
+    public Optional<Long> chosenDemandAmount(UUID id) {
+        return Optional.ofNullable(chosenAmount);
+    }
 
     PlanReservation reservation;
     final Map<UUID, StoredServicePlan> plans = new HashMap<>();

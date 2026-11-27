@@ -168,7 +168,8 @@ public class ReservationApplicationService {
                 flowState.status(),
                 flowState.currentPlanId(),
                 flowState.version(),
-                store.findAttachments(value.id()));
+                store.findAttachments(value.id()),
+                store.findDemandSource(value.id()).orElse(null));
     }
 
     @Transactional
@@ -310,7 +311,7 @@ public class ReservationApplicationService {
         }
     }
 
-    private static String digest(CreateReservationCommand command) {
+    static String digest(CreateReservationCommand command) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             updateDigest(digest, command.serviceId());
@@ -443,7 +444,7 @@ record ReservationDetails(UUID id, String reservationNo, UUID customerId, Inspec
                           LocalDate preferredServiceDate, String preferredTimeSlotCode, String note, String contactName, String contactMobile,
                           List<InspectionItemSnapshot> items, String agreementVersion, Instant submittedAt,
                           String status, UUID currentPlanId, int version,
-                          List<ReservationFileView> attachments) { }
+                          List<ReservationFileView> attachments, InspectionDemandSource demandSource) { }
 record ReservationFileView(UUID id, String originalName, String contentType, long sizeBytes,
                            com.lowaltitude.inspection.domain.files.FileObjectStatus status,
                            String failureReason) { }
@@ -473,6 +474,9 @@ enum CancellationWriteResult {
 }
 interface InspectionServiceCatalog { Optional<InspectionServiceSnapshot> findActive(UUID serviceId, String cityCode); }
 interface ReservationStore {
+    default Optional<InspectionDemandSource> findDemandSource(UUID reservationId) {
+        return Optional.empty();
+    }
     Optional<IdempotencyEntry> findIdempotency(UUID actorId, UUID key);
     void save(StoredReservation reservation, IdempotencyEntry entry);
     Optional<StoredReservation> findById(UUID id);

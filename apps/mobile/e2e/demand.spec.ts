@@ -14,9 +14,8 @@ import {
   type Session,
 } from './support/trade-fixtures'
 
-// 需求发布与报价比选（F1，计划 §22）：发布需求（草稿 → 继续填写 → 提交，必填项、422 字段）→ 服务商报价（没有页面，
-// 用受权接口以 dev-provider“云翼科技”报价）→ 我的 → 需求与报价 → 报价比选（排序、对比明细、选定）→ 选定后如实说明
-// 方案确认和付款还没有开通。真实后端；只有“过期的选择”（412）和多家报价的排序 / 对比画面用桩数据（开发库只有一家服务商）。
+// 发布需求、服务商报价、客户比选与选定后入口。多家报价的视觉比较使用固定夹具，
+// 两家真实服务商之间的报价、转预约及履约由 merchant-quote-revision.spec.ts 覆盖。
 // 每条用例前后把 dev-customer 的需求、报价、事件和“需求与报价”站内信从数据库删掉。
 const PROVIDER = 'dev-provider'
 const PROVIDER_ID = '22222222-2222-2222-2222-222222222222'
@@ -336,7 +335,7 @@ test.describe('需求发布与报价比选', () => {
     await expect(card(page, sent.demandId).getByTestId('demand-card-line')).toContainText('已邀请 1 家服务商')
   })
 
-  test('DEM-005 收到报价：消息“需求与报价”进比选页，排序带参数，对比明细，选定后说明方案确认和付款没有开通', async ({ page, request }) => {
+  test('DEM-005 从消息进入比选，排序、比较、选定后可以填写巡检预约', async ({ page, request }) => {
     const demand = await createDemand(request, buyer, COMPLETE, true)
     const quote = await providerQuotes(request, provider, demand.demandId, 18_600)
     await signIn(page, buyer)
@@ -372,15 +371,14 @@ test.describe('需求发布与报价比选', () => {
 
     await expect(page.getByTestId('demand-quotes')).toHaveAttribute('data-status', 'CHOSEN')
     await expect(page.getByTestId('demand-chosen-name')).toHaveText('云翼科技 v1')
-    await expect(page.getByTestId('demand-follow-up')).toContainText('方案确认和付款还没有开通')
+    await expect(page.getByTestId('demand-inspection-booking')).toHaveText('填写巡检预约')
     await expect(quoteCard.getByTestId('demand-quote-tag')).toHaveText('已选中')
     await expect(page.locator('[data-testid^="demand-quote-choose-"]')).toHaveCount(0)
     expect(await readDemand(request, buyer, demand.demandId)).toMatchObject({ status: 'CHOSEN', chosen: { quoteId: quote.quoteId } })
 
-    // The list shows who was chosen; there is no way on into plan confirmation.
     await page.goto('/#/pages/mine/demands?status=CHOSEN')
     await expect(card(page, demand.demandId).getByTestId('demand-card-line')).toHaveText('已选定 云翼科技 · 方案 v1 · ¥18,600')
-    await expect(page.getByText('进入方案确认')).toHaveCount(0)
+    await expect(card(page, demand.demandId).getByText('填写巡检预约', { exact: true })).toBeVisible()
   })
 
   test('DEM-006 过期的选择：报价改了版本或需求版本变了，选择被拒后重新读取并说明', async ({ page, request }) => {
@@ -550,7 +548,7 @@ test.describe('需求发布与报价比选', () => {
       if (width === 390) continue
 
       await page.goto(at(`#/pages/demand/quotes?demandId=${chosen.demandId}`))
-      await expect(page.getByTestId('demand-follow-up')).toBeVisible()
+      await expect(page.getByTestId('demand-inspection-booking')).toBeVisible()
       await assertNoHorizontalOverflow(page)
       await tallShot(page, shot('quotes-chosen'))
 

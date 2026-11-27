@@ -121,6 +121,9 @@ public class PlanApplicationService {
         long total = items.stream()
                 .mapToLong(PlanItem::lineAmountMinor)
                 .reduce(0L, PlanApplicationService::addAmount);
+        if (store.chosenDemandAmount(reservationId).filter(amount -> amount != total).isPresent()) {
+            throw new PlanFlowException(PlanFlowException.PlanFlowError.QUOTE_AMOUNT_MISMATCH);
+        }
         List<PlanVisit> visits = new ArrayList<>();
         for (LocalDate plannedDate : command.visits()) {
             visits.add(new PlanVisit(visits.size() + 1, plannedDate));
@@ -1254,6 +1257,10 @@ enum PlanWriteResult {
 }
 
 interface PlanStore {
+    default Optional<Long> chosenDemandAmount(UUID reservationId) {
+        return Optional.empty();
+    }
+
     Optional<PlanReservation> findReservation(UUID reservationId);
 
     default Optional<StoredServicePlan> findCurrentPlan(UUID reservationId) {

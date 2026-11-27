@@ -30,6 +30,8 @@ export interface CartItem {
   // Null on an item that cannot be bought any more.
   unitAmountMinor: number | null
   quantity: number
+  /** Older API responses omit this field; null means the merchant imposes no stock limit. */
+  stockQuantity?: number | null
   shippingNote: string | null
   deliveryModes: DeliveryMode[]
   invalidReason: CartInvalidReason | null
@@ -85,3 +87,7 @@ export type CheckoutSource =
   | { kind: 'QUOTE'; inquiryQuoteId: string }
 
 export const CART_MAX_QUANTITY = 99
+
+export function cartQuantityLimit(item: Pick<CartItem, 'stockQuantity'>): number {
+  return Math.min(CART_MAX_QUANTITY, item.stockQuantity ?? CART_MAX_QUANTITY)
+}

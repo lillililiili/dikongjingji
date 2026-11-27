@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -50,8 +51,9 @@ class MallTradeCheckoutConfigurationTest {
     private final AccountAddressService addresses = mock(AccountAddressService.class);
     private final MallInquiryService inquiries = mock(MallInquiryService.class);
     private final MallCatalogReadService catalog = mock(MallCatalogReadService.class);
+    private final MallInventoryService inventory = mock(MallInventoryService.class);
     private final TradeCheckoutPort port = new MallTradeCheckoutConfiguration()
-            .mallTradeCheckout(carts, addresses, inquiries, catalog);
+            .mallTradeCheckout(carts, addresses, inquiries, catalog, inventory);
 
     @Test
     void anExpressQuoteTakesTheAmountsAndLinesFromThePreviewAndTheChosenAddress() {
@@ -202,13 +204,35 @@ class MallTradeCheckoutConfigurationTest {
         CheckoutRequest request = new CheckoutRequest("370500", null, null, null, "PICKUP", null, quoteId);
 
         CheckoutQuote quote = port.quote(ACCOUNT, request);
-        port.orderPlaced(ACCOUNT, request, placed);
-        port.orderPlaced(ACCOUNT, new CheckoutRequest("370500", List.of(CART_A), null, null, "PICKUP", null), placed);
+        port.orderPlaced(ACCOUNT, request, placed, quote.lines());
+        verifyNoInteractions(inventory);
 
         org.assertj.core.api.Assertions.assertThat(quote.previousOrderId()).isEqualTo(previous);
         org.mockito.Mockito.verify(inquiries).orderQuote(ACCOUNT, quoteId);
         org.mockito.Mockito.verify(inquiries).recordOrder(ACCOUNT, quoteId, placed);
         org.mockito.Mockito.verifyNoMoreInteractions(inquiries);
+    }
+
+    @Test
+    void pricedOrdersReserveTheQuotedQuantitiesPerOffer() {
+        UUID orderId = UUID.randomUUID();
+        CheckoutRequest request = new CheckoutRequest("370500", List.of(CART_A, CART_B), null, null, "PICKUP", null);
+        QuotedLine first = new QuotedLine(PRODUCT_A, OFFER_A, "无人机", "标准", null, 100, 2, 200);
+        QuotedLine second = new QuotedLine(PRODUCT_B, OFFER_B, "电池", "标准", null, 50, 1, 50);
+        port.orderPlaced(ACCOUNT, request, orderId, List.of(first, second, first));
+        verify(inventory).reserve(orderId, Map.of(OFFER_A, 4, OFFER_B, 1));
+        verifyNoInteractions(inquiries);
+    }
+
+    @Test
+    void inventoryDecidesWhetherALatePaymentCanStillBeFulfilled() {
+        UUID orderId = UUID.randomUUID();
+        var listener = new MallTradeCheckoutConfiguration().mallInventoryEvents(inventory);
+        when(inventory.confirm(orderId)).thenReturn(false);
+        assertThat(listener.source()).isEqualTo("MALL");
+        assertThat(listener.onPaid(orderId, null)).isFalse();
+        listener.onClosed(orderId, null);
+        verify(inventory).release(orderId);
     }
 
     private static List<DeliveryOptionView> bothOptions() {

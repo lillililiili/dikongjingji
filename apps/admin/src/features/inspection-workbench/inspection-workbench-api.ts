@@ -154,6 +154,19 @@ export interface FileObject {
 }
 
 export interface Reservation {
+  demandSource?: {
+    demandId: string
+    title: string
+    quoteId: string
+    quoteVersion: number
+    providerId: string
+    providerName: string
+    amountMinor: number
+    summary: string | null
+    scope: string | null
+    address: string | null
+    cityCode: string
+  } | null
   id: string
   reservationNo: string
   customerId: string

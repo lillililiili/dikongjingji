@@ -14,6 +14,9 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 public interface ServiceFlowPersistenceMapper {
+    @Select("SELECT amount_minor FROM demand_inspection_booking WHERE reservation_id = #{reservationId}")
+    Optional<Long> chosenDemandAmount(@Param("reservationId") UUID reservationId);
+
 
     @Select("""
             SELECT r.id, r.reservation_no, r.customer_id, r.provider_id, r.status,

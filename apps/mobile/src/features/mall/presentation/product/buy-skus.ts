@@ -1,6 +1,6 @@
 import { CART_MAX_QUANTITY } from '../../domain/cart'
 import type { MallOffer, MallSku } from '../../domain/mall'
-import { MALL_MERCHANT_KIND_LABELS } from '../shared/mall-format'
+import { MALL_MERCHANT_KIND_LABELS, buyOfferStockText } from '../shared/mall-format'
 
 // 规格与数量 (board PdSku) and the merchant rows of 选择在售商家 (board PdFull), worked out from the
 // product's specs (catalog 1.3.0 skus) and its offers in the city. Offers arrive cheapest first.
@@ -64,18 +64,13 @@ export function clampBuyQuantity(quantity: number, offer: MallOffer): number {
   return Math.min(buyQuantityLimit(offer), Math.max(1, Math.floor(quantity)))
 }
 
-/**
- * The line under the price: "示例机器人商家 · 东营现货 12 件" when the stock is known (board PdSku),
- * else the merchant and its kind as before. cityName may be "东营市"; the 市 is dropped like 东营可售.
- */
 export function buyMerchantLine(offer: MallOffer, cityName: string | null): string {
+  const stock = buyOfferStockText(offer.stockQuantity)
   if (offer.stockQuantity === null) {
-    return `${offer.merchantName}（${MALL_MERCHANT_KIND_LABELS[offer.merchantKind]}）`
+    return `${offer.merchantName}（${MALL_MERCHANT_KIND_LABELS[offer.merchantKind]}） · ${stock}`
   }
   const city = cityName?.replace(/市$/, '') ?? ''
-  return offer.stockQuantity === 0
-    ? `${offer.merchantName} · 暂时缺货`
-    : `${offer.merchantName} · ${city}现货 ${offer.stockQuantity} 件`
+  return `${offer.merchantName} · ${city}${stock}`
 }
 
 /** The offer that starts selected: the cheapest one that takes payment online and is not sold out. */

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { expect, test, type APIResponse, type Page } from '@playwright/test'
+import { expect, test, type APIRequestContext, type APIResponse, type Page } from '@playwright/test'
 import { openSignedIn, randomPhone, signUpByApi } from './support/account-fixtures'
 import { testAdmin } from './support/test-stack'
 import { addAddressByApi, API, apiLogin, CITY, devPassword, fakeWechatPays, MERCHANT, offerId, openPaymentNo, psql } from './support/trade-fixtures'
@@ -233,6 +233,154 @@ test('机构修改直播预告，App 预告页展示新的讲解主题', async (
   await expect(mobile.getByText(topic, { exact: true })).toBeVisible()
 })
 
+test('巡检需求两家真实报价，客户转预约后由选中机构出方案、履约并在 App 验收', async ({ page, context, request }) => {
+  test.setTimeout(180_000)
+  const buyer = await signUpByApi(request, randomPhone())
+  const otherBuyer = await signUpByApi(request, randomPhone())
+  const otherProvider = await apiLogin(request, MERCHANT)
+  expect(otherProvider).toBeTruthy()
+  const mobile = await context.newPage()
+  mobile.setDefaultTimeout(15_000)
+  page.setDefaultTimeout(15_000)
+  await openSignedIn(mobile, buyer.token, '/pages/demand/publish?type=INSPECTION')
+  await mobile.getByTestId('demand-address').locator('input').fill('东营园区架空线路')
+  await mobile.getByTestId('demand-scope').locator('input').fill('两公里配电线路')
+  const created = mobile.waitForResponse(r => r.url().endsWith('/api/v1/demands') && r.request().method() === 'POST')
+  await mobile.getByTestId('demand-submit').click()
+  const demand = await (await created).json()
+  await expect(mobile.getByTestId('demand-list')).toBeVisible()
+  const quotePath = '/api/v1/provider/demands/' + demand.demandId + '/quote'
+  const rival = await json(await request.put(API + quotePath, { headers: otherProvider!.headers, data: {
+    amountMinor: 30000, method: '地面巡检', schedule: '下周进场', durationDays: 2, deliverables: '报告', validUntil: deadline(),
+  } }))
+  await signIn(page, '/workbench/demands/' + demand.demandId, 'dev-provider')
+  await page.getByRole('button', { name: '报价', exact: true }).click()
+  const quoteForm = page.getByRole('dialog')
+  await quoteForm.getByPlaceholder('比如 12800').fill('205')
+  await quoteForm.getByPlaceholder(/多旋翼无人机/).fill('红外巡检')
+  await quoteForm.getByPlaceholder(/3 天内进场/).fill('三天内')
+  await quoteForm.getByPlaceholder(/巡检报告、隐患清单/).fill('巡检报告')
+  await quoteForm.getByRole('button', { name: '提交报价' }).click()
+  const quoted = page.waitForResponse(r => r.url().endsWith(quotePath) && r.request().method() === 'PUT')
+  await confirm(page, '提交报价')
+  const { myQuote } = await (await quoted).json()
+  expect(myQuote.quoteId).not.toBe(rival.myQuote.quoteId)
+  await openSignedIn(mobile, buyer.token, '/pages/demand/quotes?demandId=' + demand.demandId)
+  await expect(mobile.getByTestId('demand-summary')).toContainText('2 家已报价')
+  await mobile.getByTestId('demand-compare').click()
+  await expect(mobile.getByTestId('demand-compare-table')).toContainText('¥300')
+  await expect(mobile.getByTestId('demand-compare-table')).toContainText('¥205')
+  await mobile.getByTestId('demand-back').click()
+  await mobile.getByTestId('demand-quote-choose-' + myQuote.quoteId).click()
+  await mobile.getByTestId('demand-confirm-go').click()
+  await mobile.getByTestId('demand-inspection-booking').click()
+  const path = '/api/v1/inspection/demand-bookings/' + demand.demandId
+  const source = await json(await request.get(API + path, { headers: buyer.headers }))
+  expect(source.quoteId).toBe(myQuote.quoteId)
+  expect(source.amountMinor).toBe(20500)
+  expect((await request.get(API + path, { headers: otherBuyer.headers })).status()).toBe(404)
+  const service = source.services.find((s: { serviceId: string }) => s.serviceId === '33333333-3333-3333-3333-333333333333')
+  expect(service).toBeTruthy()
+  await expect(mobile.getByTestId('booking-demand-services')).toContainText('东营园区架空线路')
+  if (source.services.length > 1) await mobile.getByTestId('booking-demand-service').filter({ hasText: service.title }).click()
+  await mobile.getByTestId('booking-location').click()
+  await mobile.getByTestId('map-pick-place-road-88').click()
+  await mobile.getByTestId('map-pick-confirm').click()
+  await expect(mobile.getByTestId('booking-location')).toContainText('示例路 88 号')
+  await mobile.locator('.booking-row').filter({ hasText: '线路长度' }).locator('input').fill('2')
+  await mobile.locator('.booking-row--time').click()
+  await mobile.locator('.inspection-time-sheet__date').nth(3).click()
+  await mobile.locator('.inspection-time-sheet__slot:not(.inspection-time-sheet__slot--full)').first().click()
+  await mobile.locator('.inspection-time-sheet__confirm').click()
+  if (await mobile.locator('.booking-items .booking-item--selected').count() === 0) {
+    await mobile.locator('.booking-items .booking-item').first().click()
+  }
+  await mobile.locator('.booking-row').filter({ has: mobile.getByText('联系人', { exact: true }) }).locator('input').fill('验收员')
+  await mobile.locator('.booking-row').filter({ has: mobile.getByText('手机号', { exact: true }) }).locator('input').fill('13800000000')
+  await mobile.getByTestId('booking-agreement').click()
+  // Race the actual App submission with an independent request carrying the same business data.
+  const concurrent = mobile.waitForRequest(r => r.url().endsWith(path) && r.method() === 'POST')
+    .then(sent => request.post(API + path, {
+      headers: { ...buyer.headers, 'Idempotency-Key': randomUUID() }, data: sent.postDataJSON(),
+    }))
+  const saved = mobile.waitForResponse(r => r.url().endsWith(path) && r.request().method() === 'POST')
+  await mobile.locator('.inspection-booking__submit').click()
+  const submitted = await saved
+  expect(submitted.ok(), await submitted.text()).toBe(true)
+  const reservation = await submitted.json()
+  const second = await concurrent
+  expect([submitted.status(), second.status()].sort()).toEqual([200, 201])
+  expect((await json(second)).id).toBe(reservation.id)
+  await expect(mobile.getByTestId('booking-submitted-status')).toBeVisible()
+  const original = submitted.request().postDataJSON()
+  const conflict = await request.post(API + path, {
+    headers: { ...buyer.headers, 'Idempotency-Key': randomUUID() }, data: { ...original, note: '改动现场要求' },
+  })
+  expect(conflict.status()).toBe(409)
+  expect(psql("SELECT count(*) FROM demand_inspection_booking WHERE demand_id='" + demand.demandId + "'")).toBe('1')
+  const detail = await json(await request.get(API + '/api/v1/inspection/reservations/' + reservation.id, { headers: buyer.headers }))
+  expect(detail.demandSource).toMatchObject({ demandId: demand.demandId, quoteId: myQuote.quoteId, amountMinor: 20500 })
+  expect((await request.get(API + '/api/v1/provider/inspection/reservations/' + reservation.id, { headers: otherProvider!.headers })).status()).toBe(404)
+  expect((await request.post(API + path, { headers: { ...otherBuyer.headers, 'Idempotency-Key': randomUUID() }, data: submitted.request().postDataJSON() })).status()).toBe(404)
+  await openSignedIn(mobile, buyer.token, '/pages/demand/quotes?demandId=' + demand.demandId)
+  await expect(mobile.getByTestId('demand-inspection-booking')).toHaveText('查看巡检预约')
+  await mobile.getByTestId('demand-inspection-booking').click()
+  await expect(mobile).toHaveURL(new RegExp(reservation.id))
+  await page.getByRole('button', { name: '刷新', exact: true }).click()
+  await page.getByTestId('demand-linked-reservation').click()
+  await expect(page.getByTestId('inspection-demand-source')).toContainText('205')
+  await page.getByRole('button', { name: '出方案', exact: true }).click()
+  const planForm = page.getByRole('dialog', { name: '出方案', exact: true })
+  await expect(planForm.getByPlaceholder('单价（元）').first()).toHaveValue('205.00')
+  const deliverables = planForm.locator('.el-form-item').filter({ has: page.getByText('交付物', { exact: true }) })
+  while (await deliverables.locator('.row').count() > 1) await deliverables.getByRole('button', { name: '删除' }).first().click()
+  await planForm.getByRole('button', { name: '发布方案' }).click()
+  const posted = page.waitForResponse(r => r.url().endsWith('/plans') && r.request().method() === 'POST')
+  await confirm(page, '发布')
+  const plan = await (await posted).json()
+  expect(plan.totalAmountMinor).toBe(20500)
+  await openSignedIn(mobile, buyer.token, '/pages/service/inspection/plan-confirmation?planId=' + plan.id)
+  await mobile.locator('uni-button.plan-confirmation__agreement').click()
+  const confirmed = mobile.waitForResponse(r => r.url().endsWith('/confirm') && r.request().method() === 'POST')
+  await mobile.locator('uni-button.plan-confirmation__confirm').click()
+  const order = await (await confirmed).json()
+  await fulfillInspectionVisit(request, page, mobile, buyer, order)
+})
+
+test('中选机构在本城无可预约服务时 App 说明原因，后端拒绝改约其他机构', async ({ page, request }) => {
+  const buyer = await signUpByApi(request, randomPhone())
+  const provider = await apiLogin(request, MERCHANT)
+  expect(provider).toBeTruthy()
+  const demand = await json(await request.post(API + '/api/v1/demands', {
+    headers: { ...buyer.headers, 'Idempotency-Key': randomUUID() },
+    data: { submit: true, type: 'INSPECTION', cityCode: CITY, address: '东营测试园区', scope: '设备巡检', deliverables: ['INSPECTION_REPORT'] },
+  }))
+  const path = API + '/api/v1/inspection/demand-bookings/' + demand.demandId
+  expect((await request.get(path)).status()).toBe(401)
+  expect((await request.get(path, { headers: buyer.headers })).status()).toBe(409)
+  const { myQuote } = await json(await request.put(API + '/api/v1/provider/demands/' + demand.demandId + '/quote', {
+    headers: provider!.headers,
+    data: { amountMinor: 35000, method: '巡查', schedule: '一周内', durationDays: 1, deliverables: '巡检报告', validUntil: deadline() },
+  }))
+  const current = await json(await request.get(API + '/api/v1/demands/' + demand.demandId, { headers: buyer.headers }))
+  await json(await request.post(API + '/api/v1/demands/' + demand.demandId + '/choice', {
+    headers: { ...buyer.headers, 'If-Match': '"' + current.version + '"' }, data: { quoteId: myQuote.quoteId, quoteVersion: myQuote.version },
+  }))
+  expect((await json(await request.get(path, { headers: buyer.headers }))).services).toEqual([])
+  await openSignedIn(page, buyer.token, '/pages/service/inspection/booking?demandId=' + demand.demandId)
+  await expect(page.getByTestId('booking-demand-services')).toContainText('暂无可预约的巡检服务')
+  await expect(page.locator('.inspection-booking__submit')).toHaveCount(0)
+  const refused = await request.post(path, {
+    headers: { ...buyer.headers, 'Idempotency-Key': randomUUID() },
+    data: { serviceId: '33333333-3333-3333-3333-333333333333', cityCode: CITY,
+      location: { address: '东营测试园区', longitude: 118.5, latitude: 37.4 }, lineLengthMeters: 500,
+      preferredServiceDate: deadline().slice(0, 10), preferredTimeSlotCode: 'AM', inspectionItemCodes: ['POWER_LINE'],
+      attachmentFileIds: [], contact: { name: '验收员', mobile: '13800000000' }, agreementVersion: '2026-07', agreementAccepted: true },
+  })
+  expect(refused.status()).toBe(409)
+  expect((await refused.json()).code).toBe('DEMAND_BOOKING_SERVICE_UNAVAILABLE')
+})
+
 test('巡检方案修订、排班、现场进度，按已确认方案上传 PDF 后由客户在 App 验收', async ({ page, context, request }) => {
   test.setTimeout(180_000)
   const buyer = await signUpByApi(request, randomPhone())
@@ -287,6 +435,13 @@ test('巡检方案修订、排班、现场进度，按已确认方案上传 PDF 
     headers: { ...buyer.headers, 'If-Match': `"${plan.version}"`, 'Idempotency-Key': randomUUID() },
     data: { agreementVersion: 'inspection-plan-v2', agreementAccepted: true },
   }))
+  await fulfillInspectionVisit(request, page, mobile, buyer, order)
+})
+
+async function fulfillInspectionVisit(
+  request: APIRequestContext, page: Page, mobile: Page, buyer: Awaited<ReturnType<typeof signUpByApi>>,
+  order: { id: string; visits: Array<{ id: string }> },
+) {
   const orderPath = API + '/api/v1/inspection/service-orders/' + order.id
   async function payNode(node: number) {
     const { tradeOrderId } = await json(await request.post(orderPath + '/payment-nodes/' + node + '/payment', { headers: buyer.headers }))
@@ -330,7 +485,7 @@ test('巡检方案修订、排班、现场进度，按已确认方案上传 PDF 
   await expect(mobile.getByTestId('delivery-pay')).toBeVisible()
   await payNode(2)
   await expect.poll(async () => (await json(await request.get(orderPath, { headers: buyer.headers }))).status).toBe('ACCEPTED')
-})
+}
 
 test('机构为已签到的活动参与人录入并更正成绩，客户 App 读取最终结果', async ({ page, context, request }) => {
   const buyer = await signUpByApi(request, randomPhone())

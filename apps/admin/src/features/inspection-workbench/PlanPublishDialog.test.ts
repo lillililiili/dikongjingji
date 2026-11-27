@@ -99,6 +99,31 @@ describe('出方案', () => {
     wrapper.unmount()
   })
 
+  it('巡检报价预约带入选定金额，修改合计后不能发布', async () => {
+    const publishPlan = vi.fn().mockResolvedValue({ planNo: 'SP1', planVersion: 1 })
+    confirmAction.mockResolvedValue(true)
+    const source = { demandId: 'd1', title: '巡检需求', quoteId: 'q1', quoteVersion: 2, providerId: 'p-1',
+      providerName: '本机构', amountMinor: 128050, summary: '巡检方案', scope: '南区', address: '南门', cityCode: '370500' }
+    const wrapper = mount(PlanPublishDialog, {
+      props: { api: { publishPlan } as unknown as InspectionWorkbenchApi, reservation: { ...RESERVATION, demandSource: source }, previous: null },
+      global: { plugins: [ElementPlus] }, attachTo: document.body,
+    })
+    await settle()
+    const price = document.body.querySelector<HTMLInputElement>('input[placeholder="单价（元）"]')!
+    expect(price.value).toBe('1280.50')
+    type(price, '1281')
+    publishButton().click()
+    await settle()
+    expect(confirmAction).not.toHaveBeenCalled()
+    expect(publishPlan).not.toHaveBeenCalled()
+    type(price, '1280.50')
+    publishButton().click()
+    await settle()
+    expect(publishPlan.mock.calls[0]?.[1]).toMatchObject({ summary: '巡检方案', scopeSummary: '南区',
+      planItems: [{ name: '巡检服务', quantity: 1, unitPriceMinor: 128050 }] })
+    wrapper.unmount()
+  })
+
   it('新版本复用现有报价和约定，自定义编码与服务方式保留，必须填写本次变更说明', async () => {
     const publishPlan = vi.fn().mockResolvedValue({ planNo: 'SP2', planVersion: 2 })
     const previous = {

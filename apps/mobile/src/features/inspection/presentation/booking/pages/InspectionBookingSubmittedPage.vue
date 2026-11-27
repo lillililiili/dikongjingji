@@ -193,6 +193,7 @@ export function createSubmittedBookingController<Reservation extends SubmittedBo
 </script>
 
 <script setup lang="ts">
+import { formatDemandAmount } from '@/features/demand/application/demand-view'
 import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { computed, ref } from 'vue'
@@ -453,6 +454,10 @@ function openService(): void {
       </view>
       <view class="booking-submitted__card app-card">
         <text class="booking-submitted__card-title">预约信息</text>
+        <template v-if="reservation.demandSource">
+          <view class="booking-submitted__detail-row"><text>来源需求</text><text>{{ reservation.demandSource.title }}</text></view>
+          <view class="booking-submitted__detail-row"><text>选定报价</text><text>{{ reservation.demandSource.providerName }} · v{{ reservation.demandSource.quoteVersion }} · {{ formatDemandAmount(reservation.demandSource.amountMinor) }}</text></view>
+        </template>
         <view class="booking-submitted__service" data-testid="booking-submitted-service" @click="openService">
           <image class="booking-submitted__service-picture" :src="servicePicture" mode="aspectFill" />
           <text class="booking-submitted__service-title">{{ reservation.serviceTitle }}</text>

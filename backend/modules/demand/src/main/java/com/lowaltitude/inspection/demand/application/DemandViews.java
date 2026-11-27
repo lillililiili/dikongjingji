@@ -97,7 +97,8 @@ record DemandView(
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
         int version,
-        UUID serviceOrderId
+        UUID serviceOrderId,
+        UUID inspectionReservationId
 ) {
 }
 
@@ -193,7 +194,8 @@ record ProviderDemandView(
         OffsetDateTime submittedAt,
         OffsetDateTime quoteDeadline,
         boolean quotingOpen,
-        ProviderQuoteView myQuote
+        ProviderQuoteView myQuote,
+        UUID inspectionReservationId
 ) {
 }
 

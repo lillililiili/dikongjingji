@@ -11,6 +11,8 @@ public final class DemandException extends RuntimeException {
         INCOMPLETE,
         /** 需求现在的状态不能做这个操作（比如改已提交的需求、取消已选定的需求）。 */
         STATE_INVALID,
+        BOOKING_CONFLICT,
+        BOOKING_SERVICE_UNAVAILABLE,
         /** 页面看到的需求版本已经过时。 */
         VERSION_CONFLICT,
         /** 报价截止时间已过，不再收新报价、不能改价。 */

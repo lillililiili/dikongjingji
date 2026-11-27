@@ -701,7 +701,8 @@ public class DemandService {
                 row.createdAt(),
                 row.updatedAt(),
                 row.version(),
-                status == DemandStatus.CHOSEN ? row.serviceOrderId() : null);
+                status == DemandStatus.CHOSEN ? row.serviceOrderId() : null,
+                row.inspectionReservationId());
     }
 
     private Map<UUID, List<DemandQuoteLineView>> lineViews(List<UUID> quoteIds) {
@@ -766,7 +767,9 @@ public class DemandService {
                                     quote.nightWorkText(),
                                     quote.reportHours(),
                                     quote.archiveDays(),
-                                    quote.firstVisitDate()));
+                                    quote.firstVisitDate()),
+                            quote != null && quote.id().equals(row.chosenQuoteId())
+                                    ? row.inspectionReservationId() : null);
                 })
                 .toList();
     }

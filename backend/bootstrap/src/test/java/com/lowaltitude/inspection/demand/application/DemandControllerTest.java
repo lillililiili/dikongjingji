@@ -66,6 +66,8 @@ class DemandControllerTest {
             Map.entry(Error.FORBIDDEN, new Rejection(403, "COMMON_FORBIDDEN")),
             Map.entry(Error.IDEMPOTENCY_CONFLICT, new Rejection(409, "DEMAND_IDEMPOTENCY_KEY_REUSED")),
             Map.entry(Error.INCOMPLETE, new Rejection(422, "DEMAND_INCOMPLETE")),
+            Map.entry(Error.BOOKING_CONFLICT, new Rejection(409, "DEMAND_BOOKING_CONFLICT")),
+            Map.entry(Error.BOOKING_SERVICE_UNAVAILABLE, new Rejection(409, "DEMAND_BOOKING_SERVICE_UNAVAILABLE")),
             Map.entry(Error.STATE_INVALID, new Rejection(409, "DEMAND_STATE_INVALID")),
             Map.entry(Error.VERSION_CONFLICT, new Rejection(412, "DEMAND_VERSION_CONFLICT")),
             Map.entry(Error.QUOTING_CLOSED, new Rejection(409, "DEMAND_QUOTING_CLOSED")),
@@ -168,7 +170,7 @@ class DemandControllerTest {
                                 """.formatted(PROVIDER)))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("ETag", "\"1\""))
-                .andExpect(jsonPath("$.length()").value(29))
+                .andExpect(jsonPath("$.length()").value(30))
                 .andExpect(jsonPath("$.demandId").value(DEMAND.toString()))
                 .andExpect(jsonPath("$.status").value("OPEN"))
                 .andExpect(jsonPath("$.closeReason").doesNotExist())
@@ -370,7 +372,7 @@ class DemandControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(header().doesNotExist("ETag"))
-                .andExpect(jsonPath("$.length()").value(18))
+                .andExpect(jsonPath("$.length()").value(19))
                 .andExpect(jsonPath("$.publisher").doesNotExist())
                 .andExpect(jsonPath("$.invited").value(false))
                 .andExpect(jsonPath("$.myQuote.version").value(2))
@@ -480,6 +482,7 @@ class DemandControllerTest {
                 NOW,
                 NOW,
                 version,
+                null,
                 null);
     }
 
@@ -499,7 +502,7 @@ class DemandControllerTest {
                 NOW, NOW.plusHours(72), true,
                 new ProviderQuoteView(QUOTE, 2, DemandQuoteStatus.ACTIVE, 1_860_000, "无人机 + 机器狗",
                         "共 6 次 · 11/02 首次进场", 90, "巡检报告、隐患清单", NOW.plusDays(7), NOW, NOW.plusHours(1),
-                        List.of(), null, null, null, null, null));
+                        List.of(), null, null, null, null, null), null);
     }
 
     private static TestingAuthenticationToken signedIn(UUID subjectId, UUID organizationId, String role) {

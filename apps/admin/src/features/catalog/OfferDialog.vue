@@ -4,6 +4,7 @@ import { computed, reactive, ref, shallowRef, watch } from 'vue'
 
 import { http } from '@/core/http'
 import { newIdempotencyKey } from '@/core/http/api-client'
+import { ApiRequestError } from '@/core/http/api-error'
 import { confirmAction, notifyRecorded, showError } from '@/core/ui/feedback'
 import { formatYuan, yuanToMinor } from '@/core/ui/money'
 import { createCityApi, type OpsCity } from '@/features/city/city-api'
@@ -38,6 +39,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
   changed: [detail: OpsProductDetail]
+  reloaded: [detail: OpsProductDetail, offer: OpsOffer | null]
 }>()
 
 const merchantApi = createMerchantAccountApi(http)
@@ -50,6 +52,7 @@ const merchantsLoading = ref(false)
 const cities = shallowRef<OpsCity[]>([])
 const citiesLoading = ref(false)
 const submitting = ref(false)
+const stale = ref(false)
 let idempotencyKey = newIdempotencyKey()
 
 const saleMode = computed(() => props.detail.product.saleMode)
@@ -62,6 +65,7 @@ let directory: OpsCity[] | null = null
 const chosenMerchant = computed(() => merchants.value.find((merchant) => merchant.organizationId === form.merchantId))
 
 watch(() => props.target, (target) => {
+  stale.value = false
   if (!target) return
   idempotencyKey = newIdempotencyKey()
   const activeSku = props.detail.skus.find((sku) => sku.status === 'ACTIVE')
@@ -106,7 +110,7 @@ async function searchCities(keyword: string): Promise<void> {
 }
 
 async function submit(): Promise<void> {
-  if (!formRef.value || submitting.value) return
+  if (!formRef.value || submitting.value || stale.value) return
   if (!(await formRef.value.validate().catch(() => false))) return
   const draft = toOfferDraft(form, saleMode.value)
   const productId = props.detail.product.productId
@@ -132,6 +136,26 @@ async function submit(): Promise<void> {
     notifyRecorded(creating.value ? '新建供给' : (priceChanged ? '改价' : '修改供给'), '操作记录')
     emit('changed', detail)
   } catch (failure) {
+    if (current && failure instanceof ApiRequestError && (failure.status === 412 || failure.code === 'OPS_VERSION_CONFLICT')) {
+      stale.value = true
+    } else {
+      showError(failure)
+    }
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function reloadOffer(): Promise<void> {
+  const current = editing.value
+  if (!current || submitting.value) return
+  submitting.value = true
+  try {
+    const detail = await props.api.detail(props.detail.product.productId)
+    if (editing.value?.offerId === current.offerId) {
+      emit('reloaded', detail, detail.offers.find(offer => offer.offerId === current.offerId) ?? null)
+    }
+  } catch (failure) {
     showError(failure)
   } finally {
     submitting.value = false
@@ -147,6 +171,10 @@ const pricePreview = computed(() => {
 <template>
   <el-dialog :model-value="target !== null" :title="creating ? '新建在售供给' : '修改在售供给'" width="640px"
              :close-on-click-modal="false" @close="emit('close')">
+    <el-alert v-if="stale" type="warning" title="供给已更新，请读取最新数据后重新编辑。" :closable="false" show-icon>
+      <p>订单或其他操作可能已改变可售库存。重新加载会替换表单中尚未保存的内容。</p>
+      <el-button size="small" :loading="submitting" data-testid="offer-reload" @click="reloadOffer">读取最新数据</el-button>
+    </el-alert>
     <el-form v-if="target" ref="formRef" :model="form" :rules="rules" label-width="110px">
       <el-form-item label="规格" prop="skuId">
         <el-select v-if="creating" v-model="form.skuId" style="width: 100%" placeholder="选择规格">
@@ -196,10 +224,10 @@ const pricePreview = computed(() => {
         </el-select>
         <span class="field-hint">{{ pricePreview }}</span>
       </el-form-item>
-      <el-form-item label="库存">
+      <el-form-item label="可售库存">
         <el-input-number v-model="form.stockQuantity" :min="0" :max="L.stock" :controls="false"
                          placeholder="空着表示不限" style="width: 180px" />
-        <span class="field-hint">这家在这个城市的现货件数；0 表示缺货，App 上不能选这个规格</span>
+        <span class="field-hint">{{ saleMode === 'BUY' ? '填写此供给当前仍可下单的件数。待付款订单已占用的数量不计入，订单未付款关闭时会释放。' : '填写此供给当前可售的件数。' }}留空表示不限，0 表示缺货。</span>
       </el-form-item>
       <el-form-item label="配送">
         <el-checkbox v-model="form.expressAvailable">能快递</el-checkbox>
@@ -223,7 +251,7 @@ const pricePreview = computed(() => {
     </el-form>
     <template #footer>
       <el-button @click="emit('close')">取消</el-button>
-      <el-button type="primary" :loading="submitting" @click="submit">保存</el-button>
+      <el-button type="primary" :loading="submitting" :disabled="stale" @click="submit">保存</el-button>
     </template>
   </el-dialog>
 </template>

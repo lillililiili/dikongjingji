@@ -1,11 +1,14 @@
 package com.lowaltitude.inspection.mall.application;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import com.lowaltitude.inspection.account.application.AccountAddressService;
 import com.lowaltitude.inspection.account.application.AddressView;
 import com.lowaltitude.inspection.trade.application.TradeCheckoutPort;
+import com.lowaltitude.inspection.trade.application.TradeSourceListener;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,10 +23,14 @@ public class MallTradeCheckoutConfiguration {
 
     @Bean
     TradeCheckoutPort mallTradeCheckout(MallCartService carts, AccountAddressService addresses,
-                                        MallInquiryService inquiries, MallCatalogReadService catalog) {
+                                        MallInquiryService inquiries, MallCatalogReadService catalog,
+                                        MallInventoryService inventory) {
         return new TradeCheckoutPort() {
             @Override
             public CheckoutQuote quote(UUID accountId, CheckoutRequest request) {
+                if (request.inquiryQuoteId() == null) {
+                    inventory.lockForCheckout(accountId, request.cartItemIds(), request.offerId());
+                }
                 CheckoutPreview preview = carts.preview(
                         accountId,
                         request.cityCode(),
@@ -91,10 +98,33 @@ public class MallTradeCheckoutConfiguration {
             }
 
             @Override
-            public void orderPlaced(UUID accountId, CheckoutRequest request, UUID orderId) {
+            public void orderPlaced(UUID accountId, CheckoutRequest request, UUID orderId, List<QuotedLine> lines) {
                 if (request.inquiryQuoteId() != null) {
                     inquiries.recordOrder(accountId, request.inquiryQuoteId(), orderId);
+                    return;
                 }
+                Map<UUID, Integer> quantities = new HashMap<>();
+                for (QuotedLine line : lines) {
+                    quantities.merge(line.offerId(), line.quantity(), Math::addExact);
+                }
+                inventory.reserve(orderId, quantities);
+            }
+        };
+    }
+
+    @Bean
+    TradeSourceListener mallInventoryEvents(MallInventoryService inventory) {
+        return new TradeSourceListener() {
+            @Override public String source() { return "MALL"; }
+
+            @Override
+            public boolean onPaid(UUID orderId, UUID sourceRef) {
+                return inventory.confirm(orderId);
+            }
+
+            @Override
+            public void onClosed(UUID orderId, UUID sourceRef) {
+                inventory.release(orderId);
             }
         };
     }

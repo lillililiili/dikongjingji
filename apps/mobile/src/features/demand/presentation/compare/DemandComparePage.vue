@@ -40,6 +40,7 @@ const emit = defineEmits<{
   openProvider: [providerId: string, cityCode: string]
   // The service order the choice made (S4-3).
   serviceOrder: [orderId: string]
+  inspectionBooking: [demandId: string, reservationId: string | null]
 }>()
 
 type PageState =
@@ -329,12 +330,16 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
         </view>
       </view>
 
-      <view v-if="demand.status === 'CHOSEN' && followUp.kind === 'ORDER'" class="demand-compare__bar" data-testid="demand-chosen-bar">
+      <view v-if="demand.status === 'CHOSEN' && followUp.kind !== 'UNAVAILABLE'" class="demand-compare__bar" data-testid="demand-chosen-bar">
         <view class="demand-compare__chosen">
           <text class="demand-compare__chosen-label">已选</text>
           <text class="demand-compare__chosen-name">{{ demand.chosen?.providerName }} v{{ demand.chosen?.quoteVersion }}</text>
         </view>
-        <button class="demand-compare__choose demand-compare__choose--order" data-testid="demand-open-service-order" @click="emit('serviceOrder', followUp.serviceOrderId)">
+        <button v-if="followUp.kind === 'INSPECTION_BOOKING'" class="demand-compare__choose demand-compare__choose--order"
+          data-testid="demand-inspection-booking" @click="emit('inspectionBooking', demand.demandId, demand.inspectionReservationId)">
+          {{ followUp.label }}
+        </button>
+        <button v-else class="demand-compare__choose demand-compare__choose--order" data-testid="demand-open-service-order" @click="emit('serviceOrder', followUp.serviceOrderId)">
           查看订单
         </button>
       </view>

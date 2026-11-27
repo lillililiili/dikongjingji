@@ -5,12 +5,22 @@ import java.time.LocalDate;
 import java.util.Optional;
 import java.util.List;
 import java.util.UUID;
+import com.lowaltitude.inspection.application.reservation.InspectionDemandSource;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 public interface ReservationPersistenceMapper {
+    @Select("""
+            SELECT b.demand_id, '巡检需求' AS title, b.quote_id, b.quote_version, b.provider_id, b.provider_name,
+                   b.amount_minor, b.summary, d.city_code, d.address, d.scope_text AS scope
+            FROM demand_inspection_booking b JOIN demand d ON d.id = b.demand_id
+            WHERE b.reservation_id = #{reservationId}
+            """)
+    Optional<InspectionDemandSource> findDemandSource(
+            @Param("reservationId") UUID reservationId);
+
     @Select("""
             SELECT service.id service_id,
                    service.provider_id,

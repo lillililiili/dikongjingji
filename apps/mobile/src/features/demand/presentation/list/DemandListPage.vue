@@ -80,6 +80,7 @@ const emit = defineEmits<{
   mallReinquire: [target: MallInquiryTarget]
   // The service order a chosen demand made (S4-3).
   serviceOrder: [orderId: string]
+  inspectionBooking: [demandId: string, reservationId: string | null]
 }>()
 
 type ListState = { kind: 'loading' } | { kind: 'ready' } | { kind: 'error' }
@@ -251,6 +252,7 @@ function act(action: DemandCardAction, demand: Demand): void {
     case 'EDIT': emit('edit', demand.demandId); return
     case 'VIEW': emit('view', demand.demandId); return
     case 'QUOTES': emit('quotes', demand.demandId); return
+    case 'INSPECTION_BOOKING': emit('inspectionBooking', demand.demandId, demand.inspectionReservationId); return
     case 'REPUBLISH': emit('republish', demand.demandId); return
     case 'ORDER':
       if (demand.serviceOrderId) emit('serviceOrder', demand.serviceOrderId)

@@ -104,6 +104,11 @@ test.describe('商品详情：卖点、多规格与库存', () => {
   })
 
   test('SKU-002 规格面板：不供应的规格灰显，选教室套装换价格和现货，数量不超过现货，加入购物车的是教室套装', async ({ page, request }) => {
+    const detail = await (await request.get(`${API}/api/v1/mall/products/${KIT_ID}?cityCode=${CITY}`)).json()
+    const currentStock = (id: string): number => detail.offers.find((o: { offerId: string }) => o.offerId === id).stockQuantity
+    const classroomStock = currentStock(KIT_CLASSROOM_OFFER)
+    expect(classroomStock).toBeGreaterThan(0)
+    const maximum = Math.min(classroomStock, 99)
     await signIn(page, session)
     await openKit(page)
     await page.getByTestId('mall-product-cart').click()
@@ -118,7 +123,7 @@ test.describe('商品详情：卖点、多规格与库存', () => {
     await expect(sensor).toHaveAttribute('data-state', 'NOT_SUPPLIED')
     await expect(sensor).toHaveAttribute('aria-disabled', 'true')
     await expect(page.getByTestId(`mall-buy-sku-price-${SKU_SENSOR}`)).toHaveText('本商家暂不供应')
-    await expect(page.getByTestId('mall-buy-merchant')).toHaveText('示例机器人商家 · 东营现货 12 件')
+    await expect(page.getByTestId('mall-buy-merchant')).toHaveText(`示例机器人商家 · 东营可售 ${currentStock(KIT_STANDARD_OFFER)} 件`)
 
     // 点不供应的规格什么都不变。它带 aria-disabled，Playwright 默认不肯点，用 force 把点击真发到页面上。
     await sensor.click({ force: true })
@@ -128,15 +133,14 @@ test.describe('商品详情：卖点、多规格与库存', () => {
     await page.getByTestId(`mall-buy-sku-${SKU_CLASSROOM}`).click()
     await expect(page.getByTestId(`mall-buy-sku-${SKU_CLASSROOM}`)).toHaveAttribute('aria-checked', 'true')
     await expect(page.getByTestId('mall-buy-price')).toHaveText('¥7,380')
-    await expect(page.getByTestId('mall-buy-merchant')).toHaveText('示例机器人商家 · 东营现货 3 件')
+    await expect(page.getByTestId('mall-buy-merchant')).toHaveText(`示例机器人商家 · 东营可售 ${classroomStock} 件`)
 
-    await page.getByTestId('mall-buy-plus').click()
-    await page.getByTestId('mall-buy-plus').click()
-    await expect(page.getByTestId('mall-buy-qty')).toHaveText('3')
+    for (let quantity = 1; quantity < maximum; quantity++) await page.getByTestId('mall-buy-plus').click()
+    await expect(page.getByTestId('mall-buy-qty')).toHaveText(String(maximum))
     await expect(page.getByTestId('mall-buy-plus')).toHaveAttribute('aria-disabled', 'true')
     await page.getByTestId('mall-buy-plus').click()
-    await expect(page.getByTestId('mall-buy-qty')).toHaveText('3')
-    await expect(page.getByTestId('mall-buy-amount')).toHaveText('¥22,140')
+    await expect(page.getByTestId('mall-buy-qty')).toHaveText(String(maximum))
+    await expect(page.getByTestId('mall-buy-amount')).toHaveText('¥' + (7380 * maximum).toLocaleString('en-US'))
 
     mkdirSync(visualOutput, { recursive: true })
     await page.screenshot({ path: resolve(visualOutput, 'pdsku-classroom-390.png') })
@@ -145,7 +149,7 @@ test.describe('商品详情：卖点、多规格与库存', () => {
     await expect(page.locator('uni-toast')).toContainText('已加入购物车')
     await expect(sheet).toHaveCount(0)
     // 已选写的是面板里选的规格和数量；商家行跟着换成这家的教室套装。
-    await expect(page.getByTestId('mall-product-chosen')).toContainText('教室套装（6 台 + 教师端） · 3 件')
+    await expect(page.getByTestId('mall-product-chosen')).toContainText(`教室套装（6 台 + 教师端） · ${maximum} 件`)
     await expect(page.getByTestId(`mall-offer-${KIT_CLASSROOM_OFFER}`)).toHaveAttribute('aria-pressed', 'true')
     await expect(page.locator('.mall-product__offer')).toHaveCount(3)
 
@@ -153,7 +157,7 @@ test.describe('商品详情：卖点、多规格与库存', () => {
     const robot = cart.groups.find((group: { merchant: { organizationId: string } }) =>
       group.merchant.organizationId === ROBOT_MERCHANT)
     expect(robot.items).toHaveLength(1)
-    expect(robot.items[0]).toMatchObject({ offerId: KIT_CLASSROOM_OFFER, quantity: 3, skuName: '教室套装（6 台 + 教师端）' })
+    expect(robot.items[0]).toMatchObject({ offerId: KIT_CLASSROOM_OFFER, quantity: maximum, skuName: '教室套装（6 台 + 教师端）' })
 
     await page.goto('/#/pages/home/index')
     await expect(page.getByTestId('home-city')).toContainText('东营')
@@ -162,7 +166,7 @@ test.describe('商品详情：卖点、多规格与库存', () => {
     const line = page.getByTestId(`cart-group-${ROBOT_MERCHANT}`).locator('.cart__item')
     await expect(line).toHaveCount(1)
     await expect(line).toContainText('教室套装（6 台 + 教师端）')
-    await expect(line.locator('.cart__qty')).toHaveText('3')
+    await expect(line.locator('.cart__qty')).toHaveText(String(maximum))
   })
 
   test('SKU-003 加入购物车超过现货：服务端拒绝 MALL_CART_OUT_OF_STOCK', async ({ request }) => {

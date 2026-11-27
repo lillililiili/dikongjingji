@@ -36,6 +36,11 @@ final class PostgresPlanStore implements PlanStore {
     }
 
     @Override
+    public Optional<Long> chosenDemandAmount(UUID reservationId) {
+        return mapper.chosenDemandAmount(reservationId);
+    }
+
+    @Override
     public ServiceOrderExtras findOrderExtras(UUID orderId) {
         return changes == null ? ServiceOrderExtras.EMPTY : changes.extras(orderId);
     }

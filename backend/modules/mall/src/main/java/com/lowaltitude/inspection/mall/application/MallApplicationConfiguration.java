@@ -6,6 +6,7 @@ import com.lowaltitude.inspection.mall.infrastructure.persistence.MallCartMapper
 import com.lowaltitude.inspection.mall.infrastructure.persistence.MallCatalogOpsMapper;
 import com.lowaltitude.inspection.mall.infrastructure.persistence.MallCatalogMapper;
 import com.lowaltitude.inspection.mall.infrastructure.persistence.MallInquiryMapper;
+import com.lowaltitude.inspection.mall.infrastructure.persistence.MallInventoryMapper;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -20,6 +21,11 @@ public class MallApplicationConfiguration {
     MallCatalogReadService mallCatalogReadService(MallCatalogMapper mapper,
                                                   MallInquiryPorts.MerchantPayments payments) {
         return new MallCatalogReadService(new PostgresMallCatalogReadStore(mapper), payments);
+    }
+
+    @Bean
+    MallInventoryService mallInventoryService(MallInventoryMapper mapper, MallCartMapper carts) {
+        return new MallInventoryService(mapper, carts);
     }
 
     @Bean

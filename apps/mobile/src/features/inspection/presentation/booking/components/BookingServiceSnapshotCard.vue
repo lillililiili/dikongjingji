@@ -5,7 +5,7 @@ import { resolveBusinessMediaUrl } from '../../../../../shared/http/business-med
 import type { BookingServiceSnapshot } from '../../../domain/service-flow/booking'
 import { categoryBadgeLabel } from '../../detail/detail-line-icons'
 
-const props = defineProps<{ service: BookingServiceSnapshot }>()
+const props = defineProps<{ service: BookingServiceSnapshot; quoted?: boolean }>()
 const picture = computed(() => (resolveBusinessMediaUrl(props.service.coverImageUrl) ?? ''))
 </script>
 
@@ -20,8 +20,8 @@ const picture = computed(() => (resolveBusinessMediaUrl(props.service.coverImage
       <text class="booking-service-card__category">{{ categoryBadgeLabel(service.categoryName) }}</text>
       <text class="booking-service-card__title">{{ service.title }}</text>
       <text class="booking-service-card__summary">{{ service.summary }}</text>
-      <text v-if="service.priceLabel" class="booking-service-card__price">{{ service.priceLabel }}</text>
-      <text class="booking-service-card__notice">最终报价以现场评估为准</text>
+      <text v-if="!quoted && service.priceLabel" class="booking-service-card__price">{{ service.priceLabel }}</text>
+      <text class="booking-service-card__notice">{{ quoted ? '按已选定的报价预约' : '最终报价以现场评估为准' }}</text>
     </view>
   </view>
 </template>

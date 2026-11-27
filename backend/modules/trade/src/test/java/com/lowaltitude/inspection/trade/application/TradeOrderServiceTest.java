@@ -1627,7 +1627,7 @@ class TradeOrderServiceTest {
         }
 
         @Override
-        public void orderPlaced(UUID accountId, CheckoutRequest request, UUID orderId) {
+        public void orderPlaced(UUID accountId, CheckoutRequest request, UUID orderId, List<QuotedLine> lines) {
             placed.add(new Placed(accountId, request, orderId));
         }
     }

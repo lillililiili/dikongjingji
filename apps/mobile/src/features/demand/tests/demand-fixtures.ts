@@ -29,6 +29,7 @@ export function demandOf(overrides: Partial<Demand> = {}): Demand {
     quoteCount: 0,
     chosen: null,
     serviceOrderId: null,
+    inspectionReservationId: null,
     editable: false,
     cancellable: true,
     deletable: false,

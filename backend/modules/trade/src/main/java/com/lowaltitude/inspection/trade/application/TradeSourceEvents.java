@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * 把订单的付款和关闭告诉业务模块（E09）。在改订单状态的同一个事务里调用，订单已经锁住。
- * 商城订单没有监听者，什么都不做；没有登记任何监听者时连订单来源都不查。
+ * 商城监听者处理已预占的供给，其他业务监听者处理各自的订单来源。
  *
  * <p>业务模块收不下一笔付款（{@link TradeSourceListener#onPaid} 返回 false）时，在同一个事务里建一笔全额退款
  * （发起方 SOURCE，没有操作人），提交之后交给渠道。
@@ -47,7 +47,7 @@ final class TradeSourceEvents {
         this.afterCommit = afterCommit;
     }
 
-    /** 只有商城订单时用：没有监听者。 */
+    /** 独立测试可在没有业务监听者时使用。 */
     static TradeSourceEvents none() {
         return new TradeSourceEvents(List::of, null, () -> null, Runnable::run);
     }
@@ -84,13 +84,12 @@ final class TradeSourceEvents {
         }
     }
 
-    /** 非商城订单的来源和业务单；商城订单、或根本没有监听者时为 null。 */
+    /** 没有业务监听者时省去来源查询。商城通过订单 ID 查找预占，sourceRef 可以为空。 */
     private SourceOrderRow sourceOrder(UUID orderId) {
         if (listeners().isEmpty()) {
             return null;
         }
-        SourceOrderRow order = sources.findSourceOrder(orderId);
-        return order == null || MALL.equals(order.source()) ? null : order;
+        return sources.findSourceOrder(orderId);
     }
 
     private TradeSourceListener listenerOf(SourceOrderRow order) {

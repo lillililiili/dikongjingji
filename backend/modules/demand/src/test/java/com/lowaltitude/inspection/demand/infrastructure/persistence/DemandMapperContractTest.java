@@ -212,10 +212,14 @@ class DemandMapperContractTest {
     }
 
     private static List<String> columns(String select) {
-        String list = select.substring(select.indexOf("SELECT") + 6, select.indexOf("FROM"));
+        // The lookup of the linked reservation is a scalar subquery. Extract the outer projection and its
+        // actual output labels so the same check still covers every column, in constructor order.
+        Matcher from = Pattern.compile("(?m)^FROM ").matcher(select);
+        assertThat(from.find()).isTrue();
+        String list = select.substring(select.indexOf("SELECT") + 6, from.start());
         return Arrays.stream(list.split(","))
                 .map(String::trim)
-                .map(column -> column.substring(column.indexOf('.') + 1))
+                .map(column -> column.substring(Math.max(column.lastIndexOf(' '), column.lastIndexOf('.')) + 1))
                 .toList();
     }
 

@@ -237,6 +237,7 @@ export function toDemand(dto: DemandDto): Demand {
         }
       : null,
     serviceOrderId: dto.serviceOrderId?.trim() || null,
+    inspectionReservationId: dto.inspectionReservationId?.trim() || null,
     editable: Boolean(dto.editable),
     cancellable: Boolean(dto.cancellable),
     deletable: Boolean(dto.deletable),

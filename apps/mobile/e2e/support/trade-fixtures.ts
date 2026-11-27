@@ -61,8 +61,20 @@ export function databaseAvailable(): boolean {
  */
 export function purgeBuyerOrders(): void {
   psql(`
-    CREATE TEMP TABLE e2e_orders AS
-      SELECT id FROM trade_order WHERE buyer_id = (SELECT id FROM identity_user WHERE login_name = '${BUYER}');
+    BEGIN;
+    CREATE TEMP TABLE e2e_orders ON COMMIT DROP AS
+      SELECT id FROM trade_order WHERE buyer_id = (SELECT id FROM identity_user WHERE login_name = '${BUYER}') FOR UPDATE;
+    -- This suite deletes its own test sales. Undo only these orders' outstanding stock effects.
+    DO $$ BEGIN
+      IF to_regclass('mall_stock_hold') IS NOT NULL THEN
+        UPDATE mall_offer o SET stock_quantity = o.stock_quantity + restored.quantity, version = version + 1, updated_at = now()
+        FROM (SELECT offer_id, sum(quantity)::integer AS quantity FROM mall_stock_hold
+              WHERE order_id IN (SELECT id FROM e2e_orders) AND status IN ('HELD', 'SOLD') GROUP BY offer_id) restored
+        WHERE o.id = restored.offer_id AND o.stock_quantity IS NOT NULL;
+        DELETE FROM mall_stock_hold WHERE order_id IN (SELECT id FROM e2e_orders);
+        DELETE FROM mall_stock_order WHERE order_id IN (SELECT id FROM e2e_orders);
+      END IF;
+    END $$;
     -- Goods after-sales (S4-2) hang off the orders and their refunds; the pictures the buyer uploaded go too.
     DELETE FROM trade_aftersale_event WHERE aftersale_id IN (SELECT id FROM trade_aftersale WHERE order_id IN (SELECT id FROM e2e_orders));
     DELETE FROM trade_aftersale_image
@@ -78,6 +90,7 @@ export function purgeBuyerOrders(): void {
     DELETE FROM trade_order_delivery WHERE order_id IN (SELECT id FROM e2e_orders);
     DELETE FROM trade_order_line WHERE order_id IN (SELECT id FROM e2e_orders);
     DELETE FROM trade_order WHERE id IN (SELECT id FROM e2e_orders);
+    COMMIT;
   `)
 }
 

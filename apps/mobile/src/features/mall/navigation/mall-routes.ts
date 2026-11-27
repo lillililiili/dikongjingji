@@ -36,10 +36,12 @@ export function buildBuyNowCheckoutUrl(
   quantity: number,
   cityCode: string,
   delivery: 'EXPRESS' | 'PICKUP' | null = null,
+  productId?: string | null,
 ): string {
   return `${MALL_CHECKOUT_PATH}?offerId=${encodeURIComponent(offerId)}&quantity=${quantity}`
     + `&cityCode=${encodeURIComponent(cityCode)}`
     + (delivery ? `&delivery=${delivery}` : '')
+    + (productId ? `&productId=${encodeURIComponent(productId)}` : '')
 }
 
 /**

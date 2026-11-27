@@ -55,7 +55,7 @@ describe('demand list cards', () => {
     }))
     expect(card.line).toBe('已选定 鹰眼智能巡检 · 方案 v2 · ¥18,600')
     expect(card.tone).toBe('CHOSEN')
-    expect(card.buttons.map((button) => button.label)).toEqual(['查看报价'])
+    expect(card.buttons.map((button) => button.label)).toEqual(['查看报价', '填写巡检预约'])
   })
 
   it('a closed demand says why and can be published again', () => {

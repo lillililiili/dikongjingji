@@ -260,6 +260,11 @@ public class GlobalExceptionHandler {
                 code = "INS_RESERVATION_STATE_INVALID";
                 message = "预约状态不允许发布方案";
             }
+            case QUOTE_AMOUNT_MISMATCH -> {
+                status = HttpStatus.CONFLICT;
+                code = "INSPECTION_QUOTE_AMOUNT_MISMATCH";
+                message = "方案总额必须与客户选定的报价一致";
+            }
             case PLAN_NOT_PUBLISHED -> {
                 status = HttpStatus.CONFLICT;
                 code = "INS_PLAN_NOT_PUBLISHED";
@@ -368,6 +373,14 @@ public class GlobalExceptionHandler {
                     default -> "需求还没有填完整";
                 };
                 details = java.util.Map.of("field", field);
+            }
+            case BOOKING_CONFLICT -> {
+                code = "DEMAND_BOOKING_CONFLICT";
+                message = "这份报价已转为预约，请查看已有预约";
+            }
+            case BOOKING_SERVICE_UNAVAILABLE -> {
+                code = "DEMAND_BOOKING_SERVICE_UNAVAILABLE";
+                message = "所选服务在需求城市不可预约，请刷新重选";
             }
             case STATE_INVALID -> {
                 code = "DEMAND_STATE_INVALID";

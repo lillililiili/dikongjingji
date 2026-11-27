@@ -1,3 +1,5 @@
+import * as demandView from '../../demand/application/demand-view'
+import * as demandRoutes from '../../demand/navigation/demand-routes'
 import { compileScript, parse } from '@vue/compiler-sfc'
 import { createPinia, setActivePinia, storeToRefs } from 'pinia'
 import { ModuleKind, ScriptTarget, transpileModule } from 'typescript'
@@ -7,6 +9,7 @@ import type { Ref } from 'vue'
 
 import { useCurrentCityStore } from '../../../shared/city/state/current-city'
 import { createInspectionBookingApi } from '../data/service-flow/inspection-booking-api'
+import type { InspectionDemandBooking } from '../data/service-flow/inspection-booking-api'
 import { ApiRequestError } from '../data/service-flow/uni-booking-http-client'
 import type { BookingServiceSnapshot } from '../domain/service-flow/booking'
 import * as bookingDomain from '../domain/service-flow/booking'
@@ -14,6 +17,7 @@ import * as inspectionRoutes from '../navigation/inspection-routes'
 import bookingPageSource from '../presentation/booking/pages/InspectionBookingPage.vue?raw'
 
 interface BookingRouteQuery {
+  demandId?: string
   serviceId?: string
   cityCode?: string
 }
@@ -23,6 +27,9 @@ interface BookingPageBindings {
   isLoading: Ref<boolean>
   loadError: Ref<string>
   service: Ref<BookingServiceSnapshot | null>
+  draft: Ref<bookingDomain.BookingDraft>
+  chooseDemandService(serviceId: string): Promise<void>
+  submit(): Promise<void>
   goBack(): void
   recoverFromLoadError(): void
 }
@@ -47,7 +54,8 @@ function snapshot(serviceId: string, cityCode: string): BookingServiceSnapshot {
   return { serviceId, cityCode } as BookingServiceSnapshot
 }
 
-function mountBookingPage(loadServiceSnapshot: LoadServiceSnapshot): {
+function mountBookingPage(loadServiceSnapshot: LoadServiceSnapshot, loadDemandBooking?: (id: string) => Promise<InspectionDemandBooking>,
+  submitBookingReservation?: () => Promise<{ reservationId: string }>): {
   bindings: BookingPageBindings
   load(query: BookingRouteQuery): void
 } {
@@ -67,6 +75,9 @@ function mountBookingPage(loadServiceSnapshot: LoadServiceSnapshot): {
   const dependencies: Record<string, unknown> = {
     vue: Vue,
     // Step G1: customer service and its preview flag (off: the pages keep their notices).
+    '@/features/demand/application/demand-view': demandView,
+    '@/features/demand/navigation/demand-routes': demandRoutes,
+    '@/features/demand/application/demand-preview': { DEMAND_PREVIEW_ENABLED: true },
     '@/features/support/application/support-entry': { openSupportChat: () => undefined },
     '@/features/support/application/support-preview': { SUPPORT_PREVIEW_ENABLED: false },
     // Plan 08 S5-10: the shared pickers and their preview flag (off: the system location picker).
@@ -89,6 +100,7 @@ function mountBookingPage(loadServiceSnapshot: LoadServiceSnapshot): {
     '@/uni_modules/inspection-document-picker': {},
     '../../../application/service-flow/submit-booking-reservation': {
       createBookingSubmissionSession: () => ({}),
+      submitBookingReservation,
     },
     '../../../application/service-flow/booking-crypto': {
       createBookingFileHashPort: () => ({}),
@@ -100,7 +112,7 @@ function mountBookingPage(loadServiceSnapshot: LoadServiceSnapshot): {
     },
     '../../../data/service-flow/uni-booking-http-client': {
       ApiRequestError,
-      inspectionBookingApi: { loadServiceSnapshot },
+      inspectionBookingApi: { loadServiceSnapshot, loadDemandBooking },
       platformCityApi: { load: async () => ({ hotCities: [], provinces: [] }) },
     },
     '../../../domain/service-flow/booking': bookingDomain,
@@ -148,12 +160,75 @@ describe('M04 load failure recovery', () => {
     setActivePinia(createPinia())
     navigateBack.mockClear()
     redirectTo.mockClear()
-    vi.stubGlobal('uni', { navigateBack, redirectTo })
+    vi.stubGlobal('uni', { navigateBack, redirectTo, showToast: vi.fn() })
     stubPageStack(3)
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  const context: InspectionDemandBooking = {
+    demandId: 'd1', title: '光伏巡检', providerId: 'p1', providerName: '已选服务商', quoteId: 'q1', quoteVersion: 2,
+    amountMinor: 123400, summary: '光伏巡查', scope: '园区', cityCode: '370500', address: '园区南门', note: '联系门卫',
+    dueDate: '2099-01-16', reservationId: null, services: [{ serviceId: SERVICE_ID, title: '光伏巡检' }],
+  }
+
+  it('uses the demand city even after switching cities and only copies known data', async () => {
+    useCurrentCityStore().setCurrentCity({ code: '370200', name: '青岛市', provinceCode: '370000' })
+    const loadSnapshot = vi.fn(async (id: string, city: string) => snapshot(id, city))
+    const { bindings, load } = mountBookingPage(loadSnapshot, async () => context)
+    load({ demandId: 'd1', serviceId: 'unrelated', cityCode: '370200' })
+    await flushPromises()
+    expect(loadSnapshot).toHaveBeenCalledWith(SERVICE_ID, '370500')
+    expect(bindings.draft.value).toMatchObject({ note: '联系门卫', locationAddress: '园区南门', locationLongitude: null, preferredServiceTime: null })
+  })
+
+  it('requires an offered service when several apply, and does not substitute an unrelated service', async () => {
+    const loadSnapshot = vi.fn(async (id: string, city: string) => snapshot(id, city))
+    const { bindings, load } = mountBookingPage(loadSnapshot, async () => ({ ...context, services: [...context.services, { serviceId: 's2', title: '设备巡检' }] }))
+    load({ demandId: 'd1' })
+    await flushPromises()
+    await bindings.chooseDemandService('other')
+    expect(loadSnapshot).not.toHaveBeenCalled()
+    await bindings.chooseDemandService('s2')
+    expect(loadSnapshot).toHaveBeenCalledWith('s2', context.cityCode)
+  })
+
+  it('reopens an existing reservation even when the service has since disappeared', async () => {
+    const loadSnapshot = vi.fn(async () => null)
+    const { load } = mountBookingPage(loadSnapshot, async () => ({ ...context, services: [], reservationId: 'r1' }))
+    load({ demandId: 'd1' })
+    await flushPromises()
+    expect(redirectTo).toHaveBeenCalledWith({ url: inspectionRoutes.buildInspectionBookingSubmittedUrl('r1') })
+    expect(loadSnapshot).not.toHaveBeenCalled()
+    expect(inspectionRoutes.normalizeInspectionReturnUrl(`${inspectionRoutes.buildDemandInspectionBookingUrl('d1')}&serviceId=other`))
+      .toBe(inspectionRoutes.buildDemandInspectionBookingUrl('d1'))
+  })
+
+  it('does not start a second service read while the selected service is loading', async () => {
+    let finish!: (service: BookingServiceSnapshot) => void
+    const loadSnapshot = vi.fn(() => new Promise<BookingServiceSnapshot>(resolve => { finish = resolve }))
+    const { bindings, load } = mountBookingPage(loadSnapshot, async () => ({ ...context, services: [...context.services, { serviceId: 's2', title: '设备巡检' }] }))
+    load({ demandId: 'd1' })
+    await flushPromises()
+    const first = bindings.chooseDemandService(SERVICE_ID)
+    await bindings.chooseDemandService('s2')
+    expect(loadSnapshot).toHaveBeenCalledTimes(1)
+    finish(snapshot(SERVICE_ID, context.cityCode))
+    await first
+    expect(bindings.service.value?.serviceId).toBe(SERVICE_ID)
+  })
+
+  it('rereads the demand and shows the actual reservation after a submission on a second device', async () => {
+    const lookup = vi.fn().mockResolvedValueOnce(context).mockResolvedValueOnce({ ...context, reservationId: 'already-booked' })
+    const submit = vi.fn().mockRejectedValue(new ApiRequestError('这份报价已转为预约，请查看已有预约', 409, 'DEMAND_BOOKING_CONFLICT'))
+    const { bindings, load } = mountBookingPage(async (id, city) => snapshot(id, city), lookup, submit)
+    load({ demandId: context.demandId })
+    await flushPromises()
+    await bindings.submit()
+    expect(lookup).toHaveBeenCalledTimes(2)
+    expect(redirectTo).toHaveBeenCalledWith({ url: inspectionRoutes.buildInspectionBookingSubmittedUrl('already-booked') })
   })
 
   it('tells the user the service is unavailable when the list does not have it', async () => {

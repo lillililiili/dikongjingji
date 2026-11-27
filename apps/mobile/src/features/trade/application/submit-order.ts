@@ -10,6 +10,7 @@ export type SubmitFailure =
   | { kind: 'DELIVERY_CHANGED'; message: string }
   // A product went off sale, another merchant, not sold here: the page's 商品有变化 state.
   | { kind: 'GOODS_CHANGED'; message: string }
+  | { kind: 'STOCK_CHANGED'; message: string }
   // Ordering by an inquiry quote (F4) is no longer possible: expired, not the chosen one, or it
   // already has an order that is not closed. The page leads back to the quotes.
   | { kind: 'QUOTE_UNAVAILABLE'; message: string }
@@ -22,6 +23,8 @@ export function classifySubmitFailure(error: unknown): SubmitFailure {
   if (!failure) return { kind: 'RETRYABLE', message: '提交失败，请重试' }
   if (isUnauthorizedFailure(failure)) return { kind: 'UNAUTHORIZED' }
   switch (failure.code) {
+    case 'MALL_CHECKOUT_ITEM_UNAVAILABLE':
+      return { kind: 'STOCK_CHANGED', message: '商品可售数量或在售状态已变化，请重新核对商品与购买数量。' }
     case 'TRADE_AMOUNT_CHANGED':
       return { kind: 'AMOUNT_CHANGED', message: '商品价格有变化，请确认金额后再提交' }
     case 'TRADE_MERCHANT_PAYMENT_UNAVAILABLE':

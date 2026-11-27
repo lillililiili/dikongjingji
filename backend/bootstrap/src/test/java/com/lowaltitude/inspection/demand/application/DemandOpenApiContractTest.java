@@ -95,7 +95,7 @@ class DemandOpenApiContractTest {
     void contractIsVersionOneAndDeclaresBearerJwt() {
         Map<String, Object> root = root();
 
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.3.0");
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.4.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");
@@ -421,7 +421,11 @@ class DemandOpenApiContractTest {
 
     // 每一种业务拒绝：全局异常处理给出的状态码和错误码，契约里至少有一个接口在同一个状态码下写了它。
     @Test
-    void everyBusinessErrorCodeIsDeclaredUnderTheStatusTheHandlerAnswers() {
+    void everyBusinessErrorCodeIsDeclaredUnderTheStatusTheHandlerAnswers() throws java.io.IOException {
+        Map<String, Object> inspection = new Yaml().load(Files.readString(
+                CONTRACT.resolveSibling("openapi-inspection-service-flow.yaml")));
+        Map<String, Object> bookingPath = map(map(inspection.get("paths")).get("/api/v1/inspection/demand-bookings/{demandId}"));
+        Map<String, Object> bookingResponses = map(map(bookingPath.get("post")).get("responses"));
         GlobalExceptionHandler handler = new GlobalExceptionHandler();
         Set<String> produced = new TreeSet<>();
         for (Error error : Error.values()) {
@@ -435,8 +439,10 @@ class DemandOpenApiContractTest {
                 continue;
             }
             produced.add(code);
-            assertThat(allOperations().stream()
-                    .map(operation -> resolveResponse(map(map(declared(operation).get("responses")).get(status))))
+            var demandResponses = allOperations().stream()
+                    .map(operation -> resolveResponse(map(map(declared(operation).get("responses")).get(status))));
+            assertThat(java.util.stream.Stream.concat(demandResponses,
+                            java.util.stream.Stream.ofNullable(map(bookingResponses.get(status))))
                     .filter(declaredResponse -> declaredResponse != null && declaredResponse.get("description") != null)
                     .map(declaredResponse -> (String) declaredResponse.get("description")))
                     .as(code + " under " + status)
